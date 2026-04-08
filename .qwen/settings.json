@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "WebFetch(xray-checker.kutovoy.dev)",
+      "Bash(uv *)",
+      "Bash(curl *)"
+    ]
+  },
+  "$version": 3
+}

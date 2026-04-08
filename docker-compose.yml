@@ -1,0 +1,45 @@
+services:
+  xray-checker:
+    image: kutovoys/xray-checker
+    environment:
+      - SUBSCRIPTION_URL=${SUBSCRIPTION_URL}
+      - METRICS_PROTECTED=${METRICS_PROTECTED:-false}
+      - METRICS_USERNAME=${METRICS_USERNAME:-}
+      - METRICS_PASSWORD=${METRICS_PASSWORD:-}
+      - PROXY_CHECK_INTERVAL=${PROXY_CHECK_INTERVAL:-300}
+      - PROXY_CHECK_METHOD=${PROXY_CHECK_METHOD:-ip}
+      - PROXY_TIMEOUT=${PROXY_TIMEOUT:-30}
+      - METRICS_PORT=2112
+      - LOG_LEVEL=${CHECKER_LOG_LEVEL:-info}
+    ports:
+      - "${CHECKER_EXTERNAL_PORT:-2112}:2112"
+    restart: unless-stopped
+    container_name: xray-checker
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:2112/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - xray-net
+
+  xray-analyzer:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    env_file:
+      - .env
+    volumes:
+      - ./logs:/app/logs
+    restart: unless-stopped
+    container_name: xray-analyzer
+    depends_on:
+      xray-checker:
+        condition: service_healthy
+    networks:
+      - xray-net
+
+networks:
+  xray-net:
+    driver: bridge
