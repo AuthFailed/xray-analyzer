@@ -40,6 +40,9 @@ class Settings(BaseSettings):
     proxy_sni_test_enabled: bool = True
     proxy_sni_domain: str = "max.ru"
 
+    # RKN Throttle Check (16-20KB DPI blocking)
+    rkn_throttle_check_enabled: bool = True
+
     # Logging
     log_level: str = "INFO"
     log_file: str = "xray-analyzer.log"

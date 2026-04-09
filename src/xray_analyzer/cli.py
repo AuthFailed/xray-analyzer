@@ -230,6 +230,7 @@ def _print_analysis_results(diagnostics: list[HostDiagnostic]) -> None:
         table.add_column("TCP", justify="center")
         table.add_column("Ping", justify="center")
         table.add_column("RKN", justify="center")
+        table.add_column("RKN Thr", justify="center")
         table.add_column("Proxy", justify="center")
 
         for diag in passing:
@@ -237,6 +238,7 @@ def _print_analysis_results(diagnostics: list[HostDiagnostic]) -> None:
             tcp = _check_status_icon(diag, "TCP Connection")
             ping = _check_status_icon(diag, "TCP Ping")
             rkn = _check_status_icon(diag, "RKN")
+            rkn_thr = _check_status_icon(diag, "RKN Throttle")
             proxy = _check_status_icon(diag, "Xray Connectivity") or _check_status_icon(diag, "Tunnel")
 
             table.add_row(
@@ -245,6 +247,7 @@ def _print_analysis_results(diagnostics: list[HostDiagnostic]) -> None:
                 tcp,
                 ping,
                 rkn,
+                rkn_thr,
                 proxy,
             )
 
@@ -274,6 +277,10 @@ def _print_analysis_results(diagnostics: list[HostDiagnostic]) -> None:
                 console.print(f"    [{color}]{icon}[/{color}] [bold]{result.check_name}[/bold]")
                 console.print(f"       {result.message}")
                 details = result.details
+                if "total_bytes_received" in details:
+                    bytes_val = details["total_bytes_received"]
+                    kb_val = bytes_val / 1024
+                    console.print(f"       [dim]Получено: {bytes_val} байт ({kb_val:.1f}KB)[/dim]")
                 if "http_status" in details:
                     console.print(f"       [dim]HTTP: {details['http_status']}[/dim]")
                 if "exit_ip" in details:
@@ -289,6 +296,10 @@ def _print_analysis_results(diagnostics: list[HostDiagnostic]) -> None:
                     console.print(f"       [dim]Latency: avg={avg}ms, min={mn}ms, max={mx}ms[/dim]")
                 if "packet_loss_pct" in details:
                     console.print(f"       [dim]Loss: {details['packet_loss_pct']}%[/dim]")
+                if "sni_domain" in details:
+                    console.print(f"       [dim]SNI домен: {details['sni_domain']}[/dim]")
+                if "checked_for_proxy" in details:
+                    console.print(f"       [dim]Проверка для прокси: {details['checked_for_proxy']}[/dim]")
 
             # Skipped checks — compact
             for result in skipped:
@@ -300,6 +311,10 @@ def _print_analysis_results(diagnostics: list[HostDiagnostic]) -> None:
                 icon, color = _status_icon_and_color(result.status)
                 console.print(f"    [{color}]{icon}[/{color}] {result.check_name}")
                 details = result.details
+                if "total_bytes_received" in details:
+                    bytes_val = details["total_bytes_received"]
+                    kb_val = bytes_val / 1024
+                    console.print(f"       [dim]Получено: {bytes_val} байт ({kb_val:.1f}KB)[/dim]")
                 if "common_ips" in details:
                     console.print(f"       [dim]Match Check-Host: {', '.join(details['common_ips'])}[/dim]")
                 if "latency_avg_ms" in details:

@@ -53,6 +53,8 @@ src/xray_analyzer/
 │   ├── proxy_tcp_checker.py # TCP tunnel check through proxy to status URL
 │   ├── proxy_ip_checker.py  # Exit IP check through proxy
 │   ├── proxy_sni_checker.py # SNI/TLS connection check through proxy
+│   ├── proxy_rkn_throttle_checker.py # RKN DPI throttle detection (16-20KB cutoff)
+│   ├── proxy_cross_checker.py # Cross-proxy connectivity tests (HTTP/SOCKS + Xray)
 │   ├── proxy_xray_checker.py # VLESS/Trojan/SS testing via Xray core
 │   ├── subscription_parser.py # Subscription URL fetching and share URL parsing
 │   ├── xray_manager.py      # Xray subprocess management (config generation, start/stop)
@@ -64,8 +66,13 @@ src/xray_analyzer/
 └── cli.py                   # CLI entry point (argparse + rich)
 
 tests/
-├── test_dns_checker.py      # DNS checker tests
-└── test_new_checks.py       # Tests for TCP ping, RKN, IP detection
+├── test_dns_checker.py           # DNS checker tests
+├── test_new_checks.py            # Tests for TCP ping, RKN, IP detection
+├── test_rkn_throttle_checker.py  # Tests for RKN DPI throttle detection
+├── test_proxy_cross_checker.py   # Cross-proxy connectivity tests
+├── test_proxy_xray_checker.py    # Xray proxy tests
+├── test_telegram_notifier.py     # Telegram notifier tests
+└── test_xray_cross_connectivity.py # Xray cross-connectivity tests
 ```
 
 ## Building and Running
@@ -178,7 +185,7 @@ All configuration is managed via `.env` file (see `.env.example` for reference):
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `RKN_API_URL` | `https://rknweb.ru/api` | RKN API URL |
-| `RKN_CHECK_ENABLED` | `true` | Enable RKN blocking checks |
+| `RKN_CHECK_ENABLED` | `false` | Enable RKN blocking checks (disabled by default — rknweb.ru API often unavailable) |
 
 ### Proxy SNI Check
 
@@ -187,14 +194,20 @@ All configuration is managed via `.env` file (see `.env.example` for reference):
 | `PROXY_SNI_TEST_ENABLED` | `true` | Enable SNI connection test through proxy |
 | `PROXY_SNI_DOMAIN` | `max.ru` | Domain for SNI testing (should be known non-blocked) |
 
+### RKN Throttle Check (DPI 16-20KB Blocking)
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `RKN_THROTTLE_CHECK_ENABLED` | `true` | Enable RKN DPI throttle detection (detects 16-20KB cutoff pattern) |
+
 ### Xray Core (VLESS/Trojan/SS Testing)
 
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `XRAY_BINARY_PATH` | `xray` | Path to Xray binary (auto-downloaded if not found) |
 | `XRAY_TEST_ENABLED` | `true` | Enable Xray-based proxy testing for VLESS/Trojan/SS |
-| `SUBSCRIPTION_URL` | — | Subscription URL with VLESS/Trojan/SS share links |
-| `SUBSCRIPTION_HWID` | — | HWID header (`x-hwid`) for subscription (required by some providers) |
+| `SUBSCRIPTION_URL` | — | Subscription URL with VLESS/Trojan/SS share links (supports multiple URLs via comma delimiter) |
+| `SUBSCRIPTION_HWID` | — | HWID header (`x-hwid`) for subscription (if required) |
 
 ### Logging
 
@@ -224,11 +237,7 @@ All configuration is managed via `.env` file (see `.env.example` for reference):
 |---------|-------------|
 | `xray-analyzer analyze` | Run full analysis on all (offline) proxies |
 | `xray-analyzer analyze --watch` | Continuous monitoring mode |
-| `xray-analyzer analyze --proxy-status-check-url <url>` | Override status check URL |
-| `xray-analyzer analyze --proxy-ip-check-url <url>` | Override IP check URL |
-| `xray-analyzer analyze --proxy-sni-domain <domain>` | Override SNI test domain |
 | `xray-analyzer check <host> --port <port>` | Check a single host |
-| `xray-analyzer check <host> --proxy-url <url>` | Check host with proxy testing |
 | `xray-analyzer status` | Show checker API status (health, system info, proxy summary) |
 
 ## Diagnostic Checks Per Proxy
@@ -254,23 +263,36 @@ All configuration is managed via `.env` file (see `.env.example` for reference):
 7. **Proxy Exit IP (Xray)** — Determines exit IP through Xray-managed tunnel.
 8. **Proxy SNI Connection (Xray)** — Tests TLS connection through Xray tunnel to SNI domain.
 
+### Cross-Proxy Tests (for problematic hosts)
+
+When problems are detected, additional cross-tests are run using working proxies to determine if the issue is with the target server or the local infrastructure:
+
+9. **RKN Throttle Check (Direct)** — Tests if the host is subject to DPI throttling (16-20KB cutoff) by making a range request and checking if connection is terminated after ~16KB.
+10. **Cross-Proxy Connectivity (HTTP/SOCKS)** — Tests connectivity to problematic hosts through a working HTTP/SOCKS proxy.
+11. **RKN Throttle Check (via Proxy)** — Re-runs throttle check through a working proxy to determine if the throttle can be bypassed.
+12. **Cross-Proxy Connectivity (Xray)** — Tests connectivity to problematic VLESS/Trojan/SS hosts through a working Xray proxy.
+
 ## Architecture Notes
 
 1. **XrayAnalyzer** class in `analyzer.py` is the main orchestrator. It fetches proxies from the checker API, filters offline ones by default, and runs diagnostic checks concurrently using `asyncio.gather`.
 
 2. **Xray auto-download:** On startup, the analyzer checks if the Xray binary is available. If not found in PATH or `XRAY_BINARY_PATH`, it downloads the latest version from GitHub releases (XTLS/Xray-core) to `~/.local/share/xray/`.
 
-3. **Subscription parsing:** The analyzer fetches the subscription URL (with `x-hwid` header if configured), decodes base64 content, and parses VLESS/Trojan/SS share URLs. Matching to checker API proxies uses 5 strategies: exact server:port, server+protocol, name matching (emoji-stripped), server-only, and port range.
+3. **Subscription parsing:** The analyzer fetches the subscription URL (with `x-hwid` header if configured), decodes base64 content, and parses VLESS/Trojan/SS share URLs. Multiple subscription URLs can be specified via comma delimiter. Matching to checker API proxies uses 5 strategies: exact server:port, server+protocol, name matching (emoji-stripped), server-only, and port range.
 
 4. **Xray subprocess management:** For VLESS/Trojan/SS proxies, Xray is launched with a generated JSON config containing the outbound (from share URL) and a local SOCKS inbound. After testing, the subprocess is terminated and the config file is cleaned up.
 
 5. **Virtual hosts** (`virt.host`, `localhost`, `127.0.0.1`) are completely skipped — no checks are run.
 
-6. **API Authentication:** The tool supports both public (unauthenticated) and full (authenticated) API endpoints. Public endpoint returns limited data (no server addresses), so auth credentials are recommended for full diagnostics.
+6. **API Authentication:** The tool supports both public (unauthenticated) and full (authenticated) API endpoints. Public endpoint returns limited data (no server addresses), so auth credentials are recommended for full diagnostics. The analyzer tries the full endpoint first, then falls back to the public endpoint if unavailable.
 
 7. **Retry logic:** The analyzer retries API calls up to 5 times with a 5-second delay before giving up.
 
 8. **Notifications:** When problematic hosts are found, the NotifierManager coordinates sending alerts through configured notifiers (e.g., Telegram).
+
+9. **Cross-proxy testing:** When problems are detected, the analyzer automatically runs cross-tests using working HTTP/SOCKS or Xray proxies to determine if issues are server-side or infrastructure-side. Results are added to the diagnostic with recommendations.
+
+10. **Protocol-specific testing:** HTTP/SOCKS proxies use aiohttp-based checks. VLESS/Trojan/SS proxies require subscription URL configuration and use Xray core for testing.
 
 ## CLI Output Format
 
