@@ -15,9 +15,7 @@ log = get_logger("tunnel_checker")
 SUPPORTED_HTTP_PROXY_SCHEMES = {"http", "https", "socks5", "socks5h", "socks4"}
 
 
-async def check_proxy_tunnel(
-    proxy_url: str, test_url: str | None = None
-) -> DiagnosticResult:
+async def check_proxy_tunnel(proxy_url: str, test_url: str | None = None) -> DiagnosticResult:
     """
     Check if traffic is properly routed through the proxy tunnel.
 

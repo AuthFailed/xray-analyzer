@@ -14,3 +14,701 @@
 2026-04-08 14:20:41,798 [INFO] dns_checker: {"host": "google.com", "ips": ["198.18.0.166"], "duration_ms": 2.19, "event": "DNS resolution successful", "level": "info", "timestamp": "2026-04-08T09:20:41.798329Z"}
 2026-04-08 14:20:41,799 [INFO] tcp_checker: {"host": "google.com", "port": 443, "duration_ms": 0.84, "event": "TCP connection successful", "level": "info", "timestamp": "2026-04-08T09:20:41.799266Z"}
 2026-04-08 14:20:42,728 [ERROR] rkn_checker: {"domain": "google.com", "status": 404, "error": "404, message='Attempt to decode JSON with unexpected mimetype: text/html; charset=utf-8', url='https://rknweb.ru/api/v3/domains/?domain=google.com'", "event": "RKN check HTTP error", "level": "error", "timestamp": "2026-04-08T09:20:42.728428Z"}
+2026-04-09 15:15:12,833 [INFO] notifier_manager: {"event": "Telegram notifier enabled", "level": "info", "timestamp": "2026-04-09T10:15:12.833899Z"}
+2026-04-09 15:15:12,835 [INFO] analyzer: {"event": "Starting full analysis", "level": "info", "timestamp": "2026-04-09T10:15:12.835373Z"}
+2026-04-09 15:15:12,835 [INFO] subscription_parser: {"event": "Fetching subscription from https://my.quazar.icu/s/Z1yk4HXnqzugjds2", "level": "info", "timestamp": "2026-04-09T10:15:12.835452Z"}
+2026-04-09 15:15:13,100 [INFO] subscription_parser: {"event": "Fetched 10 proxies from subscription", "level": "info", "timestamp": "2026-04-09T10:15:13.100193Z"}
+2026-04-09 15:15:13,100 [INFO] analyzer: {"event": "Loaded 10 proxies from subscription", "level": "info", "timestamp": "2026-04-09T10:15:13.100337Z"}
+2026-04-09 15:15:13,100 [INFO] analyzer: {"event": "  Share: \ud83c\uddeb\ud83c\uddee \u0424\u0438\u043d\u043b\u044f\u043d\u0434\u0438\u044f | fn.quazar.icu:443 | vless", "level": "info", "timestamp": "2026-04-09T10:15:13.100397Z"}
+2026-04-09 15:15:13,100 [INFO] analyzer: {"event": "  Share: \ud83c\uddeb\ud83c\uddf7 \u0424\u0440\u0430\u043d\u0446\u0438\u044f | agaodfs.quazar.icu:443 | vless", "level": "info", "timestamp": "2026-04-09T10:15:13.100451Z"}
+2026-04-09 15:15:13,100 [INFO] analyzer: {"event": "  Share: \ud83c\uddf5\ud83c\uddf1 \u041f\u043e\u043b\u044c\u0448\u0430 | pl.quazar.icu:443 | vless", "level": "info", "timestamp": "2026-04-09T10:15:13.100495Z"}
+2026-04-09 15:15:13,100 [INFO] analyzer: {"event": "  Share: \ud83c\uddfa\ud83c\uddf8 \u0421\u0428\u0410 | us.quazar.icu:443 | vless", "level": "info", "timestamp": "2026-04-09T10:15:13.100535Z"}
+2026-04-09 15:15:13,100 [INFO] analyzer: {"event": "  Share: \ud83c\udde9\ud83c\uddea \u0413\u0435\u0440\u043c\u0430\u043d\u0438\u044f | de.quazar.icu:443 | vless", "level": "info", "timestamp": "2026-04-09T10:15:13.100574Z"}
+2026-04-09 15:15:13,100 [INFO] analyzer: {"event": "  Share: \ud83c\udde8\ud83c\udded \u0428\u0432\u0435\u0439\u0446\u0430\u0440\u0438\u044f | ch.quazar.icu:443 | vless", "level": "info", "timestamp": "2026-04-09T10:15:13.100612Z"}
+2026-04-09 15:15:13,100 [INFO] analyzer: {"event": "  Share: \ud83c\uddf3\ud83c\uddf1 \u041d\u0438\u0434\u0435\u0440\u043b\u0430\u043d\u0434\u044b | nl.quazar.icu:443 | vless", "level": "info", "timestamp": "2026-04-09T10:15:13.100654Z"}
+2026-04-09 15:15:13,100 [INFO] analyzer: {"event": "  Share: \ud83c\uddea\ud83c\uddfa\u2014\u2014 \u0410\u0432\u0442\u043e\u0432\u044b\u0431\u043e\u0440\u044b \u2014\u2014 | virt.host:443 | vless", "level": "info", "timestamp": "2026-04-09T10:15:13.100691Z"}
+2026-04-09 15:15:13,100 [INFO] analyzer: {"event": "  Share: \ud83c\uddef\ud83c\uddf5 \u0415\u0432\u0440\u043e\u043f\u0430 | virt.host:443 | vless", "level": "info", "timestamp": "2026-04-09T10:15:13.100728Z"}
+2026-04-09 15:15:13,100 [INFO] analyzer: {"event": "  Share: \ud83c\uddea\ud83c\uddfa\u2014\u2014 \u0411\u0435\u043b\u044b\u0435 \u0441\u043f\u0438\u0441\u043a\u0438 \u2014\u2014 | virt.host:443 | vless", "level": "info", "timestamp": "2026-04-09T10:15:13.100766Z"}
+2026-04-09 15:15:13,100 [INFO] xray_downloader: {"event": "Xray binary not found, downloading from GitHub...", "level": "info", "timestamp": "2026-04-09T10:15:13.100919Z"}
+2026-04-09 15:15:13,101 [INFO] xray_downloader: {"event": "Downloading latest Xray core to /home/roman/.local/share/xray", "level": "info", "timestamp": "2026-04-09T10:15:13.101059Z"}
+2026-04-09 15:15:13,391 [INFO] xray_downloader: {"event": "Found Xray v26.3.27: Xray-linux-64.zip", "level": "info", "timestamp": "2026-04-09T10:15:13.391682Z"}
+2026-04-09 15:15:14,365 [INFO] xray_downloader: {"event": "Downloaded 20.2 MB", "level": "info", "timestamp": "2026-04-09T10:15:14.365622Z"}
+2026-04-09 15:15:14,480 [INFO] xray_downloader: {"event": "Xray v26.3.27 installed to /home/roman/.local/share/xray/xray", "level": "info", "timestamp": "2026-04-09T10:15:14.480423Z"}
+2026-04-09 15:15:14,481 [INFO] analyzer: {"event": "Xray available at: /home/roman/.local/share/xray/xray", "level": "info", "timestamp": "2026-04-09T10:15:14.481173Z"}
+2026-04-09 15:15:18,085 [WARNING] analyzer: {"event": "Using public API endpoint \u2014 server addresses not available. Set CHECKER_API_USERNAME and CHECKER_API_PASSWORD for full diagnostics.", "level": "warning", "timestamp": "2026-04-09T10:15:18.085641Z"}
+2026-04-09 15:15:22,085 [WARNING] analyzer: {"event": "Checker API unavailable (attempt 1/5), retrying in 5s: Cannot connect to host xray-checker:2112 ssl:default [Name or service not known]", "level": "warning", "timestamp": "2026-04-09T10:15:22.085335Z"}
+2026-04-09 15:15:41,390 [INFO] notifier_manager: {"event": "Telegram notifier enabled", "level": "info", "timestamp": "2026-04-09T10:15:41.390939Z"}
+2026-04-09 15:15:41,392 [INFO] analyzer: {"event": "Starting full analysis", "level": "info", "timestamp": "2026-04-09T10:15:41.392426Z"}
+2026-04-09 15:15:41,392 [INFO] subscription_parser: {"event": "Fetching subscription from https://my.quazar.icu/s/Z1yk4HXnqzugjds2", "level": "info", "timestamp": "2026-04-09T10:15:41.392505Z"}
+2026-04-09 15:15:41,644 [INFO] subscription_parser: {"event": "Fetched 10 proxies from subscription", "level": "info", "timestamp": "2026-04-09T10:15:41.644947Z"}
+2026-04-09 15:15:41,645 [INFO] analyzer: {"event": "Loaded 10 proxies from subscription", "level": "info", "timestamp": "2026-04-09T10:15:41.645085Z"}
+2026-04-09 15:15:41,645 [INFO] analyzer: {"event": "  Share: \ud83c\udde9\ud83c\uddea \u0413\u0435\u0440\u043c\u0430\u043d\u0438\u044f | de.quazar.icu:443 | vless", "level": "info", "timestamp": "2026-04-09T10:15:41.645136Z"}
+2026-04-09 15:15:41,645 [INFO] analyzer: {"event": "  Share: \ud83c\uddeb\ud83c\uddee \u0424\u0438\u043d\u043b\u044f\u043d\u0434\u0438\u044f | fn.quazar.icu:443 | vless", "level": "info", "timestamp": "2026-04-09T10:15:41.645248Z"}
+2026-04-09 15:15:41,645 [INFO] analyzer: {"event": "  Share: \ud83c\uddeb\ud83c\uddf7 \u0424\u0440\u0430\u043d\u0446\u0438\u044f | agaodfs.quazar.icu:443 | vless", "level": "info", "timestamp": "2026-04-09T10:15:41.645310Z"}
+2026-04-09 15:15:41,645 [INFO] analyzer: {"event": "  Share: \ud83c\udde8\ud83c\udded \u0428\u0432\u0435\u0439\u0446\u0430\u0440\u0438\u044f | ch.quazar.icu:443 | vless", "level": "info", "timestamp": "2026-04-09T10:15:41.645364Z"}
+2026-04-09 15:15:41,645 [INFO] analyzer: {"event": "  Share: \ud83c\uddfa\ud83c\uddf8 \u0421\u0428\u0410 | us.quazar.icu:443 | vless", "level": "info", "timestamp": "2026-04-09T10:15:41.645411Z"}
+2026-04-09 15:15:41,645 [INFO] analyzer: {"event": "  Share: \ud83c\uddf5\ud83c\uddf1 \u041f\u043e\u043b\u044c\u0448\u0430 | pl.quazar.icu:443 | vless", "level": "info", "timestamp": "2026-04-09T10:15:41.645457Z"}
+2026-04-09 15:15:41,645 [INFO] analyzer: {"event": "  Share: \ud83c\uddf3\ud83c\uddf1 \u041d\u0438\u0434\u0435\u0440\u043b\u0430\u043d\u0434\u044b | nl.quazar.icu:443 | vless", "level": "info", "timestamp": "2026-04-09T10:15:41.645502Z"}
+2026-04-09 15:15:41,645 [INFO] analyzer: {"event": "  Share: \ud83c\uddea\ud83c\uddfa\u2014\u2014 \u0410\u0432\u0442\u043e\u0432\u044b\u0431\u043e\u0440\u044b \u2014\u2014 | virt.host:443 | vless", "level": "info", "timestamp": "2026-04-09T10:15:41.645546Z"}
+2026-04-09 15:15:41,645 [INFO] analyzer: {"event": "  Share: \ud83c\uddef\ud83c\uddf5 \u0415\u0432\u0440\u043e\u043f\u0430 | virt.host:443 | vless", "level": "info", "timestamp": "2026-04-09T10:15:41.645589Z"}
+2026-04-09 15:15:41,645 [INFO] analyzer: {"event": "  Share: \ud83c\uddea\ud83c\uddfa\u2014\u2014 \u0411\u0435\u043b\u044b\u0435 \u0441\u043f\u0438\u0441\u043a\u0438 \u2014\u2014 | virt.host:443 | vless", "level": "info", "timestamp": "2026-04-09T10:15:41.645633Z"}
+2026-04-09 15:15:41,645 [INFO] xray_downloader: {"event": "Xray binary not found, downloading from GitHub...", "level": "info", "timestamp": "2026-04-09T10:15:41.645766Z"}
+2026-04-09 15:15:41,645 [INFO] xray_downloader: {"event": "Downloading latest Xray core to /home/roman/.local/share/xray", "level": "info", "timestamp": "2026-04-09T10:15:41.645869Z"}
+2026-04-09 15:15:41,930 [INFO] xray_downloader: {"event": "Found Xray v26.3.27: Xray-linux-64.zip", "level": "info", "timestamp": "2026-04-09T10:15:41.930147Z"}
+2026-04-09 15:15:42,927 [INFO] xray_downloader: {"event": "Downloaded 20.2 MB", "level": "info", "timestamp": "2026-04-09T10:15:42.927455Z"}
+2026-04-09 15:15:43,085 [INFO] xray_downloader: {"event": "Xray v26.3.27 installed to /home/roman/.local/share/xray/xray", "level": "info", "timestamp": "2026-04-09T10:15:43.085445Z"}
+2026-04-09 15:15:43,086 [INFO] analyzer: {"event": "Xray available at: /home/roman/.local/share/xray/xray", "level": "info", "timestamp": "2026-04-09T10:15:43.086017Z"}
+2026-04-09 15:15:43,087 [INFO] analyzer: {"event": "Got 10 proxies from full endpoint", "level": "info", "timestamp": "2026-04-09T10:15:43.087463Z"}
+2026-04-09 15:15:43,087 [INFO] analyzer: {"event": "Found 4 offline proxies out of 10 total", "level": "info", "timestamp": "2026-04-09T10:15:43.087542Z"}
+2026-04-09 15:15:43,087 [INFO] analyzer: {"event": "Analyzing proxy: \ud83c\uddf3\ud83c\uddf1 \u041d\u0438\u0434\u0435\u0440\u043b\u0430\u043d\u0434\u044b \u2192 nl.quazar.icu:443", "level": "info", "timestamp": "2026-04-09T10:15:43.087626Z"}
+2026-04-09 15:15:44,616 [INFO] tcp_checker: {"host": "nl.quazar.icu", "port": 443, "duration_ms": 84.51, "event": "TCP connection successful", "level": "info", "timestamp": "2026-04-09T10:15:44.616035Z"}
+2026-04-09 15:15:45,212 [INFO] xray_manager: {"event": "Starting Xray for \ud83c\uddf3\ud83c\uddf1 \u041d\u0438\u0434\u0435\u0440\u043b\u0430\u043d\u0434\u044b (vless://nl.quazar.icu:443) on port 19032", "level": "info", "timestamp": "2026-04-09T10:15:45.212045Z"}
+2026-04-09 15:15:53,221 [INFO] xray_manager: {"event": "Xray ready for \ud83c\uddf3\ud83c\uddf1 \u041d\u0438\u0434\u0435\u0440\u043b\u0430\u043d\u0434\u044b on port 19032", "level": "info", "timestamp": "2026-04-09T10:15:53.221003Z"}
+2026-04-09 15:16:08,982 [INFO] proxy_xray_checker: {"event": "Main test failed for nl.quazar.icu, trying fallback with IP: 138.124.105.38", "level": "info", "timestamp": "2026-04-09T10:16:08.982898Z"}
+2026-04-09 15:16:08,983 [INFO] xray_manager: {"event": "Starting Xray for \ud83c\uddf3\ud83c\uddf1 \u041d\u0438\u0434\u0435\u0440\u043b\u0430\u043d\u0434\u044b (vless://138.124.105.38:443) on port 19128", "level": "info", "timestamp": "2026-04-09T10:16:08.983168Z"}
+2026-04-09 15:16:16,991 [INFO] xray_manager: {"event": "Xray ready for \ud83c\uddf3\ud83c\uddf1 \u041d\u0438\u0434\u0435\u0440\u043b\u0430\u043d\u0434\u044b on port 19128", "level": "info", "timestamp": "2026-04-09T10:16:16.991024Z"}
+2026-04-09 15:16:32,995 [INFO] analyzer: {"event": "No working HTTP/SOCKS proxy found for cross-test", "level": "info", "timestamp": "2026-04-09T10:16:32.995028Z"}
+2026-04-09 15:16:32,995 [INFO] analyzer: {"event": "Found working Xray proxy for cross-test: \ud83c\udde9\ud83c\uddea \u0413\u0435\u0440\u043c\u0430\u043d\u0438\u044f", "level": "info", "timestamp": "2026-04-09T10:16:32.995146Z"}
+2026-04-09 15:16:32,995 [INFO] analyzer: {"event": "Running 1 Xray cross-proxy tests", "level": "info", "timestamp": "2026-04-09T10:16:32.995304Z"}
+2026-04-09 15:16:32,995 [INFO] proxy_cross_checker: {"event": "Cross-test: checking nl.quazar.icu:443 via \ud83c\udde9\ud83c\uddea \u0413\u0435\u0440\u043c\u0430\u043d\u0438\u044f (vless)", "level": "info", "timestamp": "2026-04-09T10:16:32.995400Z"}
+2026-04-09 15:16:32,995 [INFO] xray_manager: {"event": "Starting Xray for \ud83c\udde9\ud83c\uddea \u0413\u0435\u0440\u043c\u0430\u043d\u0438\u044f (vless://de.quazar.icu:443) on port 19768", "level": "info", "timestamp": "2026-04-09T10:16:32.995606Z"}
+2026-04-09 15:16:41,005 [INFO] xray_manager: {"event": "Xray ready for \ud83c\udde9\ud83c\uddea \u0413\u0435\u0440\u043c\u0430\u043d\u0438\u044f on port 19768", "level": "info", "timestamp": "2026-04-09T10:16:41.005067Z"}
+2026-04-09 15:16:41,236 [INFO] analyzer: {"event": "Xray cross-test nl.quazar.icu:443 via \ud83c\udde9\ud83c\uddea \u0413\u0435\u0440\u043c\u0430\u043d\u0438\u044f: pass", "level": "info", "timestamp": "2026-04-09T10:16:41.236475Z"}
+2026-04-09 15:16:41,236 [INFO] analyzer: {"event": "Analysis complete: 1 problematic out of 4 total", "level": "info", "timestamp": "2026-04-09T10:16:41.236584Z"}
+2026-04-09 15:16:41,639 [INFO] telegram_notifier: {"hosts_count": 1, "event": "Telegram notification sent", "level": "info", "timestamp": "2026-04-09T10:16:41.639731Z"}
+2026-04-09 15:16:41,640 [INFO] notifier_manager: {"notifier": "TelegramNotifier", "event": "Notification sent successfully", "level": "info", "timestamp": "2026-04-09T10:16:41.640064Z"}
+2026-04-09 18:03:53,325 [INFO] notifier_manager: {"event": "Telegram notifier enabled", "level": "info", "timestamp": "2026-04-09T13:03:53.325151Z"}
+2026-04-09 18:03:53,326 [INFO] analyzer: {"event": "Starting full analysis", "level": "info", "timestamp": "2026-04-09T13:03:53.326611Z"}
+2026-04-09 18:03:53,326 [INFO] subscription_parser: {"event": "Fetching subscription from https://my.quazar.icu/s/Z1yk4HXnqzugjds2", "level": "info", "timestamp": "2026-04-09T13:03:53.326690Z"}
+2026-04-09 18:03:53,750 [INFO] subscription_parser: {"event": "Fetched 10 proxies from subscription", "level": "info", "timestamp": "2026-04-09T13:03:53.750445Z"}
+2026-04-09 18:03:53,750 [INFO] analyzer: {"event": "Loaded 10 proxies from subscription", "level": "info", "timestamp": "2026-04-09T13:03:53.750606Z"}
+2026-04-09 18:03:53,750 [INFO] analyzer: {"event": "  Share: \ud83c\uddf3\ud83c\uddf1 \u041d\u0438\u0434\u0435\u0440\u043b\u0430\u043d\u0434\u044b | nl.quazar.icu:443 | vless", "level": "info", "timestamp": "2026-04-09T13:03:53.750669Z"}
+2026-04-09 18:03:53,750 [INFO] analyzer: {"event": "  Share: \ud83c\udde9\ud83c\uddea \u0413\u0435\u0440\u043c\u0430\u043d\u0438\u044f | de.quazar.icu:443 | vless", "level": "info", "timestamp": "2026-04-09T13:03:53.750728Z"}
+2026-04-09 18:03:53,750 [INFO] analyzer: {"event": "  Share: \ud83c\udde8\ud83c\udded \u0428\u0432\u0435\u0439\u0446\u0430\u0440\u0438\u044f | ch.quazar.icu:443 | vless", "level": "info", "timestamp": "2026-04-09T13:03:53.750779Z"}
+2026-04-09 18:03:53,750 [INFO] analyzer: {"event": "  Share: \ud83c\uddf5\ud83c\uddf1 \u041f\u043e\u043b\u044c\u0448\u0430 | pl.quazar.icu:443 | vless", "level": "info", "timestamp": "2026-04-09T13:03:53.750822Z"}
+2026-04-09 18:03:53,750 [INFO] analyzer: {"event": "  Share: \ud83c\uddeb\ud83c\uddf7 \u0424\u0440\u0430\u043d\u0446\u0438\u044f | agaodfs.quazar.icu:443 | vless", "level": "info", "timestamp": "2026-04-09T13:03:53.750859Z"}
+2026-04-09 18:03:53,750 [INFO] analyzer: {"event": "  Share: \ud83c\uddfa\ud83c\uddf8 \u0421\u0428\u0410 | us.quazar.icu:443 | vless", "level": "info", "timestamp": "2026-04-09T13:03:53.750896Z"}
+2026-04-09 18:03:53,750 [INFO] analyzer: {"event": "  Share: \ud83c\uddeb\ud83c\uddee \u0424\u0438\u043d\u043b\u044f\u043d\u0434\u0438\u044f | fn.quazar.icu:443 | vless", "level": "info", "timestamp": "2026-04-09T13:03:53.750933Z"}
+2026-04-09 18:03:53,750 [INFO] analyzer: {"event": "  Share: \ud83c\uddea\ud83c\uddfa\u2014\u2014 \u0410\u0432\u0442\u043e\u0432\u044b\u0431\u043e\u0440\u044b \u2014\u2014 | virt.host:443 | vless", "level": "info", "timestamp": "2026-04-09T13:03:53.750970Z"}
+2026-04-09 18:03:53,751 [INFO] analyzer: {"event": "  Share: \ud83c\uddef\ud83c\uddf5 \u0415\u0432\u0440\u043e\u043f\u0430 | virt.host:443 | vless", "level": "info", "timestamp": "2026-04-09T13:03:53.751006Z"}
+2026-04-09 18:03:53,751 [INFO] analyzer: {"event": "  Share: \ud83c\uddea\ud83c\uddfa\u2014\u2014 \u0411\u0435\u043b\u044b\u0435 \u0441\u043f\u0438\u0441\u043a\u0438 \u2014\u2014 | virt.host:443 | vless", "level": "info", "timestamp": "2026-04-09T13:03:53.751042Z"}
+2026-04-09 18:03:53,751 [INFO] xray_downloader: {"event": "Xray binary not found, downloading from GitHub...", "level": "info", "timestamp": "2026-04-09T13:03:53.751157Z"}
+2026-04-09 18:03:53,751 [INFO] xray_downloader: {"event": "Downloading latest Xray core to /home/roman/.local/share/xray", "level": "info", "timestamp": "2026-04-09T13:03:53.751257Z"}
+2026-04-09 18:03:54,470 [INFO] xray_downloader: {"event": "Found Xray v26.3.27: Xray-linux-64.zip", "level": "info", "timestamp": "2026-04-09T13:03:54.469977Z"}
+2026-04-09 18:03:58,805 [INFO] xray_downloader: {"event": "Downloaded 20.2 MB", "level": "info", "timestamp": "2026-04-09T13:03:58.805216Z"}
+2026-04-09 18:03:58,961 [INFO] xray_downloader: {"event": "Xray v26.3.27 installed to /home/roman/.local/share/xray/xray", "level": "info", "timestamp": "2026-04-09T13:03:58.960981Z"}
+2026-04-09 18:03:58,961 [INFO] analyzer: {"event": "Xray available at: /home/roman/.local/share/xray/xray", "level": "info", "timestamp": "2026-04-09T13:03:58.961660Z"}
+2026-04-09 18:03:58,963 [INFO] analyzer: {"event": "Got 10 proxies from full endpoint", "level": "info", "timestamp": "2026-04-09T13:03:58.963291Z"}
+2026-04-09 18:03:58,963 [INFO] analyzer: {"event": "Found 1 offline proxies out of 10 total", "level": "info", "timestamp": "2026-04-09T13:03:58.963381Z"}
+2026-04-09 18:03:58,963 [INFO] analyzer: {"event": "Analysis complete: 0 problematic out of 1 total", "level": "info", "timestamp": "2026-04-09T13:03:58.963506Z"}
+2026-04-09 18:04:07,320 [INFO] notifier_manager: {"event": "Telegram notifier enabled", "level": "info", "timestamp": "2026-04-09T13:04:07.320744Z"}
+2026-04-09 18:04:07,322 [INFO] analyzer: {"event": "Starting full analysis", "level": "info", "timestamp": "2026-04-09T13:04:07.322224Z"}
+2026-04-09 18:04:07,322 [INFO] subscription_parser: {"event": "Fetching subscription from https://my.quazar.icu/s/Z1yk4HXnqzugjds2", "level": "info", "timestamp": "2026-04-09T13:04:07.322299Z"}
+2026-04-09 18:04:07,585 [INFO] subscription_parser: {"event": "Fetched 10 proxies from subscription", "level": "info", "timestamp": "2026-04-09T13:04:07.585687Z"}
+2026-04-09 18:04:07,585 [INFO] analyzer: {"event": "Loaded 10 proxies from subscription", "level": "info", "timestamp": "2026-04-09T13:04:07.585821Z"}
+2026-04-09 18:04:07,585 [INFO] analyzer: {"event": "  Share: \ud83c\uddfa\ud83c\uddf8 \u0421\u0428\u0410 | us.quazar.icu:443 | vless", "level": "info", "timestamp": "2026-04-09T13:04:07.585872Z"}
+2026-04-09 18:04:07,585 [INFO] analyzer: {"event": "  Share: \ud83c\uddeb\ud83c\uddee \u0424\u0438\u043d\u043b\u044f\u043d\u0434\u0438\u044f | fn.quazar.icu:443 | vless", "level": "info", "timestamp": "2026-04-09T13:04:07.585918Z"}
+2026-04-09 18:04:07,585 [INFO] analyzer: {"event": "  Share: \ud83c\uddeb\ud83c\uddf7 \u0424\u0440\u0430\u043d\u0446\u0438\u044f | agaodfs.quazar.icu:443 | vless", "level": "info", "timestamp": "2026-04-09T13:04:07.585964Z"}
+2026-04-09 18:04:07,586 [INFO] analyzer: {"event": "  Share: \ud83c\udde9\ud83c\uddea \u0413\u0435\u0440\u043c\u0430\u043d\u0438\u044f | de.quazar.icu:443 | vless", "level": "info", "timestamp": "2026-04-09T13:04:07.586003Z"}
+2026-04-09 18:04:07,586 [INFO] analyzer: {"event": "  Share: \ud83c\uddf3\ud83c\uddf1 \u041d\u0438\u0434\u0435\u0440\u043b\u0430\u043d\u0434\u044b | nl.quazar.icu:443 | vless", "level": "info", "timestamp": "2026-04-09T13:04:07.586041Z"}
+2026-04-09 18:04:07,586 [INFO] analyzer: {"event": "  Share: \ud83c\udde8\ud83c\udded \u0428\u0432\u0435\u0439\u0446\u0430\u0440\u0438\u044f | ch.quazar.icu:443 | vless", "level": "info", "timestamp": "2026-04-09T13:04:07.586079Z"}
+2026-04-09 18:04:07,586 [INFO] analyzer: {"event": "  Share: \ud83c\uddf5\ud83c\uddf1 \u041f\u043e\u043b\u044c\u0448\u0430 | pl.quazar.icu:443 | vless", "level": "info", "timestamp": "2026-04-09T13:04:07.586119Z"}
+2026-04-09 18:04:07,586 [INFO] analyzer: {"event": "  Share: \ud83c\uddea\ud83c\uddfa\u2014\u2014 \u0410\u0432\u0442\u043e\u0432\u044b\u0431\u043e\u0440\u044b \u2014\u2014 | virt.host:443 | vless", "level": "info", "timestamp": "2026-04-09T13:04:07.586161Z"}
+2026-04-09 18:04:07,586 [INFO] analyzer: {"event": "  Share: \ud83c\uddef\ud83c\uddf5 \u0415\u0432\u0440\u043e\u043f\u0430 | virt.host:443 | vless", "level": "info", "timestamp": "2026-04-09T13:04:07.586205Z"}
+2026-04-09 18:04:07,586 [INFO] analyzer: {"event": "  Share: \ud83c\uddea\ud83c\uddfa\u2014\u2014 \u0411\u0435\u043b\u044b\u0435 \u0441\u043f\u0438\u0441\u043a\u0438 \u2014\u2014 | virt.host:443 | vless", "level": "info", "timestamp": "2026-04-09T13:04:07.586245Z"}
+2026-04-09 18:04:07,586 [INFO] xray_downloader: {"event": "Xray binary not found, downloading from GitHub...", "level": "info", "timestamp": "2026-04-09T13:04:07.586366Z"}
+2026-04-09 18:04:07,586 [INFO] xray_downloader: {"event": "Downloading latest Xray core to /home/roman/.local/share/xray", "level": "info", "timestamp": "2026-04-09T13:04:07.586452Z"}
+2026-04-09 18:04:08,122 [INFO] xray_downloader: {"event": "Found Xray v26.3.27: Xray-linux-64.zip", "level": "info", "timestamp": "2026-04-09T13:04:08.122832Z"}
+2026-04-09 18:04:09,344 [INFO] xray_downloader: {"event": "Downloaded 20.2 MB", "level": "info", "timestamp": "2026-04-09T13:04:09.344653Z"}
+2026-04-09 18:04:09,496 [INFO] xray_downloader: {"event": "Xray v26.3.27 installed to /home/roman/.local/share/xray/xray", "level": "info", "timestamp": "2026-04-09T13:04:09.496552Z"}
+2026-04-09 18:04:09,497 [INFO] analyzer: {"event": "Xray available at: /home/roman/.local/share/xray/xray", "level": "info", "timestamp": "2026-04-09T13:04:09.497311Z"}
+2026-04-09 18:04:09,498 [INFO] analyzer: {"event": "Got 10 proxies from full endpoint", "level": "info", "timestamp": "2026-04-09T13:04:09.498764Z"}
+2026-04-09 18:04:09,498 [INFO] analyzer: {"event": "Found 1 offline proxies out of 10 total", "level": "info", "timestamp": "2026-04-09T13:04:09.498836Z"}
+2026-04-09 18:04:09,498 [INFO] analyzer: {"event": "Analysis complete: 0 problematic out of 1 total", "level": "info", "timestamp": "2026-04-09T13:04:09.498947Z"}
+2026-04-09 18:05:35,104 [INFO] notifier_manager: {"event": "Telegram notifier enabled", "level": "info", "timestamp": "2026-04-09T13:05:35.104644Z"}
+2026-04-09 18:05:35,106 [INFO] analyzer: {"event": "Starting full analysis", "level": "info", "timestamp": "2026-04-09T13:05:35.106109Z"}
+2026-04-09 18:05:35,106 [INFO] subscription_parser: {"event": "Fetching subscription from https://my.quazar.icu/s/Z1yk4HXnqzugjds2", "level": "info", "timestamp": "2026-04-09T13:05:35.106187Z"}
+2026-04-09 18:05:35,345 [INFO] subscription_parser: {"event": "Fetched 10 proxies from subscription", "level": "info", "timestamp": "2026-04-09T13:05:35.345079Z"}
+2026-04-09 18:05:35,345 [INFO] analyzer: {"event": "Loaded 10 proxies from subscription", "level": "info", "timestamp": "2026-04-09T13:05:35.345240Z"}
+2026-04-09 18:05:35,345 [INFO] analyzer: {"event": "  Share: \ud83c\uddeb\ud83c\uddee \u0424\u0438\u043d\u043b\u044f\u043d\u0434\u0438\u044f | fn.quazar.icu:443 | vless", "level": "info", "timestamp": "2026-04-09T13:05:35.345297Z"}
+2026-04-09 18:05:35,345 [INFO] analyzer: {"event": "  Share: \ud83c\udde9\ud83c\uddea \u0413\u0435\u0440\u043c\u0430\u043d\u0438\u044f | de.quazar.icu:443 | vless", "level": "info", "timestamp": "2026-04-09T13:05:35.345351Z"}
+2026-04-09 18:05:35,345 [INFO] analyzer: {"event": "  Share: \ud83c\uddf3\ud83c\uddf1 \u041d\u0438\u0434\u0435\u0440\u043b\u0430\u043d\u0434\u044b | nl.quazar.icu:443 | vless", "level": "info", "timestamp": "2026-04-09T13:05:35.345393Z"}
+2026-04-09 18:05:35,345 [INFO] analyzer: {"event": "  Share: \ud83c\uddeb\ud83c\uddf7 \u0424\u0440\u0430\u043d\u0446\u0438\u044f | agaodfs.quazar.icu:443 | vless", "level": "info", "timestamp": "2026-04-09T13:05:35.345442Z"}
+2026-04-09 18:05:35,345 [INFO] analyzer: {"event": "  Share: \ud83c\udde8\ud83c\udded \u0428\u0432\u0435\u0439\u0446\u0430\u0440\u0438\u044f | ch.quazar.icu:443 | vless", "level": "info", "timestamp": "2026-04-09T13:05:35.345482Z"}
+2026-04-09 18:05:35,345 [INFO] analyzer: {"event": "  Share: \ud83c\uddf5\ud83c\uddf1 \u041f\u043e\u043b\u044c\u0448\u0430 | pl.quazar.icu:443 | vless", "level": "info", "timestamp": "2026-04-09T13:05:35.345524Z"}
+2026-04-09 18:05:35,345 [INFO] analyzer: {"event": "  Share: \ud83c\uddfa\ud83c\uddf8 \u0421\u0428\u0410 | us.quazar.icu:443 | vless", "level": "info", "timestamp": "2026-04-09T13:05:35.345564Z"}
+2026-04-09 18:05:35,345 [INFO] analyzer: {"event": "  Share: \ud83c\uddea\ud83c\uddfa\u2014\u2014 \u0410\u0432\u0442\u043e\u0432\u044b\u0431\u043e\u0440\u044b \u2014\u2014 | virt.host:443 | vless", "level": "info", "timestamp": "2026-04-09T13:05:35.345614Z"}
+2026-04-09 18:05:35,345 [INFO] analyzer: {"event": "  Share: \ud83c\uddef\ud83c\uddf5 \u0415\u0432\u0440\u043e\u043f\u0430 | virt.host:443 | vless", "level": "info", "timestamp": "2026-04-09T13:05:35.345655Z"}
+2026-04-09 18:05:35,345 [INFO] analyzer: {"event": "  Share: \ud83c\uddea\ud83c\uddfa\u2014\u2014 \u0411\u0435\u043b\u044b\u0435 \u0441\u043f\u0438\u0441\u043a\u0438 \u2014\u2014 | virt.host:443 | vless", "level": "info", "timestamp": "2026-04-09T13:05:35.345696Z"}
+2026-04-09 18:05:35,345 [INFO] xray_downloader: {"event": "Xray binary not found, downloading from GitHub...", "level": "info", "timestamp": "2026-04-09T13:05:35.345818Z"}
+2026-04-09 18:05:35,345 [INFO] xray_downloader: {"event": "Downloading latest Xray core to /home/roman/.local/share/xray", "level": "info", "timestamp": "2026-04-09T13:05:35.345908Z"}
+2026-04-09 18:05:35,817 [INFO] xray_downloader: {"event": "Found Xray v26.3.27: Xray-linux-64.zip", "level": "info", "timestamp": "2026-04-09T13:05:35.817737Z"}
+2026-04-09 18:05:36,915 [INFO] xray_downloader: {"event": "Downloaded 20.2 MB", "level": "info", "timestamp": "2026-04-09T13:05:36.915238Z"}
+2026-04-09 18:05:37,066 [INFO] xray_downloader: {"event": "Xray v26.3.27 installed to /home/roman/.local/share/xray/xray", "level": "info", "timestamp": "2026-04-09T13:05:37.066119Z"}
+2026-04-09 18:05:37,066 [INFO] analyzer: {"event": "Xray available at: /home/roman/.local/share/xray/xray", "level": "info", "timestamp": "2026-04-09T13:05:37.066712Z"}
+2026-04-09 18:05:37,068 [INFO] analyzer: {"event": "Got 10 proxies from full endpoint", "level": "info", "timestamp": "2026-04-09T13:05:37.068242Z"}
+2026-04-09 18:05:37,068 [INFO] analyzer: {"event": "Found 4 offline proxies out of 10 total", "level": "info", "timestamp": "2026-04-09T13:05:37.068318Z"}
+2026-04-09 18:05:37,068 [INFO] analyzer: {"event": "Analyzing proxy: \ud83c\uddf3\ud83c\uddf1 \u041d\u0438\u0434\u0435\u0440\u043b\u0430\u043d\u0434\u044b \u2192 nl.quazar.icu:443", "level": "info", "timestamp": "2026-04-09T13:05:37.068394Z"}
+2026-04-09 18:05:38,578 [INFO] tcp_checker: {"host": "nl.quazar.icu", "port": 443, "duration_ms": 73.68, "event": "TCP connection successful", "level": "info", "timestamp": "2026-04-09T13:05:38.578758Z"}
+2026-04-09 18:05:39,226 [INFO] xray_manager: {"event": "Starting Xray for \ud83c\uddf3\ud83c\uddf1 \u041d\u0438\u0434\u0435\u0440\u043b\u0430\u043d\u0434\u044b (vless://nl.quazar.icu:443) on port 19848", "level": "info", "timestamp": "2026-04-09T13:05:39.226142Z"}
+2026-04-09 18:05:47,235 [INFO] xray_manager: {"event": "Xray ready for \ud83c\uddf3\ud83c\uddf1 \u041d\u0438\u0434\u0435\u0440\u043b\u0430\u043d\u0434\u044b on port 19848", "level": "info", "timestamp": "2026-04-09T13:05:47.235857Z"}
+2026-04-09 18:06:02,781 [INFO] proxy_xray_checker: {"event": "Main test failed for nl.quazar.icu, trying fallback with IP: 138.124.105.38", "level": "info", "timestamp": "2026-04-09T13:06:02.781600Z"}
+2026-04-09 18:06:02,781 [INFO] xray_manager: {"event": "Starting Xray for \ud83c\uddf3\ud83c\uddf1 \u041d\u0438\u0434\u0435\u0440\u043b\u0430\u043d\u0434\u044b (vless://138.124.105.38:443) on port 19600", "level": "info", "timestamp": "2026-04-09T13:06:02.781892Z"}
+2026-04-09 18:06:10,791 [INFO] xray_manager: {"event": "Xray ready for \ud83c\uddf3\ud83c\uddf1 \u041d\u0438\u0434\u0435\u0440\u043b\u0430\u043d\u0434\u044b on port 19600", "level": "info", "timestamp": "2026-04-09T13:06:10.791074Z"}
+2026-04-09 18:06:26,775 [INFO] analyzer: {"event": "No working HTTP/SOCKS proxy found for cross-test", "level": "info", "timestamp": "2026-04-09T13:06:26.775396Z"}
+2026-04-09 18:06:26,775 [INFO] analyzer: {"event": "Found working Xray proxy for cross-test: \ud83c\udde9\ud83c\uddea \u0413\u0435\u0440\u043c\u0430\u043d\u0438\u044f", "level": "info", "timestamp": "2026-04-09T13:06:26.775509Z"}
+2026-04-09 18:06:26,775 [INFO] analyzer: {"event": "Running 1 Xray cross-proxy tests", "level": "info", "timestamp": "2026-04-09T13:06:26.775665Z"}
+2026-04-09 18:06:26,775 [INFO] proxy_cross_checker: {"event": "Cross-test: checking nl.quazar.icu:443 via \ud83c\udde9\ud83c\uddea \u0413\u0435\u0440\u043c\u0430\u043d\u0438\u044f (vless)", "level": "info", "timestamp": "2026-04-09T13:06:26.775760Z"}
+2026-04-09 18:06:26,776 [INFO] xray_manager: {"event": "Starting Xray for \ud83c\udde9\ud83c\uddea \u0413\u0435\u0440\u043c\u0430\u043d\u0438\u044f (vless://de.quazar.icu:443) on port 19240", "level": "info", "timestamp": "2026-04-09T13:06:26.775979Z"}
+2026-04-09 18:06:34,785 [INFO] xray_manager: {"event": "Xray ready for \ud83c\udde9\ud83c\uddea \u0413\u0435\u0440\u043c\u0430\u043d\u0438\u044f on port 19240", "level": "info", "timestamp": "2026-04-09T13:06:34.785312Z"}
+2026-04-09 18:06:35,014 [INFO] analyzer: {"event": "Xray cross-test nl.quazar.icu:443 via \ud83c\udde9\ud83c\uddea \u0413\u0435\u0440\u043c\u0430\u043d\u0438\u044f: pass", "level": "info", "timestamp": "2026-04-09T13:06:35.014292Z"}
+2026-04-09 18:06:35,014 [INFO] analyzer: {"event": "Analysis complete: 1 problematic out of 4 total", "level": "info", "timestamp": "2026-04-09T13:06:35.014428Z"}
+2026-04-09 18:06:35,415 [INFO] telegram_notifier: {"hosts_count": 1, "event": "Telegram notification sent", "level": "info", "timestamp": "2026-04-09T13:06:35.415038Z"}
+2026-04-09 18:06:35,415 [INFO] notifier_manager: {"notifier": "TelegramNotifier", "event": "Notification sent successfully", "level": "info", "timestamp": "2026-04-09T13:06:35.415384Z"}
+2026-04-09 18:55:59,690 [INFO] notifier_manager: {"event": "Telegram notifier enabled", "level": "info", "timestamp": "2026-04-09T13:55:59.690865Z"}
+2026-04-09 18:55:59,692 [INFO] analyzer: {"event": "Starting full analysis", "level": "info", "timestamp": "2026-04-09T13:55:59.692326Z"}
+2026-04-09 18:55:59,692 [INFO] subscription_parser: {"event": "Fetching subscription from https://my.quazar.icu/s/Z1yk4HXnqzugjds2", "level": "info", "timestamp": "2026-04-09T13:55:59.692400Z"}
+2026-04-09 18:56:00,162 [INFO] subscription_parser: {"event": "Fetched 10 proxies from subscription", "level": "info", "timestamp": "2026-04-09T13:56:00.162473Z"}
+2026-04-09 18:56:00,162 [INFO] analyzer: {"event": "Loaded 10 proxies from subscription", "level": "info", "timestamp": "2026-04-09T13:56:00.162606Z"}
+2026-04-09 18:56:00,162 [INFO] analyzer: {"event": "  Share: \ud83c\uddeb\ud83c\uddf7 \u0424\u0440\u0430\u043d\u0446\u0438\u044f | agaodfs.quazar.icu:443 | vless", "level": "info", "timestamp": "2026-04-09T13:56:00.162658Z"}
+2026-04-09 18:56:00,162 [INFO] analyzer: {"event": "  Share: \ud83c\udde9\ud83c\uddea \u0413\u0435\u0440\u043c\u0430\u043d\u0438\u044f | de.quazar.icu:443 | vless", "level": "info", "timestamp": "2026-04-09T13:56:00.162713Z"}
+2026-04-09 18:56:00,162 [INFO] analyzer: {"event": "  Share: \ud83c\udde8\ud83c\udded \u0428\u0432\u0435\u0439\u0446\u0430\u0440\u0438\u044f | ch.quazar.icu:443 | vless", "level": "info", "timestamp": "2026-04-09T13:56:00.162754Z"}
+2026-04-09 18:56:00,162 [INFO] analyzer: {"event": "  Share: \ud83c\uddf5\ud83c\uddf1 \u041f\u043e\u043b\u044c\u0448\u0430 | pl.quazar.icu:443 | vless", "level": "info", "timestamp": "2026-04-09T13:56:00.162795Z"}
+2026-04-09 18:56:00,162 [INFO] analyzer: {"event": "  Share: \ud83c\uddfa\ud83c\uddf8 \u0421\u0428\u0410 | us.quazar.icu:443 | vless", "level": "info", "timestamp": "2026-04-09T13:56:00.162833Z"}
+2026-04-09 18:56:00,162 [INFO] analyzer: {"event": "  Share: \ud83c\uddf3\ud83c\uddf1 \u041d\u0438\u0434\u0435\u0440\u043b\u0430\u043d\u0434\u044b | nl.quazar.icu:443 | vless", "level": "info", "timestamp": "2026-04-09T13:56:00.162872Z"}
+2026-04-09 18:56:00,162 [INFO] analyzer: {"event": "  Share: \ud83c\uddeb\ud83c\uddee \u0424\u0438\u043d\u043b\u044f\u043d\u0434\u0438\u044f | fn.quazar.icu:443 | vless", "level": "info", "timestamp": "2026-04-09T13:56:00.162911Z"}
+2026-04-09 18:56:00,162 [INFO] analyzer: {"event": "  Share: \ud83c\uddea\ud83c\uddfa\u2014\u2014 \u0410\u0432\u0442\u043e\u0432\u044b\u0431\u043e\u0440\u044b \u2014\u2014 | virt.host:443 | vless", "level": "info", "timestamp": "2026-04-09T13:56:00.162948Z"}
+2026-04-09 18:56:00,162 [INFO] analyzer: {"event": "  Share: \ud83c\uddef\ud83c\uddf5 \u0415\u0432\u0440\u043e\u043f\u0430 | virt.host:443 | vless", "level": "info", "timestamp": "2026-04-09T13:56:00.162986Z"}
+2026-04-09 18:56:00,163 [INFO] analyzer: {"event": "  Share: \ud83c\uddea\ud83c\uddfa\u2014\u2014 \u0411\u0435\u043b\u044b\u0435 \u0441\u043f\u0438\u0441\u043a\u0438 \u2014\u2014 | virt.host:443 | vless", "level": "info", "timestamp": "2026-04-09T13:56:00.163024Z"}
+2026-04-09 18:56:00,163 [INFO] xray_downloader: {"event": "Xray binary not found, downloading from GitHub...", "level": "info", "timestamp": "2026-04-09T13:56:00.163143Z"}
+2026-04-09 18:56:00,163 [INFO] xray_downloader: {"event": "Downloading latest Xray core to /home/roman/.local/share/xray", "level": "info", "timestamp": "2026-04-09T13:56:00.163236Z"}
+2026-04-09 18:56:00,802 [INFO] xray_downloader: {"event": "Found Xray v26.3.27: Xray-linux-64.zip", "level": "info", "timestamp": "2026-04-09T13:56:00.802287Z"}
+2026-04-09 18:56:04,959 [INFO] xray_downloader: {"event": "Downloaded 20.2 MB", "level": "info", "timestamp": "2026-04-09T13:56:04.959426Z"}
+2026-04-09 18:56:05,115 [INFO] xray_downloader: {"event": "Xray v26.3.27 installed to /home/roman/.local/share/xray/xray", "level": "info", "timestamp": "2026-04-09T13:56:05.115276Z"}
+2026-04-09 18:56:05,115 [INFO] analyzer: {"event": "Xray available at: /home/roman/.local/share/xray/xray", "level": "info", "timestamp": "2026-04-09T13:56:05.115859Z"}
+2026-04-09 18:56:05,117 [INFO] analyzer: {"event": "Got 10 proxies from full endpoint", "level": "info", "timestamp": "2026-04-09T13:56:05.117367Z"}
+2026-04-09 18:56:05,117 [INFO] analyzer: {"event": "Found 1 offline proxies out of 10 total", "level": "info", "timestamp": "2026-04-09T13:56:05.117461Z"}
+2026-04-09 18:56:05,117 [INFO] analyzer: {"event": "Analysis complete: 0 problematic out of 1 total", "level": "info", "timestamp": "2026-04-09T13:56:05.117606Z"}
+2026-04-09 18:56:11,512 [INFO] notifier_manager: {"event": "Telegram notifier enabled", "level": "info", "timestamp": "2026-04-09T13:56:11.512725Z"}
+2026-04-09 18:56:11,514 [INFO] analyzer: {"event": "Starting full analysis", "level": "info", "timestamp": "2026-04-09T13:56:11.514272Z"}
+2026-04-09 18:56:11,514 [INFO] subscription_parser: {"event": "Fetching subscription from https://my.quazar.icu/s/Z1yk4HXnqzugjds2", "level": "info", "timestamp": "2026-04-09T13:56:11.514348Z"}
+2026-04-09 18:56:11,785 [INFO] subscription_parser: {"event": "Fetched 10 proxies from subscription", "level": "info", "timestamp": "2026-04-09T13:56:11.785890Z"}
+2026-04-09 18:56:11,786 [INFO] analyzer: {"event": "Loaded 10 proxies from subscription", "level": "info", "timestamp": "2026-04-09T13:56:11.786029Z"}
+2026-04-09 18:56:11,786 [INFO] analyzer: {"event": "  Share: \ud83c\uddfa\ud83c\uddf8 \u0421\u0428\u0410 | us.quazar.icu:443 | vless", "level": "info", "timestamp": "2026-04-09T13:56:11.786085Z"}
+2026-04-09 18:56:11,786 [INFO] analyzer: {"event": "  Share: \ud83c\uddeb\ud83c\uddee \u0424\u0438\u043d\u043b\u044f\u043d\u0434\u0438\u044f | fn.quazar.icu:443 | vless", "level": "info", "timestamp": "2026-04-09T13:56:11.786137Z"}
+2026-04-09 18:56:11,786 [INFO] analyzer: {"event": "  Share: \ud83c\udde9\ud83c\uddea \u0413\u0435\u0440\u043c\u0430\u043d\u0438\u044f | de.quazar.icu:443 | vless", "level": "info", "timestamp": "2026-04-09T13:56:11.786187Z"}
+2026-04-09 18:56:11,786 [INFO] analyzer: {"event": "  Share: \ud83c\udde8\ud83c\udded \u0428\u0432\u0435\u0439\u0446\u0430\u0440\u0438\u044f | ch.quazar.icu:443 | vless", "level": "info", "timestamp": "2026-04-09T13:56:11.786235Z"}
+2026-04-09 18:56:11,786 [INFO] analyzer: {"event": "  Share: \ud83c\uddeb\ud83c\uddf7 \u0424\u0440\u0430\u043d\u0446\u0438\u044f | agaodfs.quazar.icu:443 | vless", "level": "info", "timestamp": "2026-04-09T13:56:11.786276Z"}
+2026-04-09 18:56:11,786 [INFO] analyzer: {"event": "  Share: \ud83c\uddf3\ud83c\uddf1 \u041d\u0438\u0434\u0435\u0440\u043b\u0430\u043d\u0434\u044b | nl.quazar.icu:443 | vless", "level": "info", "timestamp": "2026-04-09T13:56:11.786317Z"}
+2026-04-09 18:56:11,786 [INFO] analyzer: {"event": "  Share: \ud83c\uddf5\ud83c\uddf1 \u041f\u043e\u043b\u044c\u0448\u0430 | pl.quazar.icu:443 | vless", "level": "info", "timestamp": "2026-04-09T13:56:11.786363Z"}
+2026-04-09 18:56:11,786 [INFO] analyzer: {"event": "  Share: \ud83c\uddea\ud83c\uddfa\u2014\u2014 \u0410\u0432\u0442\u043e\u0432\u044b\u0431\u043e\u0440\u044b \u2014\u2014 | virt.host:443 | vless", "level": "info", "timestamp": "2026-04-09T13:56:11.786405Z"}
+2026-04-09 18:56:11,786 [INFO] analyzer: {"event": "  Share: \ud83c\uddef\ud83c\uddf5 \u0415\u0432\u0440\u043e\u043f\u0430 | virt.host:443 | vless", "level": "info", "timestamp": "2026-04-09T13:56:11.786446Z"}
+2026-04-09 18:56:11,786 [INFO] analyzer: {"event": "  Share: \ud83c\uddea\ud83c\uddfa\u2014\u2014 \u0411\u0435\u043b\u044b\u0435 \u0441\u043f\u0438\u0441\u043a\u0438 \u2014\u2014 | virt.host:443 | vless", "level": "info", "timestamp": "2026-04-09T13:56:11.786486Z"}
+2026-04-09 18:56:11,786 [INFO] xray_downloader: {"event": "Xray binary not found, downloading from GitHub...", "level": "info", "timestamp": "2026-04-09T13:56:11.786613Z"}
+2026-04-09 18:56:11,786 [INFO] xray_downloader: {"event": "Downloading latest Xray core to /home/roman/.local/share/xray", "level": "info", "timestamp": "2026-04-09T13:56:11.786711Z"}
+2026-04-09 18:56:12,067 [INFO] xray_downloader: {"event": "Found Xray v26.3.27: Xray-linux-64.zip", "level": "info", "timestamp": "2026-04-09T13:56:12.067143Z"}
+2026-04-09 18:56:13,147 [INFO] xray_downloader: {"event": "Downloaded 20.2 MB", "level": "info", "timestamp": "2026-04-09T13:56:13.147248Z"}
+2026-04-09 18:56:13,301 [INFO] xray_downloader: {"event": "Xray v26.3.27 installed to /home/roman/.local/share/xray/xray", "level": "info", "timestamp": "2026-04-09T13:56:13.301251Z"}
+2026-04-09 18:56:13,301 [INFO] analyzer: {"event": "Xray available at: /home/roman/.local/share/xray/xray", "level": "info", "timestamp": "2026-04-09T13:56:13.301839Z"}
+2026-04-09 18:56:13,303 [INFO] analyzer: {"event": "Got 10 proxies from full endpoint", "level": "info", "timestamp": "2026-04-09T13:56:13.303253Z"}
+2026-04-09 18:56:13,303 [INFO] analyzer: {"event": "Found 1 offline proxies out of 10 total", "level": "info", "timestamp": "2026-04-09T13:56:13.303324Z"}
+2026-04-09 18:56:13,303 [INFO] analyzer: {"event": "Analysis complete: 0 problematic out of 1 total", "level": "info", "timestamp": "2026-04-09T13:56:13.303438Z"}
+2026-04-09 18:56:19,598 [INFO] notifier_manager: {"event": "Telegram notifier enabled", "level": "info", "timestamp": "2026-04-09T13:56:19.598439Z"}
+2026-04-09 18:56:19,599 [INFO] analyzer: {"event": "Starting full analysis", "level": "info", "timestamp": "2026-04-09T13:56:19.599939Z"}
+2026-04-09 18:56:19,600 [INFO] subscription_parser: {"event": "Fetching subscription from https://my.quazar.icu/s/Z1yk4HXnqzugjds2", "level": "info", "timestamp": "2026-04-09T13:56:19.600011Z"}
+2026-04-09 18:56:24,891 [INFO] subscription_parser: {"event": "Fetched 10 proxies from subscription", "level": "info", "timestamp": "2026-04-09T13:56:24.891353Z"}
+2026-04-09 18:56:24,891 [INFO] analyzer: {"event": "Loaded 10 proxies from subscription", "level": "info", "timestamp": "2026-04-09T13:56:24.891496Z"}
+2026-04-09 18:56:24,891 [INFO] analyzer: {"event": "  Share: \ud83c\uddeb\ud83c\uddf7 \u0424\u0440\u0430\u043d\u0446\u0438\u044f | agaodfs.quazar.icu:443 | vless", "level": "info", "timestamp": "2026-04-09T13:56:24.891550Z"}
+2026-04-09 18:56:24,891 [INFO] analyzer: {"event": "  Share: \ud83c\udde8\ud83c\udded \u0428\u0432\u0435\u0439\u0446\u0430\u0440\u0438\u044f | ch.quazar.icu:443 | vless", "level": "info", "timestamp": "2026-04-09T13:56:24.891594Z"}
+2026-04-09 18:56:24,891 [INFO] analyzer: {"event": "  Share: \ud83c\uddeb\ud83c\uddee \u0424\u0438\u043d\u043b\u044f\u043d\u0434\u0438\u044f | fn.quazar.icu:443 | vless", "level": "info", "timestamp": "2026-04-09T13:56:24.891646Z"}
+2026-04-09 18:56:24,891 [INFO] analyzer: {"event": "  Share: \ud83c\uddfa\ud83c\uddf8 \u0421\u0428\u0410 | us.quazar.icu:443 | vless", "level": "info", "timestamp": "2026-04-09T13:56:24.891685Z"}
+2026-04-09 18:56:24,891 [INFO] analyzer: {"event": "  Share: \ud83c\uddf3\ud83c\uddf1 \u041d\u0438\u0434\u0435\u0440\u043b\u0430\u043d\u0434\u044b | nl.quazar.icu:443 | vless", "level": "info", "timestamp": "2026-04-09T13:56:24.891724Z"}
+2026-04-09 18:56:24,891 [INFO] analyzer: {"event": "  Share: \ud83c\udde9\ud83c\uddea \u0413\u0435\u0440\u043c\u0430\u043d\u0438\u044f | de.quazar.icu:443 | vless", "level": "info", "timestamp": "2026-04-09T13:56:24.891762Z"}
+2026-04-09 18:56:24,891 [INFO] analyzer: {"event": "  Share: \ud83c\uddf5\ud83c\uddf1 \u041f\u043e\u043b\u044c\u0448\u0430 | pl.quazar.icu:443 | vless", "level": "info", "timestamp": "2026-04-09T13:56:24.891800Z"}
+2026-04-09 18:56:24,891 [INFO] analyzer: {"event": "  Share: \ud83c\uddea\ud83c\uddfa\u2014\u2014 \u0410\u0432\u0442\u043e\u0432\u044b\u0431\u043e\u0440\u044b \u2014\u2014 | virt.host:443 | vless", "level": "info", "timestamp": "2026-04-09T13:56:24.891838Z"}
+2026-04-09 18:56:24,891 [INFO] analyzer: {"event": "  Share: \ud83c\uddef\ud83c\uddf5 \u0415\u0432\u0440\u043e\u043f\u0430 | virt.host:443 | vless", "level": "info", "timestamp": "2026-04-09T13:56:24.891880Z"}
+2026-04-09 18:56:24,891 [INFO] analyzer: {"event": "  Share: \ud83c\uddea\ud83c\uddfa\u2014\u2014 \u0411\u0435\u043b\u044b\u0435 \u0441\u043f\u0438\u0441\u043a\u0438 \u2014\u2014 | virt.host:443 | vless", "level": "info", "timestamp": "2026-04-09T13:56:24.891927Z"}
+2026-04-09 18:56:24,892 [INFO] xray_downloader: {"event": "Xray binary not found, downloading from GitHub...", "level": "info", "timestamp": "2026-04-09T13:56:24.892050Z"}
+2026-04-09 18:56:24,892 [INFO] xray_downloader: {"event": "Downloading latest Xray core to /home/roman/.local/share/xray", "level": "info", "timestamp": "2026-04-09T13:56:24.892135Z"}
+2026-04-09 18:56:25,177 [INFO] xray_downloader: {"event": "Found Xray v26.3.27: Xray-linux-64.zip", "level": "info", "timestamp": "2026-04-09T13:56:25.177590Z"}
+2026-04-09 18:56:26,139 [INFO] xray_downloader: {"event": "Downloaded 20.2 MB", "level": "info", "timestamp": "2026-04-09T13:56:26.139454Z"}
+2026-04-09 18:56:26,295 [INFO] xray_downloader: {"event": "Xray v26.3.27 installed to /home/roman/.local/share/xray/xray", "level": "info", "timestamp": "2026-04-09T13:56:26.295480Z"}
+2026-04-09 18:56:26,296 [INFO] analyzer: {"event": "Xray available at: /home/roman/.local/share/xray/xray", "level": "info", "timestamp": "2026-04-09T13:56:26.296321Z"}
+2026-04-09 18:56:26,297 [INFO] analyzer: {"event": "Got 10 proxies from full endpoint", "level": "info", "timestamp": "2026-04-09T13:56:26.297692Z"}
+2026-04-09 18:56:26,297 [INFO] analyzer: {"event": "Found 5 offline proxies out of 10 total", "level": "info", "timestamp": "2026-04-09T13:56:26.297763Z"}
+2026-04-09 18:56:26,297 [INFO] analyzer: {"event": "Analyzing proxy: \ud83c\uddfa\ud83c\uddf8 \u0421\u0428\u0410 \u2192 us.quazar.icu:443", "level": "info", "timestamp": "2026-04-09T13:56:26.297845Z"}
+2026-04-09 18:56:26,297 [INFO] analyzer: {"event": "Analyzing proxy: \ud83c\uddf3\ud83c\uddf1 \u041d\u0438\u0434\u0435\u0440\u043b\u0430\u043d\u0434\u044b \u2192 nl.quazar.icu:443", "level": "info", "timestamp": "2026-04-09T13:56:26.297944Z"}
+2026-04-09 18:56:27,806 [INFO] tcp_checker: {"host": "nl.quazar.icu", "port": 443, "duration_ms": 71.87, "event": "TCP connection successful", "level": "info", "timestamp": "2026-04-09T13:56:27.806810Z"}
+2026-04-09 18:56:28,126 [INFO] tcp_checker: {"host": "us.quazar.icu", "port": 443, "duration_ms": 252.69, "event": "TCP connection successful", "level": "info", "timestamp": "2026-04-09T13:56:28.126773Z"}
+2026-04-09 18:56:28,399 [INFO] xray_manager: {"event": "Starting Xray for \ud83c\uddf3\ud83c\uddf1 \u041d\u0438\u0434\u0435\u0440\u043b\u0430\u043d\u0434\u044b (vless://nl.quazar.icu:443) on port 19336", "level": "info", "timestamp": "2026-04-09T13:56:28.399098Z"}
+2026-04-09 18:56:31,231 [INFO] xray_manager: {"event": "Starting Xray for \ud83c\uddfa\ud83c\uddf8 \u0421\u0428\u0410 (vless://us.quazar.icu:443) on port 19144", "level": "info", "timestamp": "2026-04-09T13:56:31.231512Z"}
+2026-04-09 18:56:33,578 [INFO] notifier_manager: {"event": "Telegram notifier enabled", "level": "info", "timestamp": "2026-04-09T13:56:33.578047Z"}
+2026-04-09 18:56:33,579 [INFO] analyzer: {"event": "Starting full analysis", "level": "info", "timestamp": "2026-04-09T13:56:33.579599Z"}
+2026-04-09 18:56:33,579 [INFO] subscription_parser: {"event": "Fetching subscription from https://my.quazar.icu/s/Z1yk4HXnqzugjds2", "level": "info", "timestamp": "2026-04-09T13:56:33.579679Z"}
+2026-04-09 18:56:33,824 [INFO] subscription_parser: {"event": "Fetched 10 proxies from subscription", "level": "info", "timestamp": "2026-04-09T13:56:33.824131Z"}
+2026-04-09 18:56:33,824 [INFO] analyzer: {"event": "Loaded 10 proxies from subscription", "level": "info", "timestamp": "2026-04-09T13:56:33.824275Z"}
+2026-04-09 18:56:33,824 [INFO] analyzer: {"event": "  Share: \ud83c\uddfa\ud83c\uddf8 \u0421\u0428\u0410 | us.quazar.icu:443 | vless", "level": "info", "timestamp": "2026-04-09T13:56:33.824338Z"}
+2026-04-09 18:56:33,824 [INFO] analyzer: {"event": "  Share: \ud83c\udde8\ud83c\udded \u0428\u0432\u0435\u0439\u0446\u0430\u0440\u0438\u044f | ch.quazar.icu:443 | vless", "level": "info", "timestamp": "2026-04-09T13:56:33.824393Z"}
+2026-04-09 18:56:33,824 [INFO] analyzer: {"event": "  Share: \ud83c\uddf3\ud83c\uddf1 \u041d\u0438\u0434\u0435\u0440\u043b\u0430\u043d\u0434\u044b | nl.quazar.icu:443 | vless", "level": "info", "timestamp": "2026-04-09T13:56:33.824444Z"}
+2026-04-09 18:56:33,824 [INFO] analyzer: {"event": "  Share: \ud83c\uddeb\ud83c\uddee \u0424\u0438\u043d\u043b\u044f\u043d\u0434\u0438\u044f | fn.quazar.icu:443 | vless", "level": "info", "timestamp": "2026-04-09T13:56:33.824486Z"}
+2026-04-09 18:56:33,824 [INFO] analyzer: {"event": "  Share: \ud83c\udde9\ud83c\uddea \u0413\u0435\u0440\u043c\u0430\u043d\u0438\u044f | de.quazar.icu:443 | vless", "level": "info", "timestamp": "2026-04-09T13:56:33.824525Z"}
+2026-04-09 18:56:33,824 [INFO] analyzer: {"event": "  Share: \ud83c\uddf5\ud83c\uddf1 \u041f\u043e\u043b\u044c\u0448\u0430 | pl.quazar.icu:443 | vless", "level": "info", "timestamp": "2026-04-09T13:56:33.824565Z"}
+2026-04-09 18:56:33,824 [INFO] analyzer: {"event": "  Share: \ud83c\uddeb\ud83c\uddf7 \u0424\u0440\u0430\u043d\u0446\u0438\u044f | agaodfs.quazar.icu:443 | vless", "level": "info", "timestamp": "2026-04-09T13:56:33.824607Z"}
+2026-04-09 18:56:33,824 [INFO] analyzer: {"event": "  Share: \ud83c\uddea\ud83c\uddfa\u2014\u2014 \u0410\u0432\u0442\u043e\u0432\u044b\u0431\u043e\u0440\u044b \u2014\u2014 | virt.host:443 | vless", "level": "info", "timestamp": "2026-04-09T13:56:33.824647Z"}
+2026-04-09 18:56:33,824 [INFO] analyzer: {"event": "  Share: \ud83c\uddef\ud83c\uddf5 \u0415\u0432\u0440\u043e\u043f\u0430 | virt.host:443 | vless", "level": "info", "timestamp": "2026-04-09T13:56:33.824687Z"}
+2026-04-09 18:56:33,824 [INFO] analyzer: {"event": "  Share: \ud83c\uddea\ud83c\uddfa\u2014\u2014 \u0411\u0435\u043b\u044b\u0435 \u0441\u043f\u0438\u0441\u043a\u0438 \u2014\u2014 | virt.host:443 | vless", "level": "info", "timestamp": "2026-04-09T13:56:33.824727Z"}
+2026-04-09 18:56:33,824 [INFO] xray_downloader: {"event": "Xray binary not found, downloading from GitHub...", "level": "info", "timestamp": "2026-04-09T13:56:33.824846Z"}
+2026-04-09 18:56:33,824 [INFO] xray_downloader: {"event": "Downloading latest Xray core to /home/roman/.local/share/xray", "level": "info", "timestamp": "2026-04-09T13:56:33.824933Z"}
+2026-04-09 18:56:34,092 [INFO] xray_downloader: {"event": "Found Xray v26.3.27: Xray-linux-64.zip", "level": "info", "timestamp": "2026-04-09T13:56:34.092727Z"}
+2026-04-09 18:56:35,096 [INFO] xray_downloader: {"event": "Downloaded 20.2 MB", "level": "info", "timestamp": "2026-04-09T13:56:35.096298Z"}
+2026-04-09 18:56:35,250 [INFO] xray_downloader: {"event": "Xray v26.3.27 installed to /home/roman/.local/share/xray/xray", "level": "info", "timestamp": "2026-04-09T13:56:35.250001Z"}
+2026-04-09 18:56:35,250 [INFO] analyzer: {"event": "Xray available at: /home/roman/.local/share/xray/xray", "level": "info", "timestamp": "2026-04-09T13:56:35.250760Z"}
+2026-04-09 18:56:35,252 [INFO] analyzer: {"event": "Got 10 proxies from full endpoint", "level": "info", "timestamp": "2026-04-09T13:56:35.252119Z"}
+2026-04-09 18:56:35,252 [INFO] analyzer: {"event": "Found 4 offline proxies out of 10 total", "level": "info", "timestamp": "2026-04-09T13:56:35.252196Z"}
+2026-04-09 18:56:35,252 [INFO] analyzer: {"event": "Analyzing proxy: \ud83c\uddf3\ud83c\uddf1 \u041d\u0438\u0434\u0435\u0440\u043b\u0430\u043d\u0434\u044b \u2192 nl.quazar.icu:443", "level": "info", "timestamp": "2026-04-09T13:56:35.252276Z"}
+2026-04-09 18:56:36,811 [INFO] tcp_checker: {"host": "nl.quazar.icu", "port": 443, "duration_ms": 73.13, "event": "TCP connection successful", "level": "info", "timestamp": "2026-04-09T13:56:36.811921Z"}
+2026-04-09 18:56:37,337 [INFO] xray_manager: {"event": "Starting Xray for \ud83c\uddf3\ud83c\uddf1 \u041d\u0438\u0434\u0435\u0440\u043b\u0430\u043d\u0434\u044b (vless://nl.quazar.icu:443) on port 19744", "level": "info", "timestamp": "2026-04-09T13:56:37.337223Z"}
+2026-04-09 18:56:45,346 [INFO] xray_manager: {"event": "Xray ready for \ud83c\uddf3\ud83c\uddf1 \u041d\u0438\u0434\u0435\u0440\u043b\u0430\u043d\u0434\u044b on port 19744", "level": "info", "timestamp": "2026-04-09T13:56:45.346659Z"}
+2026-04-09 18:57:00,783 [INFO] proxy_xray_checker: {"event": "Main test failed for nl.quazar.icu, trying fallback with IP: 138.124.105.38", "level": "info", "timestamp": "2026-04-09T13:57:00.783358Z"}
+2026-04-09 18:57:00,783 [INFO] xray_manager: {"event": "Starting Xray for \ud83c\uddf3\ud83c\uddf1 \u041d\u0438\u0434\u0435\u0440\u043b\u0430\u043d\u0434\u044b (vless://138.124.105.38:443) on port 19160", "level": "info", "timestamp": "2026-04-09T13:57:00.783650Z"}
+2026-04-09 18:57:08,793 [INFO] xray_manager: {"event": "Xray ready for \ud83c\uddf3\ud83c\uddf1 \u041d\u0438\u0434\u0435\u0440\u043b\u0430\u043d\u0434\u044b on port 19160", "level": "info", "timestamp": "2026-04-09T13:57:08.793115Z"}
+2026-04-09 18:57:24,772 [INFO] analyzer: {"event": "No working HTTP/SOCKS proxy found for cross-test", "level": "info", "timestamp": "2026-04-09T13:57:24.772649Z"}
+2026-04-09 18:57:24,772 [INFO] analyzer: {"event": "Found working Xray proxy for cross-test: \ud83c\udde9\ud83c\uddea \u0413\u0435\u0440\u043c\u0430\u043d\u0438\u044f", "level": "info", "timestamp": "2026-04-09T13:57:24.772754Z"}
+2026-04-09 18:57:24,772 [INFO] analyzer: {"event": "Running 1 Xray cross-proxy tests", "level": "info", "timestamp": "2026-04-09T13:57:24.772890Z"}
+2026-04-09 18:57:24,773 [INFO] proxy_cross_checker: {"event": "Cross-test: checking nl.quazar.icu:443 via \ud83c\udde9\ud83c\uddea \u0413\u0435\u0440\u043c\u0430\u043d\u0438\u044f (vless)", "level": "info", "timestamp": "2026-04-09T13:57:24.772976Z"}
+2026-04-09 18:57:24,773 [INFO] xray_manager: {"event": "Starting Xray for \ud83c\udde9\ud83c\uddea \u0413\u0435\u0440\u043c\u0430\u043d\u0438\u044f (vless://de.quazar.icu:443) on port 19440", "level": "info", "timestamp": "2026-04-09T13:57:24.773167Z"}
+2026-04-09 18:57:32,777 [INFO] xray_manager: {"event": "Xray ready for \ud83c\udde9\ud83c\uddea \u0413\u0435\u0440\u043c\u0430\u043d\u0438\u044f on port 19440", "level": "info", "timestamp": "2026-04-09T13:57:32.777317Z"}
+2026-04-09 18:57:32,988 [INFO] analyzer: {"event": "Xray cross-test nl.quazar.icu:443 via \ud83c\udde9\ud83c\uddea \u0413\u0435\u0440\u043c\u0430\u043d\u0438\u044f: pass", "level": "info", "timestamp": "2026-04-09T13:57:32.988320Z"}
+2026-04-09 18:57:32,988 [INFO] analyzer: {"event": "Analysis complete: 1 problematic out of 4 total", "level": "info", "timestamp": "2026-04-09T13:57:32.988431Z"}
+2026-04-09 18:57:33,388 [INFO] telegram_notifier: {"hosts_count": 1, "event": "Telegram notification sent", "level": "info", "timestamp": "2026-04-09T13:57:33.388534Z"}
+2026-04-09 18:57:33,388 [INFO] notifier_manager: {"notifier": "TelegramNotifier", "event": "Notification sent successfully", "level": "info", "timestamp": "2026-04-09T13:57:33.388872Z"}
+2026-04-09 19:03:53,589 [INFO] notifier_manager: {"event": "Telegram notifier enabled", "level": "info", "timestamp": "2026-04-09T14:03:53.589872Z"}
+2026-04-09 19:03:53,591 [INFO] analyzer: {"event": "Starting full analysis", "level": "info", "timestamp": "2026-04-09T14:03:53.591371Z"}
+2026-04-09 19:03:53,591 [INFO] subscription_parser: {"event": "Fetching subscription from https://my.quazar.icu/s/Z1yk4HXnqzugjds2", "level": "info", "timestamp": "2026-04-09T14:03:53.591457Z"}
+2026-04-09 19:03:53,823 [INFO] subscription_parser: {"event": "Fetched 10 proxies from subscription", "level": "info", "timestamp": "2026-04-09T14:03:53.823279Z"}
+2026-04-09 19:03:53,823 [INFO] analyzer: {"event": "Loaded 10 proxies from subscription", "level": "info", "timestamp": "2026-04-09T14:03:53.823410Z"}
+2026-04-09 19:03:53,823 [INFO] analyzer: {"event": "  Share: \ud83c\udde9\ud83c\uddea \u0413\u0435\u0440\u043c\u0430\u043d\u0438\u044f | de.quazar.icu:443 | vless", "level": "info", "timestamp": "2026-04-09T14:03:53.823464Z"}
+2026-04-09 19:03:53,823 [INFO] analyzer: {"event": "  Share: \ud83c\uddf5\ud83c\uddf1 \u041f\u043e\u043b\u044c\u0448\u0430 | pl.quazar.icu:443 | vless", "level": "info", "timestamp": "2026-04-09T14:03:53.823516Z"}
+2026-04-09 19:03:53,823 [INFO] analyzer: {"event": "  Share: \ud83c\uddf3\ud83c\uddf1 \u041d\u0438\u0434\u0435\u0440\u043b\u0430\u043d\u0434\u044b | nl.quazar.icu:443 | vless", "level": "info", "timestamp": "2026-04-09T14:03:53.823566Z"}
+2026-04-09 19:03:53,823 [INFO] analyzer: {"event": "  Share: \ud83c\uddeb\ud83c\uddee \u0424\u0438\u043d\u043b\u044f\u043d\u0434\u0438\u044f | fn.quazar.icu:443 | vless", "level": "info", "timestamp": "2026-04-09T14:03:53.823606Z"}
+2026-04-09 19:03:53,823 [INFO] analyzer: {"event": "  Share: \ud83c\udde8\ud83c\udded \u0428\u0432\u0435\u0439\u0446\u0430\u0440\u0438\u044f | ch.quazar.icu:443 | vless", "level": "info", "timestamp": "2026-04-09T14:03:53.823644Z"}
+2026-04-09 19:03:53,823 [INFO] analyzer: {"event": "  Share: \ud83c\uddeb\ud83c\uddf7 \u0424\u0440\u0430\u043d\u0446\u0438\u044f | agaodfs.quazar.icu:443 | vless", "level": "info", "timestamp": "2026-04-09T14:03:53.823682Z"}
+2026-04-09 19:03:53,823 [INFO] analyzer: {"event": "  Share: \ud83c\uddfa\ud83c\uddf8 \u0421\u0428\u0410 | us.quazar.icu:443 | vless", "level": "info", "timestamp": "2026-04-09T14:03:53.823722Z"}
+2026-04-09 19:03:53,823 [INFO] analyzer: {"event": "  Share: \ud83c\uddea\ud83c\uddfa\u2014\u2014 \u0410\u0432\u0442\u043e\u0432\u044b\u0431\u043e\u0440\u044b \u2014\u2014 | virt.host:443 | vless", "level": "info", "timestamp": "2026-04-09T14:03:53.823761Z"}
+2026-04-09 19:03:53,823 [INFO] analyzer: {"event": "  Share: \ud83c\uddef\ud83c\uddf5 \u0415\u0432\u0440\u043e\u043f\u0430 | virt.host:443 | vless", "level": "info", "timestamp": "2026-04-09T14:03:53.823798Z"}
+2026-04-09 19:03:53,823 [INFO] analyzer: {"event": "  Share: \ud83c\uddea\ud83c\uddfa\u2014\u2014 \u0411\u0435\u043b\u044b\u0435 \u0441\u043f\u0438\u0441\u043a\u0438 \u2014\u2014 | virt.host:443 | vless", "level": "info", "timestamp": "2026-04-09T14:03:53.823836Z"}
+2026-04-09 19:03:53,823 [INFO] xray_downloader: {"event": "Xray binary not found, downloading from GitHub...", "level": "info", "timestamp": "2026-04-09T14:03:53.823952Z"}
+2026-04-09 19:03:53,824 [INFO] xray_downloader: {"event": "Downloading latest Xray core to /home/roman/.local/share/xray", "level": "info", "timestamp": "2026-04-09T14:03:53.824040Z"}
+2026-04-09 19:03:54,458 [INFO] xray_downloader: {"event": "Found Xray v26.3.27: Xray-linux-64.zip", "level": "info", "timestamp": "2026-04-09T14:03:54.458310Z"}
+2026-04-09 19:03:55,739 [INFO] xray_downloader: {"event": "Downloaded 20.2 MB", "level": "info", "timestamp": "2026-04-09T14:03:55.739352Z"}
+2026-04-09 19:03:55,892 [INFO] xray_downloader: {"event": "Xray v26.3.27 installed to /home/roman/.local/share/xray/xray", "level": "info", "timestamp": "2026-04-09T14:03:55.892110Z"}
+2026-04-09 19:03:55,892 [INFO] analyzer: {"event": "Xray available at: /home/roman/.local/share/xray/xray", "level": "info", "timestamp": "2026-04-09T14:03:55.892700Z"}
+2026-04-09 19:03:55,894 [INFO] analyzer: {"event": "Got 10 proxies from full endpoint", "level": "info", "timestamp": "2026-04-09T14:03:55.894152Z"}
+2026-04-09 19:03:55,894 [INFO] analyzer: {"event": "Found 2 offline proxies out of 10 total", "level": "info", "timestamp": "2026-04-09T14:03:55.894231Z"}
+2026-04-09 19:03:55,894 [INFO] analyzer: {"event": "Analysis complete: 0 problematic out of 2 total", "level": "info", "timestamp": "2026-04-09T14:03:55.894377Z"}
+2026-04-09 19:05:46,887 [INFO] notifier_manager: {"event": "Telegram notifier enabled", "level": "info", "timestamp": "2026-04-09T14:05:46.887465Z"}
+2026-04-09 19:05:46,888 [INFO] analyzer: {"event": "Starting full analysis", "level": "info", "timestamp": "2026-04-09T14:05:46.888945Z"}
+2026-04-09 19:05:46,889 [INFO] subscription_parser: {"event": "Fetching subscription from https://my.quazar.icu/s/Z1yk4HXnqzugjds2", "level": "info", "timestamp": "2026-04-09T14:05:46.889017Z"}
+2026-04-09 19:05:47,137 [INFO] subscription_parser: {"event": "Fetched 10 proxies from subscription", "level": "info", "timestamp": "2026-04-09T14:05:47.137075Z"}
+2026-04-09 19:05:47,137 [INFO] analyzer: {"event": "Loaded 10 proxies from subscription", "level": "info", "timestamp": "2026-04-09T14:05:47.137226Z"}
+2026-04-09 19:05:47,137 [INFO] analyzer: {"event": "  Share: \ud83c\uddeb\ud83c\uddf7 \u0424\u0440\u0430\u043d\u0446\u0438\u044f | agaodfs.quazar.icu:443 | vless", "level": "info", "timestamp": "2026-04-09T14:05:47.137282Z"}
+2026-04-09 19:05:47,137 [INFO] analyzer: {"event": "  Share: \ud83c\uddf3\ud83c\uddf1 \u041d\u0438\u0434\u0435\u0440\u043b\u0430\u043d\u0434\u044b | nl.quazar.icu:443 | vless", "level": "info", "timestamp": "2026-04-09T14:05:47.137333Z"}
+2026-04-09 19:05:47,137 [INFO] analyzer: {"event": "  Share: \ud83c\uddf5\ud83c\uddf1 \u041f\u043e\u043b\u044c\u0448\u0430 | pl.quazar.icu:443 | vless", "level": "info", "timestamp": "2026-04-09T14:05:47.137376Z"}
+2026-04-09 19:05:47,137 [INFO] analyzer: {"event": "  Share: \ud83c\uddeb\ud83c\uddee \u0424\u0438\u043d\u043b\u044f\u043d\u0434\u0438\u044f | fn.quazar.icu:443 | vless", "level": "info", "timestamp": "2026-04-09T14:05:47.137429Z"}
+2026-04-09 19:05:47,137 [INFO] analyzer: {"event": "  Share: \ud83c\udde9\ud83c\uddea \u0413\u0435\u0440\u043c\u0430\u043d\u0438\u044f | de.quazar.icu:443 | vless", "level": "info", "timestamp": "2026-04-09T14:05:47.137468Z"}
+2026-04-09 19:05:47,137 [INFO] analyzer: {"event": "  Share: \ud83c\udde8\ud83c\udded \u0428\u0432\u0435\u0439\u0446\u0430\u0440\u0438\u044f | ch.quazar.icu:443 | vless", "level": "info", "timestamp": "2026-04-09T14:05:47.137509Z"}
+2026-04-09 19:05:47,137 [INFO] analyzer: {"event": "  Share: \ud83c\uddfa\ud83c\uddf8 \u0421\u0428\u0410 | us.quazar.icu:443 | vless", "level": "info", "timestamp": "2026-04-09T14:05:47.137549Z"}
+2026-04-09 19:05:47,137 [INFO] analyzer: {"event": "  Share: \ud83c\uddea\ud83c\uddfa\u2014\u2014 \u0410\u0432\u0442\u043e\u0432\u044b\u0431\u043e\u0440\u044b \u2014\u2014 | virt.host:443 | vless", "level": "info", "timestamp": "2026-04-09T14:05:47.137588Z"}
+2026-04-09 19:05:47,137 [INFO] analyzer: {"event": "  Share: \ud83c\uddef\ud83c\uddf5 \u0415\u0432\u0440\u043e\u043f\u0430 | virt.host:443 | vless", "level": "info", "timestamp": "2026-04-09T14:05:47.137628Z"}
+2026-04-09 19:05:47,137 [INFO] analyzer: {"event": "  Share: \ud83c\uddea\ud83c\uddfa\u2014\u2014 \u0411\u0435\u043b\u044b\u0435 \u0441\u043f\u0438\u0441\u043a\u0438 \u2014\u2014 | virt.host:443 | vless", "level": "info", "timestamp": "2026-04-09T14:05:47.137667Z"}
+2026-04-09 19:05:47,137 [INFO] xray_downloader: {"event": "Xray binary not found, downloading from GitHub...", "level": "info", "timestamp": "2026-04-09T14:05:47.137788Z"}
+2026-04-09 19:05:47,137 [INFO] xray_downloader: {"event": "Downloading latest Xray core to /home/roman/.local/share/xray", "level": "info", "timestamp": "2026-04-09T14:05:47.137875Z"}
+2026-04-09 19:05:47,611 [INFO] xray_downloader: {"event": "Found Xray v26.3.27: Xray-linux-64.zip", "level": "info", "timestamp": "2026-04-09T14:05:47.611128Z"}
+2026-04-09 19:05:48,549 [INFO] xray_downloader: {"event": "Downloaded 20.2 MB", "level": "info", "timestamp": "2026-04-09T14:05:48.549589Z"}
+2026-04-09 19:05:48,700 [INFO] xray_downloader: {"event": "Xray v26.3.27 installed to /home/roman/.local/share/xray/xray", "level": "info", "timestamp": "2026-04-09T14:05:48.700921Z"}
+2026-04-09 19:05:48,701 [INFO] analyzer: {"event": "Xray available at: /home/roman/.local/share/xray/xray", "level": "info", "timestamp": "2026-04-09T14:05:48.701518Z"}
+2026-04-09 19:05:48,702 [INFO] analyzer: {"event": "Got 10 proxies from full endpoint", "level": "info", "timestamp": "2026-04-09T14:05:48.702962Z"}
+2026-04-09 19:05:48,703 [INFO] analyzer: {"event": "Found 2 offline proxies out of 10 total", "level": "info", "timestamp": "2026-04-09T14:05:48.703038Z"}
+2026-04-09 19:05:48,703 [INFO] analyzer: {"event": "Analysis complete: 0 problematic out of 2 total", "level": "info", "timestamp": "2026-04-09T14:05:48.703176Z"}
+2026-04-09 19:05:56,470 [INFO] notifier_manager: {"event": "Telegram notifier enabled", "level": "info", "timestamp": "2026-04-09T14:05:56.470806Z"}
+2026-04-09 19:05:56,472 [INFO] analyzer: {"event": "Starting full analysis", "level": "info", "timestamp": "2026-04-09T14:05:56.472345Z"}
+2026-04-09 19:05:56,472 [INFO] subscription_parser: {"event": "Fetching subscription from https://my.quazar.icu/s/Z1yk4HXnqzugjds2", "level": "info", "timestamp": "2026-04-09T14:05:56.472418Z"}
+2026-04-09 19:05:56,708 [INFO] subscription_parser: {"event": "Fetched 10 proxies from subscription", "level": "info", "timestamp": "2026-04-09T14:05:56.708244Z"}
+2026-04-09 19:05:56,708 [INFO] analyzer: {"event": "Loaded 10 proxies from subscription", "level": "info", "timestamp": "2026-04-09T14:05:56.708378Z"}
+2026-04-09 19:05:56,708 [INFO] analyzer: {"event": "  Share: \ud83c\udde8\ud83c\udded \u0428\u0432\u0435\u0439\u0446\u0430\u0440\u0438\u044f | ch.quazar.icu:443 | vless", "level": "info", "timestamp": "2026-04-09T14:05:56.708432Z"}
+2026-04-09 19:05:56,708 [INFO] analyzer: {"event": "  Share: \ud83c\uddeb\ud83c\uddee \u0424\u0438\u043d\u043b\u044f\u043d\u0434\u0438\u044f | fn.quazar.icu:443 | vless", "level": "info", "timestamp": "2026-04-09T14:05:56.708478Z"}
+2026-04-09 19:05:56,708 [INFO] analyzer: {"event": "  Share: \ud83c\uddeb\ud83c\uddf7 \u0424\u0440\u0430\u043d\u0446\u0438\u044f | agaodfs.quazar.icu:443 | vless", "level": "info", "timestamp": "2026-04-09T14:05:56.708521Z"}
+2026-04-09 19:05:56,708 [INFO] analyzer: {"event": "  Share: \ud83c\uddfa\ud83c\uddf8 \u0421\u0428\u0410 | us.quazar.icu:443 | vless", "level": "info", "timestamp": "2026-04-09T14:05:56.708561Z"}
+2026-04-09 19:05:56,708 [INFO] analyzer: {"event": "  Share: \ud83c\udde9\ud83c\uddea \u0413\u0435\u0440\u043c\u0430\u043d\u0438\u044f | de.quazar.icu:443 | vless", "level": "info", "timestamp": "2026-04-09T14:05:56.708600Z"}
+2026-04-09 19:05:56,708 [INFO] analyzer: {"event": "  Share: \ud83c\uddf3\ud83c\uddf1 \u041d\u0438\u0434\u0435\u0440\u043b\u0430\u043d\u0434\u044b | nl.quazar.icu:443 | vless", "level": "info", "timestamp": "2026-04-09T14:05:56.708639Z"}
+2026-04-09 19:05:56,708 [INFO] analyzer: {"event": "  Share: \ud83c\uddf5\ud83c\uddf1 \u041f\u043e\u043b\u044c\u0448\u0430 | pl.quazar.icu:443 | vless", "level": "info", "timestamp": "2026-04-09T14:05:56.708681Z"}
+2026-04-09 19:05:56,708 [INFO] analyzer: {"event": "  Share: \ud83c\uddea\ud83c\uddfa\u2014\u2014 \u0410\u0432\u0442\u043e\u0432\u044b\u0431\u043e\u0440\u044b \u2014\u2014 | virt.host:443 | vless", "level": "info", "timestamp": "2026-04-09T14:05:56.708719Z"}
+2026-04-09 19:05:56,708 [INFO] analyzer: {"event": "  Share: \ud83c\uddef\ud83c\uddf5 \u0415\u0432\u0440\u043e\u043f\u0430 | virt.host:443 | vless", "level": "info", "timestamp": "2026-04-09T14:05:56.708758Z"}
+2026-04-09 19:05:56,708 [INFO] analyzer: {"event": "  Share: \ud83c\uddea\ud83c\uddfa\u2014\u2014 \u0411\u0435\u043b\u044b\u0435 \u0441\u043f\u0438\u0441\u043a\u0438 \u2014\u2014 | virt.host:443 | vless", "level": "info", "timestamp": "2026-04-09T14:05:56.708796Z"}
+2026-04-09 19:05:56,708 [INFO] xray_downloader: {"event": "Xray binary not found, downloading from GitHub...", "level": "info", "timestamp": "2026-04-09T14:05:56.708913Z"}
+2026-04-09 19:05:56,709 [INFO] xray_downloader: {"event": "Downloading latest Xray core to /home/roman/.local/share/xray", "level": "info", "timestamp": "2026-04-09T14:05:56.708998Z"}
+2026-04-09 19:05:56,981 [INFO] xray_downloader: {"event": "Found Xray v26.3.27: Xray-linux-64.zip", "level": "info", "timestamp": "2026-04-09T14:05:56.981407Z"}
+2026-04-09 19:05:58,023 [INFO] xray_downloader: {"event": "Downloaded 20.2 MB", "level": "info", "timestamp": "2026-04-09T14:05:58.023269Z"}
+2026-04-09 19:05:58,176 [INFO] xray_downloader: {"event": "Xray v26.3.27 installed to /home/roman/.local/share/xray/xray", "level": "info", "timestamp": "2026-04-09T14:05:58.175988Z"}
+2026-04-09 19:05:58,176 [INFO] analyzer: {"event": "Xray available at: /home/roman/.local/share/xray/xray", "level": "info", "timestamp": "2026-04-09T14:05:58.176740Z"}
+2026-04-09 19:05:58,178 [INFO] analyzer: {"event": "Got 10 proxies from full endpoint", "level": "info", "timestamp": "2026-04-09T14:05:58.178151Z"}
+2026-04-09 19:05:58,178 [INFO] analyzer: {"event": "Found 7 offline proxies out of 10 total", "level": "info", "timestamp": "2026-04-09T14:05:58.178261Z"}
+2026-04-09 19:05:58,178 [INFO] analyzer: {"event": "Analyzing proxy: \ud83c\uddf3\ud83c\uddf1 \u041d\u0438\u0434\u0435\u0440\u043b\u0430\u043d\u0434\u044b \u2192 nl.quazar.icu:443", "level": "info", "timestamp": "2026-04-09T14:05:58.178378Z"}
+2026-04-09 19:05:58,178 [INFO] analyzer: {"event": "Analyzing proxy: \ud83c\udde9\ud83c\uddea \u0413\u0435\u0440\u043c\u0430\u043d\u0438\u044f \u2192 de.quazar.icu:443", "level": "info", "timestamp": "2026-04-09T14:05:58.178502Z"}
+2026-04-09 19:05:58,178 [INFO] analyzer: {"event": "Analyzing proxy: \ud83c\uddeb\ud83c\uddee \u0424\u0438\u043d\u043b\u044f\u043d\u0434\u0438\u044f \u2192 fn.quazar.icu:443", "level": "info", "timestamp": "2026-04-09T14:05:58.178592Z"}
+2026-04-09 19:05:58,178 [INFO] analyzer: {"event": "Analyzing proxy: \ud83c\uddf5\ud83c\uddf1 \u041f\u043e\u043b\u044c\u0448\u0430 \u2192 pl.quazar.icu:443", "level": "info", "timestamp": "2026-04-09T14:05:58.178676Z"}
+2026-04-09 19:05:59,654 [INFO] tcp_checker: {"host": "pl.quazar.icu", "port": 443, "duration_ms": 57.13, "event": "TCP connection successful", "level": "info", "timestamp": "2026-04-09T14:05:59.654193Z"}
+2026-04-09 19:05:59,748 [INFO] tcp_checker: {"host": "fn.quazar.icu", "port": 443, "duration_ms": 2.54, "event": "TCP connection successful", "level": "info", "timestamp": "2026-04-09T14:05:59.748749Z"}
+2026-04-09 19:05:59,963 [INFO] tcp_checker: {"host": "de.quazar.icu", "port": 443, "duration_ms": 61.83, "event": "TCP connection successful", "level": "info", "timestamp": "2026-04-09T14:05:59.963925Z"}
+2026-04-09 19:06:00,121 [INFO] xray_manager: {"event": "Starting Xray for \ud83c\uddeb\ud83c\uddee \u0424\u0438\u043d\u043b\u044f\u043d\u0434\u0438\u044f (vless://fn.quazar.icu:443) on port 19000", "level": "info", "timestamp": "2026-04-09T14:06:00.121576Z"}
+2026-04-09 19:06:00,122 [INFO] xray_manager: {"event": "Starting Xray for \ud83c\uddf5\ud83c\uddf1 \u041f\u043e\u043b\u044c\u0448\u0430 (vless://pl.quazar.icu:443) on port 19360", "level": "info", "timestamp": "2026-04-09T14:06:00.122618Z"}
+2026-04-09 19:06:00,126 [INFO] tcp_checker: {"host": "nl.quazar.icu", "port": 443, "duration_ms": 78.66, "event": "TCP connection successful", "level": "info", "timestamp": "2026-04-09T14:06:00.126317Z"}
+2026-04-09 19:06:05,682 [INFO] xray_manager: {"event": "Starting Xray for \ud83c\udde9\ud83c\uddea \u0413\u0435\u0440\u043c\u0430\u043d\u0438\u044f (vless://de.quazar.icu:443) on port 19240", "level": "info", "timestamp": "2026-04-09T14:06:05.682167Z"}
+2026-04-09 19:06:05,774 [INFO] xray_manager: {"event": "Starting Xray for \ud83c\uddf3\ud83c\uddf1 \u041d\u0438\u0434\u0435\u0440\u043b\u0430\u043d\u0434\u044b (vless://nl.quazar.icu:443) on port 19400", "level": "info", "timestamp": "2026-04-09T14:06:05.774390Z"}
+2026-04-09 19:06:08,126 [INFO] xray_manager: {"event": "Xray ready for \ud83c\uddeb\ud83c\uddee \u0424\u0438\u043d\u043b\u044f\u043d\u0434\u0438\u044f on port 19000", "level": "info", "timestamp": "2026-04-09T14:06:08.126772Z"}
+2026-04-09 19:06:08,127 [INFO] xray_manager: {"event": "Xray ready for \ud83c\uddf5\ud83c\uddf1 \u041f\u043e\u043b\u044c\u0448\u0430 on port 19360", "level": "info", "timestamp": "2026-04-09T14:06:08.127433Z"}
+2026-04-09 19:06:13,688 [INFO] xray_manager: {"event": "Xray ready for \ud83c\udde9\ud83c\uddea \u0413\u0435\u0440\u043c\u0430\u043d\u0438\u044f on port 19240", "level": "info", "timestamp": "2026-04-09T14:06:13.688290Z"}
+2026-04-09 19:06:13,775 [INFO] xray_manager: {"event": "Xray ready for \ud83c\uddf3\ud83c\uddf1 \u041d\u0438\u0434\u0435\u0440\u043b\u0430\u043d\u0434\u044b on port 19400", "level": "info", "timestamp": "2026-04-09T14:06:13.775612Z"}
+2026-04-09 19:06:29,772 [INFO] proxy_xray_checker: {"event": "Main test failed for nl.quazar.icu, trying fallback with IP: 138.124.105.38", "level": "info", "timestamp": "2026-04-09T14:06:29.772626Z"}
+2026-04-09 19:06:29,772 [INFO] xray_manager: {"event": "Starting Xray for \ud83c\uddf3\ud83c\uddf1 \u041d\u0438\u0434\u0435\u0440\u043b\u0430\u043d\u0434\u044b (vless://138.124.105.38:443) on port 19552", "level": "info", "timestamp": "2026-04-09T14:06:29.772891Z"}
+2026-04-09 19:06:37,782 [INFO] xray_manager: {"event": "Xray ready for \ud83c\uddf3\ud83c\uddf1 \u041d\u0438\u0434\u0435\u0440\u043b\u0430\u043d\u0434\u044b on port 19552", "level": "info", "timestamp": "2026-04-09T14:06:37.782301Z"}
+2026-04-09 19:06:53,787 [INFO] analyzer: {"event": "No working HTTP/SOCKS proxy found for cross-test", "level": "info", "timestamp": "2026-04-09T14:06:53.787551Z"}
+2026-04-09 19:06:53,787 [INFO] analyzer: {"event": "Found working Xray proxy for cross-test: \ud83c\uddfa\ud83c\uddf8 \u0421\u0428\u0410", "level": "info", "timestamp": "2026-04-09T14:06:53.787655Z"}
+2026-04-09 19:06:53,787 [INFO] analyzer: {"event": "Running 1 Xray cross-proxy tests", "level": "info", "timestamp": "2026-04-09T14:06:53.787800Z"}
+2026-04-09 19:06:53,787 [INFO] proxy_cross_checker: {"event": "Cross-test: checking nl.quazar.icu:443 via \ud83c\uddfa\ud83c\uddf8 \u0421\u0428\u0410 (vless)", "level": "info", "timestamp": "2026-04-09T14:06:53.787883Z"}
+2026-04-09 19:06:53,788 [INFO] xray_manager: {"event": "Starting Xray for \ud83c\uddfa\ud83c\uddf8 \u0421\u0428\u0410 (vless://us.quazar.icu:443) on port 19624", "level": "info", "timestamp": "2026-04-09T14:06:53.788078Z"}
+2026-04-09 19:07:01,789 [INFO] xray_manager: {"event": "Xray ready for \ud83c\uddfa\ud83c\uddf8 \u0421\u0428\u0410 on port 19624", "level": "info", "timestamp": "2026-04-09T14:07:01.789256Z"}
+2026-04-09 19:07:02,253 [INFO] analyzer: {"event": "Xray cross-test nl.quazar.icu:443 via \ud83c\uddfa\ud83c\uddf8 \u0421\u0428\u0410: pass", "level": "info", "timestamp": "2026-04-09T14:07:02.253008Z"}
+2026-04-09 19:07:02,253 [INFO] analyzer: {"event": "Analysis complete: 2 problematic out of 7 total", "level": "info", "timestamp": "2026-04-09T14:07:02.253137Z"}
+2026-04-09 19:07:02,714 [INFO] telegram_notifier: {"hosts_count": 2, "event": "Telegram notification sent", "level": "info", "timestamp": "2026-04-09T14:07:02.714888Z"}
+2026-04-09 19:07:02,715 [INFO] notifier_manager: {"notifier": "TelegramNotifier", "event": "Notification sent successfully", "level": "info", "timestamp": "2026-04-09T14:07:02.715303Z"}
+2026-04-09 19:07:51,959 [INFO] notifier_manager: {"event": "Telegram notifier enabled", "level": "info", "timestamp": "2026-04-09T14:07:51.959693Z"}
+2026-04-09 19:07:51,961 [INFO] analyzer: {"event": "Starting full analysis", "level": "info", "timestamp": "2026-04-09T14:07:51.961168Z"}
+2026-04-09 19:07:51,961 [INFO] subscription_parser: {"event": "Fetching subscription from https://my.quazar.icu/s/Z1yk4HXnqzugjds2", "level": "info", "timestamp": "2026-04-09T14:07:51.961245Z"}
+2026-04-09 19:07:52,212 [INFO] subscription_parser: {"event": "Fetched 10 proxies from subscription", "level": "info", "timestamp": "2026-04-09T14:07:52.212634Z"}
+2026-04-09 19:07:52,212 [INFO] analyzer: {"event": "Loaded 10 proxies from subscription", "level": "info", "timestamp": "2026-04-09T14:07:52.212787Z"}
+2026-04-09 19:07:52,212 [INFO] analyzer: {"event": "  Share: \ud83c\udde8\ud83c\udded \u0428\u0432\u0435\u0439\u0446\u0430\u0440\u0438\u044f | ch.quazar.icu:443 | vless", "level": "info", "timestamp": "2026-04-09T14:07:52.212854Z"}
+2026-04-09 19:07:52,212 [INFO] analyzer: {"event": "  Share: \ud83c\uddeb\ud83c\uddf7 \u0424\u0440\u0430\u043d\u0446\u0438\u044f | agaodfs.quazar.icu:443 | vless", "level": "info", "timestamp": "2026-04-09T14:07:52.212917Z"}
+2026-04-09 19:07:52,212 [INFO] analyzer: {"event": "  Share: \ud83c\uddf5\ud83c\uddf1 \u041f\u043e\u043b\u044c\u0448\u0430 | pl.quazar.icu:443 | vless", "level": "info", "timestamp": "2026-04-09T14:07:52.212971Z"}
+2026-04-09 19:07:52,213 [INFO] analyzer: {"event": "  Share: \ud83c\uddf3\ud83c\uddf1 \u041d\u0438\u0434\u0435\u0440\u043b\u0430\u043d\u0434\u044b | nl.quazar.icu:443 | vless", "level": "info", "timestamp": "2026-04-09T14:07:52.213011Z"}
+2026-04-09 19:07:52,213 [INFO] analyzer: {"event": "  Share: \ud83c\uddfa\ud83c\uddf8 \u0421\u0428\u0410 | us.quazar.icu:443 | vless", "level": "info", "timestamp": "2026-04-09T14:07:52.213053Z"}
+2026-04-09 19:07:52,213 [INFO] analyzer: {"event": "  Share: \ud83c\udde9\ud83c\uddea \u0413\u0435\u0440\u043c\u0430\u043d\u0438\u044f | de.quazar.icu:443 | vless", "level": "info", "timestamp": "2026-04-09T14:07:52.213100Z"}
+2026-04-09 19:07:52,213 [INFO] analyzer: {"event": "  Share: \ud83c\uddeb\ud83c\uddee \u0424\u0438\u043d\u043b\u044f\u043d\u0434\u0438\u044f | fn.quazar.icu:443 | vless", "level": "info", "timestamp": "2026-04-09T14:07:52.213138Z"}
+2026-04-09 19:07:52,213 [INFO] analyzer: {"event": "  Share: \ud83c\uddea\ud83c\uddfa\u2014\u2014 \u0410\u0432\u0442\u043e\u0432\u044b\u0431\u043e\u0440\u044b \u2014\u2014 | virt.host:443 | vless", "level": "info", "timestamp": "2026-04-09T14:07:52.213175Z"}
+2026-04-09 19:07:52,213 [INFO] analyzer: {"event": "  Share: \ud83c\uddef\ud83c\uddf5 \u0415\u0432\u0440\u043e\u043f\u0430 | virt.host:443 | vless", "level": "info", "timestamp": "2026-04-09T14:07:52.213221Z"}
+2026-04-09 19:07:52,213 [INFO] analyzer: {"event": "  Share: \ud83c\uddea\ud83c\uddfa\u2014\u2014 \u0411\u0435\u043b\u044b\u0435 \u0441\u043f\u0438\u0441\u043a\u0438 \u2014\u2014 | virt.host:443 | vless", "level": "info", "timestamp": "2026-04-09T14:07:52.213261Z"}
+2026-04-09 19:07:52,213 [INFO] xray_downloader: {"event": "Xray binary not found, downloading from GitHub...", "level": "info", "timestamp": "2026-04-09T14:07:52.213378Z"}
+2026-04-09 19:07:52,213 [INFO] xray_downloader: {"event": "Downloading latest Xray core to /home/roman/.local/share/xray", "level": "info", "timestamp": "2026-04-09T14:07:52.213464Z"}
+2026-04-09 19:07:52,710 [INFO] xray_downloader: {"event": "Found Xray v26.3.27: Xray-linux-64.zip", "level": "info", "timestamp": "2026-04-09T14:07:52.710648Z"}
+2026-04-09 19:07:53,764 [INFO] xray_downloader: {"event": "Downloaded 20.2 MB", "level": "info", "timestamp": "2026-04-09T14:07:53.764456Z"}
+2026-04-09 19:07:53,916 [INFO] xray_downloader: {"event": "Xray v26.3.27 installed to /home/roman/.local/share/xray/xray", "level": "info", "timestamp": "2026-04-09T14:07:53.916648Z"}
+2026-04-09 19:07:53,917 [INFO] analyzer: {"event": "Xray available at: /home/roman/.local/share/xray/xray", "level": "info", "timestamp": "2026-04-09T14:07:53.917434Z"}
+2026-04-09 19:07:53,918 [INFO] analyzer: {"event": "Got 10 proxies from full endpoint", "level": "info", "timestamp": "2026-04-09T14:07:53.918825Z"}
+2026-04-09 19:07:53,918 [INFO] analyzer: {"event": "Found 4 offline proxies out of 10 total", "level": "info", "timestamp": "2026-04-09T14:07:53.918902Z"}
+2026-04-09 19:07:53,919 [INFO] analyzer: {"event": "Analyzing proxy: \ud83c\uddf3\ud83c\uddf1 \u041d\u0438\u0434\u0435\u0440\u043b\u0430\u043d\u0434\u044b \u2192 nl.quazar.icu:443", "level": "info", "timestamp": "2026-04-09T14:07:53.918980Z"}
+{"event": "Telegram notifier enabled", "level": "info", "timestamp": "2026-04-09T14:09:22.623045Z"}
+{"event": "Starting full analysis", "level": "info", "timestamp": "2026-04-09T14:09:22.624548Z"}
+{"event": "Fetching subscription from https://my.quazar.icu/s/Z1yk4HXnqzugjds2", "level": "info", "timestamp": "2026-04-09T14:09:22.624644Z"}
+{"event": "Fetched 10 proxies from subscription", "level": "info", "timestamp": "2026-04-09T14:09:23.065211Z"}
+{"event": "Loaded 10 proxies from subscription", "level": "info", "timestamp": "2026-04-09T14:09:23.065373Z"}
+{"event": "  Share: \ud83c\uddfa\ud83c\uddf8 \u0421\u0428\u0410 | us.quazar.icu:443 | vless", "level": "info", "timestamp": "2026-04-09T14:09:23.065445Z"}
+{"event": "  Share: \ud83c\uddf3\ud83c\uddf1 \u041d\u0438\u0434\u0435\u0440\u043b\u0430\u043d\u0434\u044b | nl.quazar.icu:443 | vless", "level": "info", "timestamp": "2026-04-09T14:09:23.065510Z"}
+{"event": "  Share: \ud83c\udde8\ud83c\udded \u0428\u0432\u0435\u0439\u0446\u0430\u0440\u0438\u044f | ch.quazar.icu:443 | vless", "level": "info", "timestamp": "2026-04-09T14:09:23.065571Z"}
+{"event": "  Share: \ud83c\uddeb\ud83c\uddee \u0424\u0438\u043d\u043b\u044f\u043d\u0434\u0438\u044f | fn.quazar.icu:443 | vless", "level": "info", "timestamp": "2026-04-09T14:09:23.065631Z"}
+{"event": "  Share: \ud83c\uddeb\ud83c\uddf7 \u0424\u0440\u0430\u043d\u0446\u0438\u044f | agaodfs.quazar.icu:443 | vless", "level": "info", "timestamp": "2026-04-09T14:09:23.065704Z"}
+{"event": "  Share: \ud83c\udde9\ud83c\uddea \u0413\u0435\u0440\u043c\u0430\u043d\u0438\u044f | de.quazar.icu:443 | vless", "level": "info", "timestamp": "2026-04-09T14:09:23.065764Z"}
+{"event": "  Share: \ud83c\uddf5\ud83c\uddf1 \u041f\u043e\u043b\u044c\u0448\u0430 | pl.quazar.icu:443 | vless", "level": "info", "timestamp": "2026-04-09T14:09:23.065817Z"}
+{"event": "  Share: \ud83c\uddea\ud83c\uddfa\u2014\u2014 \u0410\u0432\u0442\u043e\u0432\u044b\u0431\u043e\u0440\u044b \u2014\u2014 | virt.host:443 | vless", "level": "info", "timestamp": "2026-04-09T14:09:23.065870Z"}
+{"event": "  Share: \ud83c\uddef\ud83c\uddf5 \u0415\u0432\u0440\u043e\u043f\u0430 | virt.host:443 | vless", "level": "info", "timestamp": "2026-04-09T14:09:23.065922Z"}
+{"event": "  Share: \ud83c\uddea\ud83c\uddfa\u2014\u2014 \u0411\u0435\u043b\u044b\u0435 \u0441\u043f\u0438\u0441\u043a\u0438 \u2014\u2014 | virt.host:443 | vless", "level": "info", "timestamp": "2026-04-09T14:09:23.065975Z"}
+{"event": "Xray binary not found, downloading from GitHub...", "level": "info", "timestamp": "2026-04-09T14:09:23.066115Z"}
+{"event": "Downloading latest Xray core to /home/roman/.local/share/xray", "level": "info", "timestamp": "2026-04-09T14:09:23.066224Z"}
+{"event": "Found Xray v26.3.27: Xray-linux-64.zip", "level": "info", "timestamp": "2026-04-09T14:09:23.686191Z"}
+{"event": "Failed to download/extract Xray: Cannot connect to host github.com:443 ssl:default [None]", "level": "error", "timestamp": "2026-04-09T14:10:23.703996Z"}
+{"event": "Failed to auto-download Xray", "level": "error", "timestamp": "2026-04-09T14:10:23.704244Z"}
+{"event": "Xray binary not found and auto-download failed. VLESS/Trojan/SS proxy tests will be skipped. Set XRAY_BINARY_PATH or install xray manually.", "level": "warning", "timestamp": "2026-04-09T14:10:23.704336Z"}
+{"event": "Using public API endpoint \u2014 server addresses not available. Set CHECKER_API_USERNAME and CHECKER_API_PASSWORD for full diagnostics.", "level": "warning", "timestamp": "2026-04-09T14:10:27.397071Z"}
+{"event": "Checker API unavailable (attempt 1/5), retrying in 5s: Cannot connect to host xray-checker:2112 ssl:default [Name or service not known]", "level": "warning", "timestamp": "2026-04-09T14:10:31.167149Z"}
+{"event": "Using public API endpoint \u2014 server addresses not available. Set CHECKER_API_USERNAME and CHECKER_API_PASSWORD for full diagnostics.", "level": "warning", "timestamp": "2026-04-09T14:10:40.166799Z"}
+{"event": "Checker API unavailable (attempt 2/5), retrying in 5s: Cannot connect to host xray-checker:2112 ssl:default [Name or service not known]", "level": "warning", "timestamp": "2026-04-09T14:10:44.167164Z"}
+{"event": "Using public API endpoint \u2014 server addresses not available. Set CHECKER_API_USERNAME and CHECKER_API_PASSWORD for full diagnostics.", "level": "warning", "timestamp": "2026-04-09T14:10:53.166822Z"}
+{"event": "Telegram notifier enabled", "level": "info", "timestamp": "2026-04-09T14:16:25.286029Z"}
+{"event": "Starting full analysis", "level": "info", "timestamp": "2026-04-09T14:16:25.286144Z"}
+{"event": "Fetching subscription from https://my.quazar.icu/s/Z1yk4HXnqzugjds2", "level": "info", "timestamp": "2026-04-09T14:16:25.286213Z"}
+{"event": "Fetched 10 proxies from subscription", "level": "info", "timestamp": "2026-04-09T14:16:25.781204Z"}
+{"event": "Loaded 10 proxies from subscription", "level": "info", "timestamp": "2026-04-09T14:16:25.781327Z"}
+{"event": "  Share: \ud83c\uddf5\ud83c\uddf1 \u041f\u043e\u043b\u044c\u0448\u0430 | pl.quazar.icu:443 | vless", "level": "info", "timestamp": "2026-04-09T14:16:25.781375Z"}
+{"event": "  Share: \ud83c\uddfa\ud83c\uddf8 \u0421\u0428\u0410 | us.quazar.icu:443 | vless", "level": "info", "timestamp": "2026-04-09T14:16:25.781416Z"}
+{"event": "  Share: \ud83c\uddeb\ud83c\uddf7 \u0424\u0440\u0430\u043d\u0446\u0438\u044f | agaodfs.quazar.icu:443 | vless", "level": "info", "timestamp": "2026-04-09T14:16:25.781456Z"}
+{"event": "  Share: \ud83c\udde9\ud83c\uddea \u0413\u0435\u0440\u043c\u0430\u043d\u0438\u044f | de.quazar.icu:443 | vless", "level": "info", "timestamp": "2026-04-09T14:16:25.781498Z"}
+{"event": "  Share: \ud83c\udde8\ud83c\udded \u0428\u0432\u0435\u0439\u0446\u0430\u0440\u0438\u044f | ch.quazar.icu:443 | vless", "level": "info", "timestamp": "2026-04-09T14:16:25.781532Z"}
+{"event": "  Share: \ud83c\uddf3\ud83c\uddf1 \u041d\u0438\u0434\u0435\u0440\u043b\u0430\u043d\u0434\u044b | nl.quazar.icu:443 | vless", "level": "info", "timestamp": "2026-04-09T14:16:25.781569Z"}
+{"event": "  Share: \ud83c\uddeb\ud83c\uddee \u0424\u0438\u043d\u043b\u044f\u043d\u0434\u0438\u044f | fn.quazar.icu:443 | vless", "level": "info", "timestamp": "2026-04-09T14:16:25.781602Z"}
+{"event": "  Share: \ud83c\uddea\ud83c\uddfa\u2014\u2014 \u0410\u0432\u0442\u043e\u0432\u044b\u0431\u043e\u0440\u044b \u2014\u2014 | virt.host:443 | vless", "level": "info", "timestamp": "2026-04-09T14:16:25.781635Z"}
+{"event": "  Share: \ud83c\uddef\ud83c\uddf5 \u0415\u0432\u0440\u043e\u043f\u0430 | virt.host:443 | vless", "level": "info", "timestamp": "2026-04-09T14:16:25.781668Z"}
+{"event": "  Share: \ud83c\uddea\ud83c\uddfa\u2014\u2014 \u0411\u0435\u043b\u044b\u0435 \u0441\u043f\u0438\u0441\u043a\u0438 \u2014\u2014 | virt.host:443 | vless", "level": "info", "timestamp": "2026-04-09T14:16:25.781700Z"}
+{"event": "Xray binary not found, downloading from GitHub...", "level": "info", "timestamp": "2026-04-09T14:16:25.781814Z"}
+{"event": "Downloading latest Xray core to /home/roman/.local/share/xray", "level": "info", "timestamp": "2026-04-09T14:16:25.781895Z"}
+{"event": "Found Xray v26.3.27: Xray-linux-64.zip", "level": "info", "timestamp": "2026-04-09T14:16:26.177161Z"}
+{"event": "Failed to download/extract Xray: Cannot connect to host release-assets.githubusercontent.com:443 ssl:default [None]", "level": "error", "timestamp": "2026-04-09T14:16:31.538671Z"}
+{"event": "Failed to auto-download Xray", "level": "error", "timestamp": "2026-04-09T14:16:31.540964Z"}
+{"event": "Xray binary not found and auto-download failed. VLESS/Trojan/SS proxy tests will be skipped. Set XRAY_BINARY_PATH or install xray manually.", "level": "warning", "timestamp": "2026-04-09T14:16:31.541282Z"}
+{"event": "Using public API endpoint \u2014 server addresses not available. Set CHECKER_API_USERNAME and CHECKER_API_PASSWORD for full diagnostics.", "level": "warning", "timestamp": "2026-04-09T14:16:35.416846Z"}
+{"event": "Checker API unavailable (attempt 1/5), retrying in 5s: Cannot connect to host xray-checker:2112 ssl:default [Name or service not known]", "level": "warning", "timestamp": "2026-04-09T14:16:39.416796Z"}
+{"event": "Telegram notifier enabled", "level": "info", "timestamp": "2026-04-09T14:16:47.917121Z"}
+{"event": "Starting full analysis", "level": "info", "timestamp": "2026-04-09T14:16:47.917235Z"}
+{"event": "Fetching subscription from https://my.quazar.icu/s/Z1yk4HXnqzugjds2", "level": "info", "timestamp": "2026-04-09T14:16:47.917302Z"}
+{"event": "Fetched 10 proxies from subscription", "level": "info", "timestamp": "2026-04-09T14:16:48.338348Z"}
+{"event": "Loaded 10 proxies from subscription", "level": "info", "timestamp": "2026-04-09T14:16:48.338473Z"}
+{"event": "  Share: \ud83c\uddf5\ud83c\uddf1 \u041f\u043e\u043b\u044c\u0448\u0430 | pl.quazar.icu:443 | vless", "level": "info", "timestamp": "2026-04-09T14:16:48.338522Z"}
+{"event": "  Share: \ud83c\uddeb\ud83c\uddee \u0424\u0438\u043d\u043b\u044f\u043d\u0434\u0438\u044f | fn.quazar.icu:443 | vless", "level": "info", "timestamp": "2026-04-09T14:16:48.338573Z"}
+{"event": "  Share: \ud83c\uddfa\ud83c\uddf8 \u0421\u0428\u0410 | us.quazar.icu:443 | vless", "level": "info", "timestamp": "2026-04-09T14:16:48.338611Z"}
+{"event": "  Share: \ud83c\udde8\ud83c\udded \u0428\u0432\u0435\u0439\u0446\u0430\u0440\u0438\u044f | ch.quazar.icu:443 | vless", "level": "info", "timestamp": "2026-04-09T14:16:48.338646Z"}
+{"event": "  Share: \ud83c\uddf3\ud83c\uddf1 \u041d\u0438\u0434\u0435\u0440\u043b\u0430\u043d\u0434\u044b | nl.quazar.icu:443 | vless", "level": "info", "timestamp": "2026-04-09T14:16:48.338687Z"}
+{"event": "  Share: \ud83c\uddeb\ud83c\uddf7 \u0424\u0440\u0430\u043d\u0446\u0438\u044f | agaodfs.quazar.icu:443 | vless", "level": "info", "timestamp": "2026-04-09T14:16:48.338730Z"}
+{"event": "  Share: \ud83c\udde9\ud83c\uddea \u0413\u0435\u0440\u043c\u0430\u043d\u0438\u044f | de.quazar.icu:443 | vless", "level": "info", "timestamp": "2026-04-09T14:16:48.338765Z"}
+{"event": "  Share: \ud83c\uddea\ud83c\uddfa\u2014\u2014 \u0410\u0432\u0442\u043e\u0432\u044b\u0431\u043e\u0440\u044b \u2014\u2014 | virt.host:443 | vless", "level": "info", "timestamp": "2026-04-09T14:16:48.338800Z"}
+{"event": "  Share: \ud83c\uddef\ud83c\uddf5 \u0415\u0432\u0440\u043e\u043f\u0430 | virt.host:443 | vless", "level": "info", "timestamp": "2026-04-09T14:16:48.338835Z"}
+{"event": "  Share: \ud83c\uddea\ud83c\uddfa\u2014\u2014 \u0411\u0435\u043b\u044b\u0435 \u0441\u043f\u0438\u0441\u043a\u0438 \u2014\u2014 | virt.host:443 | vless", "level": "info", "timestamp": "2026-04-09T14:16:48.338868Z"}
+{"event": "Xray binary not found, downloading from GitHub...", "level": "info", "timestamp": "2026-04-09T14:16:48.338981Z"}
+{"event": "Downloading latest Xray core to /home/roman/.local/share/xray", "level": "info", "timestamp": "2026-04-09T14:16:48.339066Z"}
+{"event": "Found Xray v26.3.27: Xray-linux-64.zip", "level": "info", "timestamp": "2026-04-09T14:16:48.754818Z"}
+{"event": "Downloaded 20.2 MB", "level": "info", "timestamp": "2026-04-09T14:16:52.303738Z"}
+{"event": "Xray v26.3.27 installed to /home/roman/.local/share/xray/xray", "level": "info", "timestamp": "2026-04-09T14:16:52.456894Z"}
+{"event": "Xray available at: /home/roman/.local/share/xray/xray", "level": "info", "timestamp": "2026-04-09T14:16:52.457472Z"}
+{"event": "Got 10 proxies from full endpoint", "level": "info", "timestamp": "2026-04-09T14:16:52.458841Z"}
+{"event": "Found 1 offline proxies out of 10 total", "level": "info", "timestamp": "2026-04-09T14:16:52.458916Z"}
+{"event": "Analysis complete: 0 problematic out of 1 total", "level": "info", "timestamp": "2026-04-09T14:16:52.459023Z"}
+{"event": "Telegram notifier enabled", "level": "info", "timestamp": "2026-04-09T14:16:59.759388Z"}
+{"event": "Starting full analysis", "level": "info", "timestamp": "2026-04-09T14:16:59.759506Z"}
+{"event": "Fetching subscription from https://my.quazar.icu/s/Z1yk4HXnqzugjds2", "level": "info", "timestamp": "2026-04-09T14:16:59.759574Z"}
+{"event": "Fetched 10 proxies from subscription", "level": "info", "timestamp": "2026-04-09T14:17:05.041906Z"}
+{"event": "Loaded 10 proxies from subscription", "level": "info", "timestamp": "2026-04-09T14:17:05.042027Z"}
+{"event": "  Share: \ud83c\udde9\ud83c\uddea \u0413\u0435\u0440\u043c\u0430\u043d\u0438\u044f | de.quazar.icu:443 | vless", "level": "info", "timestamp": "2026-04-09T14:17:05.042076Z"}
+{"event": "  Share: \ud83c\uddfa\ud83c\uddf8 \u0421\u0428\u0410 | us.quazar.icu:443 | vless", "level": "info", "timestamp": "2026-04-09T14:17:05.042127Z"}
+{"event": "  Share: \ud83c\udde8\ud83c\udded \u0428\u0432\u0435\u0439\u0446\u0430\u0440\u0438\u044f | ch.quazar.icu:443 | vless", "level": "info", "timestamp": "2026-04-09T14:17:05.042164Z"}
+{"event": "  Share: \ud83c\uddeb\ud83c\uddf7 \u0424\u0440\u0430\u043d\u0446\u0438\u044f | agaodfs.quazar.icu:443 | vless", "level": "info", "timestamp": "2026-04-09T14:17:05.042207Z"}
+{"event": "  Share: \ud83c\uddeb\ud83c\uddee \u0424\u0438\u043d\u043b\u044f\u043d\u0434\u0438\u044f | fn.quazar.icu:443 | vless", "level": "info", "timestamp": "2026-04-09T14:17:05.042242Z"}
+{"event": "  Share: \ud83c\uddf3\ud83c\uddf1 \u041d\u0438\u0434\u0435\u0440\u043b\u0430\u043d\u0434\u044b | nl.quazar.icu:443 | vless", "level": "info", "timestamp": "2026-04-09T14:17:05.042276Z"}
+{"event": "  Share: \ud83c\uddf5\ud83c\uddf1 \u041f\u043e\u043b\u044c\u0448\u0430 | pl.quazar.icu:443 | vless", "level": "info", "timestamp": "2026-04-09T14:17:05.042309Z"}
+{"event": "  Share: \ud83c\uddea\ud83c\uddfa\u2014\u2014 \u0410\u0432\u0442\u043e\u0432\u044b\u0431\u043e\u0440\u044b \u2014\u2014 | virt.host:443 | vless", "level": "info", "timestamp": "2026-04-09T14:17:05.042346Z"}
+{"event": "  Share: \ud83c\uddef\ud83c\uddf5 \u0415\u0432\u0440\u043e\u043f\u0430 | virt.host:443 | vless", "level": "info", "timestamp": "2026-04-09T14:17:05.042388Z"}
+{"event": "  Share: \ud83c\uddea\ud83c\uddfa\u2014\u2014 \u0411\u0435\u043b\u044b\u0435 \u0441\u043f\u0438\u0441\u043a\u0438 \u2014\u2014 | virt.host:443 | vless", "level": "info", "timestamp": "2026-04-09T14:17:05.042422Z"}
+{"event": "Xray binary not found, downloading from GitHub...", "level": "info", "timestamp": "2026-04-09T14:17:05.042534Z"}
+{"event": "Downloading latest Xray core to /home/roman/.local/share/xray", "level": "info", "timestamp": "2026-04-09T14:17:05.042618Z"}
+{"event": "Found Xray v26.3.27: Xray-linux-64.zip", "level": "info", "timestamp": "2026-04-09T14:17:05.516739Z"}
+{"event": "Downloaded 20.2 MB", "level": "info", "timestamp": "2026-04-09T14:17:06.661523Z"}
+{"event": "Xray v26.3.27 installed to /home/roman/.local/share/xray/xray", "level": "info", "timestamp": "2026-04-09T14:17:06.813770Z"}
+{"event": "Xray available at: /home/roman/.local/share/xray/xray", "level": "info", "timestamp": "2026-04-09T14:17:06.814358Z"}
+{"event": "Got 10 proxies from full endpoint", "level": "info", "timestamp": "2026-04-09T14:17:06.815764Z"}
+{"event": "Found 4 offline proxies out of 10 total", "level": "info", "timestamp": "2026-04-09T14:17:06.815834Z"}
+{"event": "Analyzing proxy: \ud83c\uddf3\ud83c\uddf1 \u041d\u0438\u0434\u0435\u0440\u043b\u0430\u043d\u0434\u044b \u2192 nl.quazar.icu:443", "level": "info", "timestamp": "2026-04-09T14:17:06.815907Z"}
+{"host": "nl.quazar.icu", "port": 443, "duration_ms": 73.63, "event": "TCP connection successful", "level": "info", "timestamp": "2026-04-09T14:17:08.334959Z"}
+{"event": "Starting Xray for \ud83c\uddf3\ud83c\uddf1 \u041d\u0438\u0434\u0435\u0440\u043b\u0430\u043d\u0434\u044b (vless://nl.quazar.icu:443) on port 19304", "level": "info", "timestamp": "2026-04-09T14:17:08.927364Z"}
+{"event": "Xray ready for \ud83c\uddf3\ud83c\uddf1 \u041d\u0438\u0434\u0435\u0440\u043b\u0430\u043d\u0434\u044b on port 19304", "level": "info", "timestamp": "2026-04-09T14:17:16.936072Z"}
+{"event": "Main test failed for nl.quazar.icu, trying fallback with IP: 138.124.105.38", "level": "info", "timestamp": "2026-04-09T14:17:32.781104Z"}
+{"event": "Starting Xray for \ud83c\uddf3\ud83c\uddf1 \u041d\u0438\u0434\u0435\u0440\u043b\u0430\u043d\u0434\u044b (vless://138.124.105.38:443) on port 19600", "level": "info", "timestamp": "2026-04-09T14:17:32.781359Z"}
+{"event": "Xray ready for \ud83c\uddf3\ud83c\uddf1 \u041d\u0438\u0434\u0435\u0440\u043b\u0430\u043d\u0434\u044b on port 19600", "level": "info", "timestamp": "2026-04-09T14:17:40.788392Z"}
+{"event": "No working HTTP/SOCKS proxy found for cross-test", "level": "info", "timestamp": "2026-04-09T14:17:56.787184Z"}
+{"event": "Found working Xray proxy for cross-test: \ud83c\uddfa\ud83c\uddf8 \u0421\u0428\u0410", "level": "info", "timestamp": "2026-04-09T14:17:56.787303Z"}
+{"event": "Running 1 Xray cross-proxy tests", "level": "info", "timestamp": "2026-04-09T14:17:56.787435Z"}
+{"event": "Cross-test: checking nl.quazar.icu:443 via \ud83c\uddfa\ud83c\uddf8 \u0421\u0428\u0410 (vless)", "level": "info", "timestamp": "2026-04-09T14:17:56.787534Z"}
+{"event": "Starting Xray for \ud83c\uddfa\ud83c\uddf8 \u0421\u0428\u0410 (vless://us.quazar.icu:443) on port 19280", "level": "info", "timestamp": "2026-04-09T14:17:56.787708Z"}
+{"event": "Xray ready for \ud83c\uddfa\ud83c\uddf8 \u0421\u0428\u0410 on port 19280", "level": "info", "timestamp": "2026-04-09T14:18:04.796250Z"}
+{"event": "Xray cross-test nl.quazar.icu:443 via \ud83c\uddfa\ud83c\uddf8 \u0421\u0428\u0410: pass", "level": "info", "timestamp": "2026-04-09T14:18:05.490548Z"}
+{"event": "Analysis complete: 1 problematic out of 4 total", "level": "info", "timestamp": "2026-04-09T14:18:05.490677Z"}
+{"hosts_count": 1, "event": "Telegram notification sent", "level": "info", "timestamp": "2026-04-09T14:18:05.945715Z"}
+{"notifier": "TelegramNotifier", "event": "Notification sent successfully", "level": "info", "timestamp": "2026-04-09T14:18:05.946418Z"}
+2026-04-09 19:19:57,977 [INFO] notifier_manager: {"event": "Telegram notifier enabled", "level": "info", "timestamp": "2026-04-09T14:19:57.977601Z"}
+2026-04-09 19:19:57,979 [INFO] analyzer: {"event": "Starting full analysis", "level": "info", "timestamp": "2026-04-09T14:19:57.979080Z"}
+2026-04-09 19:19:57,979 [INFO] subscription_parser: {"event": "Fetching subscription from https://my.quazar.icu/s/Z1yk4HXnqzugjds2", "level": "info", "timestamp": "2026-04-09T14:19:57.979153Z"}
+2026-04-09 19:19:58,408 [INFO] subscription_parser: {"event": "Fetched 10 proxies from subscription", "level": "info", "timestamp": "2026-04-09T14:19:58.408389Z"}
+2026-04-09 19:19:58,408 [INFO] analyzer: {"event": "Loaded 10 proxies from subscription", "level": "info", "timestamp": "2026-04-09T14:19:58.408535Z"}
+2026-04-09 19:19:58,408 [INFO] analyzer: {"event": "  Share: \ud83c\uddeb\ud83c\uddf7 \u0424\u0440\u0430\u043d\u0446\u0438\u044f | agaodfs.quazar.icu:443 | vless", "level": "info", "timestamp": "2026-04-09T14:19:58.408588Z"}
+2026-04-09 19:19:58,408 [INFO] analyzer: {"event": "  Share: \ud83c\uddfa\ud83c\uddf8 \u0421\u0428\u0410 | us.quazar.icu:443 | vless", "level": "info", "timestamp": "2026-04-09T14:19:58.408639Z"}
+2026-04-09 19:19:58,408 [INFO] analyzer: {"event": "  Share: \ud83c\uddf5\ud83c\uddf1 \u041f\u043e\u043b\u044c\u0448\u0430 | pl.quazar.icu:443 | vless", "level": "info", "timestamp": "2026-04-09T14:19:58.408682Z"}
+2026-04-09 19:19:58,408 [INFO] analyzer: {"event": "  Share: \ud83c\uddf3\ud83c\uddf1 \u041d\u0438\u0434\u0435\u0440\u043b\u0430\u043d\u0434\u044b | nl.quazar.icu:443 | vless", "level": "info", "timestamp": "2026-04-09T14:19:58.408722Z"}
+2026-04-09 19:19:58,408 [INFO] analyzer: {"event": "  Share: \ud83c\udde9\ud83c\uddea \u0413\u0435\u0440\u043c\u0430\u043d\u0438\u044f | de.quazar.icu:443 | vless", "level": "info", "timestamp": "2026-04-09T14:19:58.408761Z"}
+2026-04-09 19:19:58,408 [INFO] analyzer: {"event": "  Share: \ud83c\udde8\ud83c\udded \u0428\u0432\u0435\u0439\u0446\u0430\u0440\u0438\u044f | ch.quazar.icu:443 | vless", "level": "info", "timestamp": "2026-04-09T14:19:58.408798Z"}
+2026-04-09 19:19:58,408 [INFO] analyzer: {"event": "  Share: \ud83c\uddeb\ud83c\uddee \u0424\u0438\u043d\u043b\u044f\u043d\u0434\u0438\u044f | fn.quazar.icu:443 | vless", "level": "info", "timestamp": "2026-04-09T14:19:58.408836Z"}
+2026-04-09 19:19:58,408 [INFO] analyzer: {"event": "  Share: \ud83c\uddea\ud83c\uddfa\u2014\u2014 \u0410\u0432\u0442\u043e\u0432\u044b\u0431\u043e\u0440\u044b \u2014\u2014 | virt.host:443 | vless", "level": "info", "timestamp": "2026-04-09T14:19:58.408872Z"}
+2026-04-09 19:19:58,408 [INFO] analyzer: {"event": "  Share: \ud83c\uddef\ud83c\uddf5 \u0415\u0432\u0440\u043e\u043f\u0430 | virt.host:443 | vless", "level": "info", "timestamp": "2026-04-09T14:19:58.408912Z"}
+2026-04-09 19:19:58,408 [INFO] analyzer: {"event": "  Share: \ud83c\uddea\ud83c\uddfa\u2014\u2014 \u0411\u0435\u043b\u044b\u0435 \u0441\u043f\u0438\u0441\u043a\u0438 \u2014\u2014 | virt.host:443 | vless", "level": "info", "timestamp": "2026-04-09T14:19:58.408950Z"}
+2026-04-09 19:19:58,409 [INFO] xray_downloader: {"event": "Xray binary not found, downloading from GitHub...", "level": "info", "timestamp": "2026-04-09T14:19:58.409065Z"}
+2026-04-09 19:19:58,409 [INFO] xray_downloader: {"event": "Downloading latest Xray core to /home/roman/.local/share/xray", "level": "info", "timestamp": "2026-04-09T14:19:58.409150Z"}
+2026-04-09 19:19:59,040 [INFO] xray_downloader: {"event": "Found Xray v26.3.27: Xray-linux-64.zip", "level": "info", "timestamp": "2026-04-09T14:19:59.040516Z"}
+2026-04-09 19:20:02,547 [INFO] xray_downloader: {"event": "Downloaded 20.2 MB", "level": "info", "timestamp": "2026-04-09T14:20:02.547751Z"}
+2026-04-09 19:20:02,705 [INFO] xray_downloader: {"event": "Xray v26.3.27 installed to /home/roman/.local/share/xray/xray", "level": "info", "timestamp": "2026-04-09T14:20:02.705159Z"}
+2026-04-09 19:20:02,705 [INFO] analyzer: {"event": "Xray available at: /home/roman/.local/share/xray/xray", "level": "info", "timestamp": "2026-04-09T14:20:02.705764Z"}
+2026-04-09 19:20:02,707 [INFO] analyzer: {"event": "Got 10 proxies from full endpoint", "level": "info", "timestamp": "2026-04-09T14:20:02.707111Z"}
+2026-04-09 19:20:02,707 [INFO] analyzer: {"event": "Found 4 offline proxies out of 10 total", "level": "info", "timestamp": "2026-04-09T14:20:02.707193Z"}
+2026-04-09 19:20:02,707 [INFO] analyzer: {"event": "Analyzing proxy: \ud83c\uddf3\ud83c\uddf1 \u041d\u0438\u0434\u0435\u0440\u043b\u0430\u043d\u0434\u044b \u2192 nl.quazar.icu:443", "level": "info", "timestamp": "2026-04-09T14:20:02.707273Z"}
+2026-04-09 19:20:04,158 [INFO] tcp_checker: {"host": "nl.quazar.icu", "port": 443, "duration_ms": 1.04, "event": "TCP connection successful", "level": "info", "timestamp": "2026-04-09T14:20:04.158685Z"}
+2026-04-09 19:20:04,509 [INFO] xray_manager: {"event": "Starting Xray for \ud83c\uddf3\ud83c\uddf1 \u041d\u0438\u0434\u0435\u0440\u043b\u0430\u043d\u0434\u044b (vless://nl.quazar.icu:443) on port 19120", "level": "info", "timestamp": "2026-04-09T14:20:04.509793Z"}
+2026-04-09 19:20:12,519 [INFO] xray_manager: {"event": "Xray ready for \ud83c\uddf3\ud83c\uddf1 \u041d\u0438\u0434\u0435\u0440\u043b\u0430\u043d\u0434\u044b on port 19120", "level": "info", "timestamp": "2026-04-09T14:20:12.519333Z"}
+2026-04-09 19:20:14,423 [INFO] analyzer: {"event": "No working HTTP/SOCKS proxy found for cross-test", "level": "info", "timestamp": "2026-04-09T14:20:14.423398Z"}
+2026-04-09 19:20:14,423 [INFO] analyzer: {"event": "Found working Xray proxy for cross-test: \ud83c\uddfa\ud83c\uddf8 \u0421\u0428\u0410", "level": "info", "timestamp": "2026-04-09T14:20:14.423514Z"}
+2026-04-09 19:20:14,423 [INFO] analyzer: {"event": "Analysis complete: 1 problematic out of 4 total", "level": "info", "timestamp": "2026-04-09T14:20:14.423664Z"}
+2026-04-09 19:20:14,803 [INFO] telegram_notifier: {"hosts_count": 1, "event": "Telegram notification sent", "level": "info", "timestamp": "2026-04-09T14:20:14.803184Z"}
+2026-04-09 19:20:14,803 [INFO] notifier_manager: {"notifier": "TelegramNotifier", "event": "Notification sent successfully", "level": "info", "timestamp": "2026-04-09T14:20:14.803524Z"}
+2026-04-09 19:20:46,735 [INFO] notifier_manager: {"event": "Telegram notifier enabled", "level": "info", "timestamp": "2026-04-09T14:20:46.735853Z"}
+2026-04-09 19:20:46,737 [INFO] analyzer: {"event": "Starting full analysis", "level": "info", "timestamp": "2026-04-09T14:20:46.737375Z"}
+2026-04-09 19:20:46,737 [INFO] subscription_parser: {"event": "Fetching subscription from https://my.quazar.icu/s/Z1yk4HXnqzugjds2", "level": "info", "timestamp": "2026-04-09T14:20:46.737449Z"}
+2026-04-09 19:20:46,985 [INFO] subscription_parser: {"event": "Fetched 10 proxies from subscription", "level": "info", "timestamp": "2026-04-09T14:20:46.985790Z"}
+2026-04-09 19:20:46,985 [INFO] analyzer: {"event": "Loaded 10 proxies from subscription", "level": "info", "timestamp": "2026-04-09T14:20:46.985927Z"}
+2026-04-09 19:20:46,985 [INFO] analyzer: {"event": "  Share: \ud83c\uddfa\ud83c\uddf8 \u0421\u0428\u0410 | us.quazar.icu:443 | vless", "level": "info", "timestamp": "2026-04-09T14:20:46.985982Z"}
+2026-04-09 19:20:46,986 [INFO] analyzer: {"event": "  Share: \ud83c\uddf5\ud83c\uddf1 \u041f\u043e\u043b\u044c\u0448\u0430 | pl.quazar.icu:443 | vless", "level": "info", "timestamp": "2026-04-09T14:20:46.986037Z"}
+2026-04-09 19:20:46,986 [INFO] analyzer: {"event": "  Share: \ud83c\udde8\ud83c\udded \u0428\u0432\u0435\u0439\u0446\u0430\u0440\u0438\u044f | ch.quazar.icu:443 | vless", "level": "info", "timestamp": "2026-04-09T14:20:46.986086Z"}
+2026-04-09 19:20:46,986 [INFO] analyzer: {"event": "  Share: \ud83c\uddf3\ud83c\uddf1 \u041d\u0438\u0434\u0435\u0440\u043b\u0430\u043d\u0434\u044b | nl.quazar.icu:443 | vless", "level": "info", "timestamp": "2026-04-09T14:20:46.986127Z"}
+2026-04-09 19:20:46,986 [INFO] analyzer: {"event": "  Share: \ud83c\udde9\ud83c\uddea \u0413\u0435\u0440\u043c\u0430\u043d\u0438\u044f | de.quazar.icu:443 | vless", "level": "info", "timestamp": "2026-04-09T14:20:46.986171Z"}
+2026-04-09 19:20:46,986 [INFO] analyzer: {"event": "  Share: \ud83c\uddeb\ud83c\uddf7 \u0424\u0440\u0430\u043d\u0446\u0438\u044f | agaodfs.quazar.icu:443 | vless", "level": "info", "timestamp": "2026-04-09T14:20:46.986231Z"}
+2026-04-09 19:20:46,986 [INFO] analyzer: {"event": "  Share: \ud83c\uddeb\ud83c\uddee \u0424\u0438\u043d\u043b\u044f\u043d\u0434\u0438\u044f | fn.quazar.icu:443 | vless", "level": "info", "timestamp": "2026-04-09T14:20:46.986283Z"}
+2026-04-09 19:20:46,986 [INFO] analyzer: {"event": "  Share: \ud83c\uddea\ud83c\uddfa\u2014\u2014 \u0410\u0432\u0442\u043e\u0432\u044b\u0431\u043e\u0440\u044b \u2014\u2014 | virt.host:443 | vless", "level": "info", "timestamp": "2026-04-09T14:20:46.986322Z"}
+2026-04-09 19:20:46,986 [INFO] analyzer: {"event": "  Share: \ud83c\uddef\ud83c\uddf5 \u0415\u0432\u0440\u043e\u043f\u0430 | virt.host:443 | vless", "level": "info", "timestamp": "2026-04-09T14:20:46.986362Z"}
+2026-04-09 19:20:46,986 [INFO] analyzer: {"event": "  Share: \ud83c\uddea\ud83c\uddfa\u2014\u2014 \u0411\u0435\u043b\u044b\u0435 \u0441\u043f\u0438\u0441\u043a\u0438 \u2014\u2014 | virt.host:443 | vless", "level": "info", "timestamp": "2026-04-09T14:20:46.986402Z"}
+2026-04-09 19:20:46,986 [INFO] xray_downloader: {"event": "Xray binary not found, downloading from GitHub...", "level": "info", "timestamp": "2026-04-09T14:20:46.986521Z"}
+2026-04-09 19:20:46,986 [INFO] xray_downloader: {"event": "Downloading latest Xray core to /home/roman/.local/share/xray", "level": "info", "timestamp": "2026-04-09T14:20:46.986607Z"}
+2026-04-09 19:20:47,470 [INFO] xray_downloader: {"event": "Found Xray v26.3.27: Xray-linux-64.zip", "level": "info", "timestamp": "2026-04-09T14:20:47.470672Z"}
+2026-04-09 19:20:48,531 [INFO] xray_downloader: {"event": "Downloaded 20.2 MB", "level": "info", "timestamp": "2026-04-09T14:20:48.531651Z"}
+2026-04-09 19:20:48,684 [INFO] xray_downloader: {"event": "Xray v26.3.27 installed to /home/roman/.local/share/xray/xray", "level": "info", "timestamp": "2026-04-09T14:20:48.684144Z"}
+2026-04-09 19:20:48,684 [INFO] analyzer: {"event": "Xray available at: /home/roman/.local/share/xray/xray", "level": "info", "timestamp": "2026-04-09T14:20:48.684719Z"}
+2026-04-09 19:20:48,686 [INFO] analyzer: {"event": "Got 10 proxies from full endpoint", "level": "info", "timestamp": "2026-04-09T14:20:48.686152Z"}
+2026-04-09 19:20:48,686 [INFO] analyzer: {"event": "Found 4 offline proxies out of 10 total", "level": "info", "timestamp": "2026-04-09T14:20:48.686229Z"}
+2026-04-09 19:20:48,686 [INFO] analyzer: {"event": "Analyzing proxy: \ud83c\uddf3\ud83c\uddf1 \u041d\u0438\u0434\u0435\u0440\u043b\u0430\u043d\u0434\u044b \u2192 nl.quazar.icu:443", "level": "info", "timestamp": "2026-04-09T14:20:48.686306Z"}
+2026-04-09 19:20:50,198 [INFO] tcp_checker: {"host": "nl.quazar.icu", "port": 443, "duration_ms": 77.51, "event": "TCP connection successful", "level": "info", "timestamp": "2026-04-09T14:20:50.198883Z"}
+2026-04-09 19:20:50,752 [INFO] xray_manager: {"event": "Starting Xray for \ud83c\uddf3\ud83c\uddf1 \u041d\u0438\u0434\u0435\u0440\u043b\u0430\u043d\u0434\u044b (vless://nl.quazar.icu:443) on port 19816", "level": "info", "timestamp": "2026-04-09T14:20:50.752759Z"}
+2026-04-09 19:20:58,755 [INFO] xray_manager: {"event": "Xray ready for \ud83c\uddf3\ud83c\uddf1 \u041d\u0438\u0434\u0435\u0440\u043b\u0430\u043d\u0434\u044b on port 19816", "level": "info", "timestamp": "2026-04-09T14:20:58.755352Z"}
+2026-04-09 19:21:13,782 [INFO] proxy_xray_checker: {"event": "Main test failed for nl.quazar.icu, trying fallback with IP: 138.124.105.38", "level": "info", "timestamp": "2026-04-09T14:21:13.782226Z"}
+2026-04-09 19:21:13,782 [INFO] xray_manager: {"event": "Starting Xray for \ud83c\uddf3\ud83c\uddf1 \u041d\u0438\u0434\u0435\u0440\u043b\u0430\u043d\u0434\u044b (vless://138.124.105.38:443) on port 19560", "level": "info", "timestamp": "2026-04-09T14:21:13.782523Z"}
+2026-04-09 19:21:21,791 [INFO] xray_manager: {"event": "Xray ready for \ud83c\uddf3\ud83c\uddf1 \u041d\u0438\u0434\u0435\u0440\u043b\u0430\u043d\u0434\u044b on port 19560", "level": "info", "timestamp": "2026-04-09T14:21:21.791319Z"}
+2026-04-09 19:21:37,787 [INFO] analyzer: {"event": "No working HTTP/SOCKS proxy found for cross-test", "level": "info", "timestamp": "2026-04-09T14:21:37.787149Z"}
+2026-04-09 19:21:37,787 [INFO] analyzer: {"event": "Found working Xray proxy for cross-test: \ud83c\uddeb\ud83c\uddee \u0424\u0438\u043d\u043b\u044f\u043d\u0434\u0438\u044f", "level": "info", "timestamp": "2026-04-09T14:21:37.787265Z"}
+2026-04-09 19:21:37,787 [INFO] analyzer: {"event": "Running 1 Xray cross-proxy tests", "level": "info", "timestamp": "2026-04-09T14:21:37.787419Z"}
+2026-04-09 19:21:37,787 [INFO] proxy_cross_checker: {"event": "Cross-test: checking nl.quazar.icu:443 via \ud83c\uddeb\ud83c\uddee \u0424\u0438\u043d\u043b\u044f\u043d\u0434\u0438\u044f (vless)", "level": "info", "timestamp": "2026-04-09T14:21:37.787515Z"}
+2026-04-09 19:21:37,787 [INFO] xray_manager: {"event": "Starting Xray for \ud83c\uddeb\ud83c\uddee \u0424\u0438\u043d\u043b\u044f\u043d\u0434\u0438\u044f (vless://fn.quazar.icu:443) on port 19200", "level": "info", "timestamp": "2026-04-09T14:21:37.787721Z"}
+2026-04-09 19:21:45,795 [INFO] xray_manager: {"event": "Xray ready for \ud83c\uddeb\ud83c\uddee \u0424\u0438\u043d\u043b\u044f\u043d\u0434\u0438\u044f on port 19200", "level": "info", "timestamp": "2026-04-09T14:21:45.795599Z"}
+2026-04-09 19:21:46,367 [INFO] analyzer: {"event": "Xray cross-test nl.quazar.icu:443 via \ud83c\uddeb\ud83c\uddee \u0424\u0438\u043d\u043b\u044f\u043d\u0434\u0438\u044f: pass", "level": "info", "timestamp": "2026-04-09T14:21:46.367003Z"}
+2026-04-09 19:21:46,367 [INFO] analyzer: {"event": "Analysis complete: 1 problematic out of 4 total", "level": "info", "timestamp": "2026-04-09T14:21:46.367125Z"}
+2026-04-09 19:21:46,763 [INFO] telegram_notifier: {"hosts_count": 1, "event": "Telegram notification sent", "level": "info", "timestamp": "2026-04-09T14:21:46.763323Z"}
+2026-04-09 19:21:46,763 [INFO] notifier_manager: {"notifier": "TelegramNotifier", "event": "Notification sent successfully", "level": "info", "timestamp": "2026-04-09T14:21:46.763873Z"}
+{"event": "Telegram notifier enabled", "level": "info", "timestamp": "2026-04-09T14:24:14.454259Z"}
+{"event": "Starting full analysis", "level": "info", "timestamp": "2026-04-09T14:24:14.455782Z"}
+{"event": "Fetching subscription from https://my.quazar.icu/s/Z1yk4HXnqzugjds2", "level": "info", "timestamp": "2026-04-09T14:24:14.455880Z"}
+{"event": "Fetched 10 proxies from subscription", "level": "info", "timestamp": "2026-04-09T14:24:15.415752Z"}
+{"event": "Loaded 10 proxies from subscription", "level": "info", "timestamp": "2026-04-09T14:24:15.415942Z"}
+{"event": "  Share: \ud83c\uddeb\ud83c\uddee \u0424\u0438\u043d\u043b\u044f\u043d\u0434\u0438\u044f | fn.quazar.icu:443 | vless", "level": "info", "timestamp": "2026-04-09T14:24:15.416035Z"}
+{"event": "  Share: \ud83c\uddfa\ud83c\uddf8 \u0421\u0428\u0410 | us.quazar.icu:443 | vless", "level": "info", "timestamp": "2026-04-09T14:24:15.416131Z"}
+{"event": "  Share: \ud83c\uddf3\ud83c\uddf1 \u041d\u0438\u0434\u0435\u0440\u043b\u0430\u043d\u0434\u044b | nl.quazar.icu:443 | vless", "level": "info", "timestamp": "2026-04-09T14:24:15.416225Z"}
+{"event": "  Share: \ud83c\uddf5\ud83c\uddf1 \u041f\u043e\u043b\u044c\u0448\u0430 | pl.quazar.icu:443 | vless", "level": "info", "timestamp": "2026-04-09T14:24:15.416306Z"}
+{"event": "  Share: \ud83c\udde9\ud83c\uddea \u0413\u0435\u0440\u043c\u0430\u043d\u0438\u044f | de.quazar.icu:443 | vless", "level": "info", "timestamp": "2026-04-09T14:24:15.416388Z"}
+{"event": "  Share: \ud83c\uddeb\ud83c\uddf7 \u0424\u0440\u0430\u043d\u0446\u0438\u044f | agaodfs.quazar.icu:443 | vless", "level": "info", "timestamp": "2026-04-09T14:24:15.416468Z"}
+{"event": "  Share: \ud83c\udde8\ud83c\udded \u0428\u0432\u0435\u0439\u0446\u0430\u0440\u0438\u044f | ch.quazar.icu:443 | vless", "level": "info", "timestamp": "2026-04-09T14:24:15.416549Z"}
+{"event": "  Share: \ud83c\uddea\ud83c\uddfa\u2014\u2014 \u0410\u0432\u0442\u043e\u0432\u044b\u0431\u043e\u0440\u044b \u2014\u2014 | virt.host:443 | vless", "level": "info", "timestamp": "2026-04-09T14:24:15.416633Z"}
+{"event": "  Share: \ud83c\uddef\ud83c\uddf5 \u0415\u0432\u0440\u043e\u043f\u0430 | virt.host:443 | vless", "level": "info", "timestamp": "2026-04-09T14:24:15.416717Z"}
+{"event": "  Share: \ud83c\uddea\ud83c\uddfa\u2014\u2014 \u0411\u0435\u043b\u044b\u0435 \u0441\u043f\u0438\u0441\u043a\u0438 \u2014\u2014 | virt.host:443 | vless", "level": "info", "timestamp": "2026-04-09T14:24:15.416799Z"}
+{"event": "Xray binary not found, downloading from GitHub...", "level": "info", "timestamp": "2026-04-09T14:24:15.417011Z"}
+{"event": "Downloading latest Xray core to /home/roman/.local/share/xray", "level": "info", "timestamp": "2026-04-09T14:24:15.417185Z"}
+{"event": "Found Xray v26.3.27: Xray-linux-64.zip", "level": "info", "timestamp": "2026-04-09T14:24:17.545858Z"}
+{"event": "Downloaded 20.2 MB", "level": "info", "timestamp": "2026-04-09T14:24:22.519613Z"}
+{"event": "Xray v26.3.27 installed to /home/roman/.local/share/xray/xray", "level": "info", "timestamp": "2026-04-09T14:24:22.673939Z"}
+{"event": "Xray available at: /home/roman/.local/share/xray/xray", "level": "info", "timestamp": "2026-04-09T14:24:22.674646Z"}
+{"event": "Got 10 proxies from full endpoint", "level": "info", "timestamp": "2026-04-09T14:24:22.676392Z"}
+{"event": "Found 4 offline proxies out of 10 total", "level": "info", "timestamp": "2026-04-09T14:24:22.676558Z"}
+{"event": "Analyzing proxy: \ud83c\uddf3\ud83c\uddf1 \u041d\u0438\u0434\u0435\u0440\u043b\u0430\u043d\u0434\u044b \u2192 nl.quazar.icu:443", "level": "info", "timestamp": "2026-04-09T14:24:22.676711Z"}
+{"host": "nl.quazar.icu", "port": 443, "duration_ms": 1.02, "event": "TCP connection successful", "level": "info", "timestamp": "2026-04-09T14:24:24.122762Z"}
+{"event": "Starting Xray for \ud83c\uddf3\ud83c\uddf1 \u041d\u0438\u0434\u0435\u0440\u043b\u0430\u043d\u0434\u044b (vless://nl.quazar.icu:443) on port 19120", "level": "info", "timestamp": "2026-04-09T14:24:24.486441Z"}
+{"event": "Xray ready for \ud83c\uddf3\ud83c\uddf1 \u041d\u0438\u0434\u0435\u0440\u043b\u0430\u043d\u0434\u044b on port 19120", "level": "info", "timestamp": "2026-04-09T14:24:32.494331Z"}
+{"event": "No working HTTP/SOCKS proxy found for cross-test", "level": "info", "timestamp": "2026-04-09T14:24:49.342315Z"}
+{"event": "Found working Xray proxy for cross-test: \ud83c\uddeb\ud83c\uddee \u0424\u0438\u043d\u043b\u044f\u043d\u0434\u0438\u044f", "level": "info", "timestamp": "2026-04-09T14:24:49.342475Z"}
+{"event": "Analysis complete: 1 problematic out of 4 total", "level": "info", "timestamp": "2026-04-09T14:24:49.342632Z"}
+{"hosts_count": 1, "event": "Telegram notification sent", "level": "info", "timestamp": "2026-04-09T14:24:49.747972Z"}
+{"notifier": "TelegramNotifier", "event": "Notification sent successfully", "level": "info", "timestamp": "2026-04-09T14:24:49.748375Z"}
+{"event": "Telegram notifier enabled", "level": "info", "timestamp": "2026-04-09T14:26:04.209064Z"}
+{"event": "Starting full analysis", "level": "info", "timestamp": "2026-04-09T14:26:04.209251Z"}
+{"event": "Fetching subscription from https://my.quazar.icu/s/Z1yk4HXnqzugjds2", "level": "info", "timestamp": "2026-04-09T14:26:04.209342Z"}
+{"event": "Fetched 10 proxies from subscription", "level": "info", "timestamp": "2026-04-09T14:26:04.689136Z"}
+{"event": "Loaded 10 proxies from subscription", "level": "info", "timestamp": "2026-04-09T14:26:04.689362Z"}
+{"event": "  Share: \ud83c\udde9\ud83c\uddea \u0413\u0435\u0440\u043c\u0430\u043d\u0438\u044f | de.quazar.icu:443 | vless", "level": "info", "timestamp": "2026-04-09T14:26:04.689470Z"}
+{"event": "  Share: \ud83c\uddf3\ud83c\uddf1 \u041d\u0438\u0434\u0435\u0440\u043b\u0430\u043d\u0434\u044b | nl.quazar.icu:443 | vless", "level": "info", "timestamp": "2026-04-09T14:26:04.689548Z"}
+{"event": "  Share: \ud83c\udde8\ud83c\udded \u0428\u0432\u0435\u0439\u0446\u0430\u0440\u0438\u044f | ch.quazar.icu:443 | vless", "level": "info", "timestamp": "2026-04-09T14:26:04.689619Z"}
+{"event": "  Share: \ud83c\uddf5\ud83c\uddf1 \u041f\u043e\u043b\u044c\u0448\u0430 | pl.quazar.icu:443 | vless", "level": "info", "timestamp": "2026-04-09T14:26:04.689693Z"}
+{"event": "  Share: \ud83c\uddeb\ud83c\uddee \u0424\u0438\u043d\u043b\u044f\u043d\u0434\u0438\u044f | fn.quazar.icu:443 | vless", "level": "info", "timestamp": "2026-04-09T14:26:04.689756Z"}
+{"event": "  Share: \ud83c\uddfa\ud83c\uddf8 \u0421\u0428\u0410 | us.quazar.icu:443 | vless", "level": "info", "timestamp": "2026-04-09T14:26:04.689814Z"}
+{"event": "  Share: \ud83c\uddeb\ud83c\uddf7 \u0424\u0440\u0430\u043d\u0446\u0438\u044f | agaodfs.quazar.icu:443 | vless", "level": "info", "timestamp": "2026-04-09T14:26:04.689873Z"}
+{"event": "  Share: \ud83c\uddea\ud83c\uddfa\u2014\u2014 \u0410\u0432\u0442\u043e\u0432\u044b\u0431\u043e\u0440\u044b \u2014\u2014 | virt.host:443 | vless", "level": "info", "timestamp": "2026-04-09T14:26:04.689934Z"}
+{"event": "  Share: \ud83c\uddef\ud83c\uddf5 \u0415\u0432\u0440\u043e\u043f\u0430 | virt.host:443 | vless", "level": "info", "timestamp": "2026-04-09T14:26:04.689992Z"}
+{"event": "  Share: \ud83c\uddea\ud83c\uddfa\u2014\u2014 \u0411\u0435\u043b\u044b\u0435 \u0441\u043f\u0438\u0441\u043a\u0438 \u2014\u2014 | virt.host:443 | vless", "level": "info", "timestamp": "2026-04-09T14:26:04.690054Z"}
+{"event": "Xray binary not found, downloading from GitHub...", "level": "info", "timestamp": "2026-04-09T14:26:04.690218Z"}
+{"event": "Downloading latest Xray core to /home/roman/.local/share/xray", "level": "info", "timestamp": "2026-04-09T14:26:04.690341Z"}
+{"event": "Found Xray v26.3.27: Xray-linux-64.zip", "level": "info", "timestamp": "2026-04-09T14:26:05.727175Z"}
+{"event": "Telegram notifier enabled", "level": "info", "timestamp": "2026-04-09T14:26:10.388834Z"}
+{"event": "Starting full analysis", "level": "info", "timestamp": "2026-04-09T14:26:10.388991Z"}
+{"event": "Fetching subscription from https://my.quazar.icu/s/Z1yk4HXnqzugjds2", "level": "info", "timestamp": "2026-04-09T14:26:10.389078Z"}
+{"event": "Fetched 10 proxies from subscription", "level": "info", "timestamp": "2026-04-09T14:26:10.809994Z"}
+{"event": "Loaded 10 proxies from subscription", "level": "info", "timestamp": "2026-04-09T14:26:10.810159Z"}
+{"event": "  Share: \ud83c\udde8\ud83c\udded \u0428\u0432\u0435\u0439\u0446\u0430\u0440\u0438\u044f | ch.quazar.icu:443 | vless", "level": "info", "timestamp": "2026-04-09T14:26:10.810234Z"}
+{"event": "  Share: \ud83c\uddeb\ud83c\uddee \u0424\u0438\u043d\u043b\u044f\u043d\u0434\u0438\u044f | fn.quazar.icu:443 | vless", "level": "info", "timestamp": "2026-04-09T14:26:10.810300Z"}
+{"event": "  Share: \ud83c\uddfa\ud83c\uddf8 \u0421\u0428\u0410 | us.quazar.icu:443 | vless", "level": "info", "timestamp": "2026-04-09T14:26:10.810361Z"}
+{"event": "  Share: \ud83c\uddf3\ud83c\uddf1 \u041d\u0438\u0434\u0435\u0440\u043b\u0430\u043d\u0434\u044b | nl.quazar.icu:443 | vless", "level": "info", "timestamp": "2026-04-09T14:26:10.810419Z"}
+{"event": "  Share: \ud83c\udde9\ud83c\uddea \u0413\u0435\u0440\u043c\u0430\u043d\u0438\u044f | de.quazar.icu:443 | vless", "level": "info", "timestamp": "2026-04-09T14:26:10.810477Z"}
+{"event": "  Share: \ud83c\uddf5\ud83c\uddf1 \u041f\u043e\u043b\u044c\u0448\u0430 | pl.quazar.icu:443 | vless", "level": "info", "timestamp": "2026-04-09T14:26:10.810533Z"}
+{"event": "  Share: \ud83c\uddeb\ud83c\uddf7 \u0424\u0440\u0430\u043d\u0446\u0438\u044f | agaodfs.quazar.icu:443 | vless", "level": "info", "timestamp": "2026-04-09T14:26:10.810589Z"}
+{"event": "  Share: \ud83c\uddea\ud83c\uddfa\u2014\u2014 \u0410\u0432\u0442\u043e\u0432\u044b\u0431\u043e\u0440\u044b \u2014\u2014 | virt.host:443 | vless", "level": "info", "timestamp": "2026-04-09T14:26:10.810644Z"}
+{"event": "  Share: \ud83c\uddef\ud83c\uddf5 \u0415\u0432\u0440\u043e\u043f\u0430 | virt.host:443 | vless", "level": "info", "timestamp": "2026-04-09T14:26:10.810699Z"}
+{"event": "  Share: \ud83c\uddea\ud83c\uddfa\u2014\u2014 \u0411\u0435\u043b\u044b\u0435 \u0441\u043f\u0438\u0441\u043a\u0438 \u2014\u2014 | virt.host:443 | vless", "level": "info", "timestamp": "2026-04-09T14:26:10.810761Z"}
+{"event": "Xray binary not found, downloading from GitHub...", "level": "info", "timestamp": "2026-04-09T14:26:10.810901Z"}
+{"event": "Downloading latest Xray core to /home/roman/.local/share/xray", "level": "info", "timestamp": "2026-04-09T14:26:10.811005Z"}
+{"event": "Found Xray v26.3.27: Xray-linux-64.zip", "level": "info", "timestamp": "2026-04-09T14:26:11.270162Z"}
+{"event": "Failed to download/extract Xray: Cannot connect to host release-assets.githubusercontent.com:443 ssl:default [None]", "level": "error", "timestamp": "2026-04-09T14:26:11.304568Z"}
+{"event": "Failed to auto-download Xray", "level": "error", "timestamp": "2026-04-09T14:26:11.305036Z"}
+{"event": "Xray binary not found and auto-download failed. VLESS/Trojan/SS proxy tests will be skipped. Set XRAY_BINARY_PATH or install xray manually.", "level": "warning", "timestamp": "2026-04-09T14:26:11.305121Z"}
+{"event": "Using public API endpoint \u2014 server addresses not available. Set CHECKER_API_USERNAME and CHECKER_API_PASSWORD for full diagnostics.", "level": "warning", "timestamp": "2026-04-09T14:26:14.916805Z"}
+{"event": "Downloaded 20.2 MB", "level": "info", "timestamp": "2026-04-09T14:26:17.874504Z"}
+{"event": "Xray v26.3.27 installed to /home/roman/.local/share/xray/xray", "level": "info", "timestamp": "2026-04-09T14:26:18.031148Z"}
+{"event": "Xray available at: /home/roman/.local/share/xray/xray", "level": "info", "timestamp": "2026-04-09T14:26:18.031798Z"}
+{"event": "Got 10 proxies from full endpoint", "level": "info", "timestamp": "2026-04-09T14:26:18.033177Z"}
+{"event": "Found 1 offline proxies out of 10 total", "level": "info", "timestamp": "2026-04-09T14:26:18.033280Z"}
+{"event": "Analysis complete: 0 problematic out of 1 total", "level": "info", "timestamp": "2026-04-09T14:26:18.033409Z"}
+{"event": "Checker API unavailable (attempt 1/5), retrying in 5s: Cannot connect to host xray-checker:2112 ssl:default [Name or service not known]", "level": "warning", "timestamp": "2026-04-09T14:26:18.916745Z"}
+{"event": "Using public API endpoint \u2014 server addresses not available. Set CHECKER_API_USERNAME and CHECKER_API_PASSWORD for full diagnostics.", "level": "warning", "timestamp": "2026-04-09T14:26:27.431355Z"}
+{"event": "Checker API unavailable (attempt 2/5), retrying in 5s: Cannot connect to host xray-checker:2112 ssl:default [Name or service not known]", "level": "warning", "timestamp": "2026-04-09T14:26:30.916707Z"}
+{"event": "Telegram notifier enabled", "level": "info", "timestamp": "2026-04-09T14:27:36.120456Z"}
+{"event": "Starting full analysis", "level": "info", "timestamp": "2026-04-09T14:27:36.120611Z"}
+{"event": "Fetching subscription from https://my.quazar.icu/s/Z1yk4HXnqzugjds2", "level": "info", "timestamp": "2026-04-09T14:27:36.120702Z"}
+{"event": "Fetched 10 proxies from subscription", "level": "info", "timestamp": "2026-04-09T14:27:36.369275Z"}
+{"event": "Loaded 10 proxies from subscription", "level": "info", "timestamp": "2026-04-09T14:27:36.369448Z"}
+{"event": "  Share: \ud83c\udde9\ud83c\uddea \u0413\u0435\u0440\u043c\u0430\u043d\u0438\u044f | de.quazar.icu:443 | vless", "level": "info", "timestamp": "2026-04-09T14:27:36.369518Z"}
+{"event": "  Share: \ud83c\uddfa\ud83c\uddf8 \u0421\u0428\u0410 | us.quazar.icu:443 | vless", "level": "info", "timestamp": "2026-04-09T14:27:36.369591Z"}
+{"event": "  Share: \ud83c\udde8\ud83c\udded \u0428\u0432\u0435\u0439\u0446\u0430\u0440\u0438\u044f | ch.quazar.icu:443 | vless", "level": "info", "timestamp": "2026-04-09T14:27:36.369658Z"}
+{"event": "  Share: \ud83c\uddeb\ud83c\uddee \u0424\u0438\u043d\u043b\u044f\u043d\u0434\u0438\u044f | fn.quazar.icu:443 | vless", "level": "info", "timestamp": "2026-04-09T14:27:36.369720Z"}
+{"event": "  Share: \ud83c\uddeb\ud83c\uddf7 \u0424\u0440\u0430\u043d\u0446\u0438\u044f | agaodfs.quazar.icu:443 | vless", "level": "info", "timestamp": "2026-04-09T14:27:36.369779Z"}
+{"event": "  Share: \ud83c\uddf5\ud83c\uddf1 \u041f\u043e\u043b\u044c\u0448\u0430 | pl.quazar.icu:443 | vless", "level": "info", "timestamp": "2026-04-09T14:27:36.369840Z"}
+{"event": "  Share: \ud83c\uddf3\ud83c\uddf1 \u041d\u0438\u0434\u0435\u0440\u043b\u0430\u043d\u0434\u044b | nl.quazar.icu:443 | vless", "level": "info", "timestamp": "2026-04-09T14:27:36.369906Z"}
+{"event": "  Share: \ud83c\uddea\ud83c\uddfa\u2014\u2014 \u0410\u0432\u0442\u043e\u0432\u044b\u0431\u043e\u0440\u044b \u2014\u2014 | virt.host:443 | vless", "level": "info", "timestamp": "2026-04-09T14:27:36.369964Z"}
+{"event": "  Share: \ud83c\uddef\ud83c\uddf5 \u0415\u0432\u0440\u043e\u043f\u0430 | virt.host:443 | vless", "level": "info", "timestamp": "2026-04-09T14:27:36.370021Z"}
+{"event": "  Share: \ud83c\uddea\ud83c\uddfa\u2014\u2014 \u0411\u0435\u043b\u044b\u0435 \u0441\u043f\u0438\u0441\u043a\u0438 \u2014\u2014 | virt.host:443 | vless", "level": "info", "timestamp": "2026-04-09T14:27:36.370082Z"}
+{"event": "Xray binary not found, downloading from GitHub...", "level": "info", "timestamp": "2026-04-09T14:27:36.370224Z"}
+{"event": "Downloading latest Xray core to /home/roman/.local/share/xray", "level": "info", "timestamp": "2026-04-09T14:27:36.370330Z"}
+{"event": "Found Xray v26.3.27: Xray-linux-64.zip", "level": "info", "timestamp": "2026-04-09T14:27:36.843326Z"}
+{"event": "Downloaded 20.2 MB", "level": "info", "timestamp": "2026-04-09T14:27:37.890184Z"}
+{"event": "Xray v26.3.27 installed to /home/roman/.local/share/xray/xray", "level": "info", "timestamp": "2026-04-09T14:27:38.043990Z"}
+{"event": "Xray available at: /home/roman/.local/share/xray/xray", "level": "info", "timestamp": "2026-04-09T14:27:38.044605Z"}
+{"event": "Got 10 proxies from full endpoint", "level": "info", "timestamp": "2026-04-09T14:27:38.045973Z"}
+{"event": "Found 4 offline proxies out of 10 total", "level": "info", "timestamp": "2026-04-09T14:27:38.046070Z"}
+{"event": "Analyzing proxy: \ud83c\uddf3\ud83c\uddf1 \u041d\u0438\u0434\u0435\u0440\u043b\u0430\u043d\u0434\u044b \u2192 nl.quazar.icu:443", "level": "info", "timestamp": "2026-04-09T14:27:38.046168Z"}
+{"host": "nl.quazar.icu", "port": 443, "duration_ms": 74.78, "event": "TCP connection successful", "level": "info", "timestamp": "2026-04-09T14:27:48.855360Z"}
+{"event": "Starting Xray for \ud83c\uddf3\ud83c\uddf1 \u041d\u0438\u0434\u0435\u0440\u043b\u0430\u043d\u0434\u044b (vless://nl.quazar.icu:443) on port 19512", "level": "info", "timestamp": "2026-04-09T14:27:49.497164Z"}
+{"event": "Xray ready for \ud83c\uddf3\ud83c\uddf1 \u041d\u0438\u0434\u0435\u0440\u043b\u0430\u043d\u0434\u044b on port 19512", "level": "info", "timestamp": "2026-04-09T14:27:57.502309Z"}
+{"event": "Main test failed for nl.quazar.icu, trying fallback with IP: 138.124.105.38", "level": "info", "timestamp": "2026-04-09T14:28:12.772220Z"}
+{"event": "Starting Xray for \ud83c\uddf3\ud83c\uddf1 \u041d\u0438\u0434\u0435\u0440\u043b\u0430\u043d\u0434\u044b (vless://138.124.105.38:443) on port 19336", "level": "info", "timestamp": "2026-04-09T14:28:12.772510Z"}
+{"event": "Xray ready for \ud83c\uddf3\ud83c\uddf1 \u041d\u0438\u0434\u0435\u0440\u043b\u0430\u043d\u0434\u044b on port 19336", "level": "info", "timestamp": "2026-04-09T14:28:20.779284Z"}
+{"event": "No working HTTP/SOCKS proxy found for cross-test", "level": "info", "timestamp": "2026-04-09T14:28:36.779373Z"}
+{"event": "Found working Xray proxy for cross-test: \ud83c\uddeb\ud83c\uddf7 \u0424\u0440\u0430\u043d\u0446\u0438\u044f", "level": "info", "timestamp": "2026-04-09T14:28:36.779511Z"}
+{"event": "Running 1 Xray cross-proxy tests", "level": "info", "timestamp": "2026-04-09T14:28:36.779644Z"}
+{"event": "Cross-test: checking nl.quazar.icu:443 via \ud83c\uddeb\ud83c\uddf7 \u0424\u0440\u0430\u043d\u0446\u0438\u044f (vless)", "level": "info", "timestamp": "2026-04-09T14:28:36.779746Z"}
+{"event": "Starting Xray for \ud83c\uddeb\ud83c\uddf7 \u0424\u0440\u0430\u043d\u0446\u0438\u044f (vless://agaodfs.quazar.icu:443) on port 19816", "level": "info", "timestamp": "2026-04-09T14:28:36.779950Z"}
+{"event": "Xray ready for \ud83c\uddeb\ud83c\uddf7 \u0424\u0440\u0430\u043d\u0446\u0438\u044f on port 19816", "level": "info", "timestamp": "2026-04-09T14:28:44.789359Z"}
+{"event": "Xray cross-test nl.quazar.icu:443 via \ud83c\uddeb\ud83c\uddf7 \u0424\u0440\u0430\u043d\u0446\u0438\u044f: pass", "level": "info", "timestamp": "2026-04-09T14:28:45.022264Z"}
+{"event": "Analysis complete: 1 problematic out of 4 total", "level": "info", "timestamp": "2026-04-09T14:28:45.022421Z"}
+{"hosts_count": 1, "event": "Telegram notification sent", "level": "info", "timestamp": "2026-04-09T14:28:45.407820Z"}
+{"notifier": "TelegramNotifier", "event": "Notification sent successfully", "level": "info", "timestamp": "2026-04-09T14:28:45.408198Z"}

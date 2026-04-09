@@ -150,9 +150,7 @@ async def check_tcp_connection(host: str, port: int) -> DiagnosticResult:
         )
 
 
-def _handle_os_error(
-    e: OSError, host: str, port: int
-) -> tuple[CheckSeverity, str, list[str]]:
+def _handle_os_error(e: OSError, host: str, port: int) -> tuple[CheckSeverity, str, list[str]]:
     """Handle specific OSError codes and return severity, message, recommendations."""
     error_code = e.errno
 

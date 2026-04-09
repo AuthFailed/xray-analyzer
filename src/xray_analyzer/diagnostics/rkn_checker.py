@@ -1,6 +1,7 @@
-"""RKN (Roskomnadzor) domain blocking check."""
+"""RKN (Roskomnadzor) domain and IP blocking check."""
 
 import asyncio
+import ipaddress
 from typing import Any
 from urllib.parse import urlparse
 
@@ -15,9 +16,12 @@ log = get_logger("rkn_checker")
 
 async def check_rkn_blocking(domain: str) -> DiagnosticResult:
     """
-    Check if a domain is blocked by Roskomnadzor using rknweb.ru API.
+    Check if a domain or IP is blocked by Roskomnadzor using rknweb.ru API.
 
-    Returns warning if domain is in the blocking list.
+    Supports both domain names and IP addresses.
+    For IPs, uses the /v3/ips/ endpoint; for domains, uses /v3/domains/.
+
+    Returns warning if domain/IP is in the blocking list.
     """
     if not settings.rkn_check_enabled:
         return DiagnosticResult(
@@ -27,16 +31,25 @@ async def check_rkn_blocking(domain: str) -> DiagnosticResult:
             message="RKN block check is disabled in configuration",
         )
 
+    # Determine if input is an IP or domain
+    is_ip = _is_ip_address(domain)
+
     start_time = asyncio.get_event_loop().time()
-    log.debug("Checking RKN blocking", domain=domain)
+    log.debug("Checking RKN blocking", domain=domain, is_ip=is_ip)
 
     try:
         async with aiohttp.ClientSession() as session:
-            # rknweb.ru API endpoint
             base_url = settings.rkn_api_url.rstrip("/")
-            # If base already has /api, just add the version path
-            api_url = f"{base_url}/v3/domains/" if base_url.endswith("/api") else f"{base_url}/api/v3/domains/"
-            params = {"domain": domain}
+
+            # Choose endpoint based on input type
+            if is_ip:
+                api_url = f"{base_url}/v3/ips/" if base_url.endswith("/api") else f"{base_url}/api/v3/ips/"
+                params = {"ip": domain}
+                check_type = "IP"
+            else:
+                api_url = f"{base_url}/v3/domains/" if base_url.endswith("/api") else f"{base_url}/api/v3/domains/"
+                params = {"domain": domain}
+                check_type = "Domain"
 
             async with session.get(
                 api_url,
@@ -57,8 +70,8 @@ async def check_rkn_blocking(domain: str) -> DiagnosticResult:
                         check_name="RKN Block Check",
                         status=CheckStatus.SKIP,
                         severity=CheckSeverity.INFO,
-                        message="RKN API недоступен — проверка пропущена",
-                        details={"domain": domain},
+                        message=f"RKN API недоступен — проверка {check_type} пропущена",
+                        details={check_type.lower(): domain},
                     )
 
                 data = await response.json()
@@ -78,16 +91,16 @@ async def check_rkn_blocking(domain: str) -> DiagnosticResult:
                         check_name="RKN Block Check",
                         status=CheckStatus.FAIL,
                         severity=CheckSeverity.CRITICAL,
-                        message=f"Домен {domain} заблокирован Роскомнадзором",
+                        message=f"{check_type} {domain} заблокирован Роскомнадзором",
                         details={
-                            "domain": domain,
+                            check_type.lower(): domain,
                             "is_blocked": True,
                             "rkn_response": data,
                             "duration_ms": round(duration_ms, 2),
                         },
                         recommendations=[
-                            f"Домен {domain} находится в реестре заблокированных",
-                            "Используйте другой домен или зеркало сервера",
+                            f"{check_type} {domain} находится в реестре заблокированных",
+                            "Используйте другой домен/IP или зеркало сервера",
                             "Рассмотрите использование VPN или прокси для обхода блокировки",
                             "Проверьте актуальный статус блокировки в реестре rkn.gov.ru",
                         ],
@@ -97,9 +110,9 @@ async def check_rkn_blocking(domain: str) -> DiagnosticResult:
                         check_name="RKN Block Check",
                         status=CheckStatus.PASS,
                         severity=CheckSeverity.INFO,
-                        message=f"Домен {domain} не заблокирован Роскомнадзором",
+                        message=f"{check_type} {domain} не заблокирован Роскомнадзором",
                         details={
-                            "domain": domain,
+                            check_type.lower(): domain,
                             "is_blocked": False,
                             "rkn_response": data,
                             "duration_ms": round(duration_ms, 2),
@@ -190,6 +203,15 @@ async def check_rkn_blocking(domain: str) -> DiagnosticResult:
         )
 
 
+def _is_ip_address(value: str) -> bool:
+    """Check if a string is an IP address (IPv4 or IPv6)."""
+    try:
+        ipaddress.ip_address(value)
+        return True
+    except ValueError:
+        return False
+
+
 def _parse_rkn_response(data: dict[str, Any]) -> bool:
     """
     Parse RKN API response to determine if domain is blocked.
@@ -231,9 +253,7 @@ def _parse_rkn_response(data: dict[str, Any]) -> bool:
             return bool(data[key])
 
     # If response indicates success but no blocking info, assume not blocked
-    if data.get("success") is True and not any(
-        k in data for k in ("blocked", "status", "result")
-    ):
+    if data.get("success") is True and not any(k in data for k in ("blocked", "status", "result")):
         return False
 
     # Default: if we can't determine, assume not blocked (conservative approach)

@@ -3,7 +3,8 @@
     "allow": [
       "WebFetch(xray-checker.kutovoy.dev)",
       "Bash(uv *)",
-      "Bash(curl *)"
+      "Bash(curl *)",
+      "Bash(base64 *)"
     ]
   },
   "$version": 3

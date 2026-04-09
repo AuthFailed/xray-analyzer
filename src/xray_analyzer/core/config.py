@@ -1,6 +1,5 @@
 """Configuration management using pydantic-settings."""
 
-
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -26,9 +25,20 @@ class Settings(BaseSettings):
     tunnel_test_url: str = "https://httpbin.org/ip"
     tunnel_test_enabled: bool = True
 
+    # Check-Host.net API
+    check_host_api_key: str = ""
+
+    # Proxy Status/IP Check URLs
+    proxy_status_check_url: str = "http://cp.cloudflare.com/generate_204"
+    proxy_ip_check_url: str = "https://api.ipify.org?format=text"
+
     # RKN Check
     rkn_api_url: str = Field(default="https://rknweb.ru/api")
     rkn_check_enabled: bool = True
+
+    # Proxy SNI Check
+    proxy_sni_test_enabled: bool = True
+    proxy_sni_domain: str = "max.ru"
 
     # Logging
     log_level: str = "INFO"
@@ -44,6 +54,12 @@ class Settings(BaseSettings):
 
     # Analysis scope
     analyze_online_proxies: bool = False
+
+    # Xray core for VLESS/Trojan/SS testing
+    xray_binary_path: str = "xray"  # Path to xray binary (or "xray" if in PATH)
+    xray_test_enabled: bool = True
+    subscription_url: str = ""  # Subscription URL with VLESS/Trojan/SS share links
+    subscription_hwid: str = ""  # HWID header for subscription (x-hwid)
 
     @property
     def is_api_protected(self) -> bool:
