@@ -59,6 +59,7 @@ def setup_logging() -> None:
     root_logger.addHandler(console_handler)
     root_logger.addHandler(file_handler)
     root_logger.setLevel(log_level)
+    root_logger.propagate = False
 
     # Silence third-party noisy loggers
     for name in ("aiohttp", "asyncio"):

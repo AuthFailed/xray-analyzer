@@ -180,7 +180,30 @@ async def _perform_throttle_check(
                     "proxy": proxy_url or "direct",
                 }
 
-                # Detect throttle pattern: 14-22KB received, then timeout/disconnect
+                # CASE 1: Timeout with 0 bytes → IP is fully blocked (not throttle)
+                if total_bytes == 0 and timed_out:
+                    log.info(
+                        "RKN check: IP fully blocked (0 bytes, timeout)",
+                        target=target,
+                    )
+
+                    return DiagnosticResult(
+                        check_name=check_name,
+                        status=CheckStatus.FAIL,
+                        severity=CheckSeverity.CRITICAL,
+                        message=(
+                            f"IP полностью заблокирован: соединение зависло, 0 байт получено "
+                            f"за {RKN_THROTTLE_TIMEOUT}s — сервер не отвечает"
+                        ),
+                        details=details,
+                        recommendations=[
+                            "IP-адрес сервера заблокирован РКН — соединение не устанавливается",
+                            "Смените IP-адрес сервера на новый из другой подсети",
+                            "Или прокиньте мост через рабочий прокси до этого сервера",
+                        ],
+                    )
+
+                # CASE 2: 14-22KB received → DPI throttle pattern
                 is_throttled = RKN_THROTTLE_MIN_BYTES <= total_bytes <= RKN_THROTTLE_MAX_BYTES and (
                     timed_out or response.status != 206
                 )
@@ -247,21 +270,26 @@ async def _perform_throttle_check(
 
     except TimeoutError:
         duration_ms = (asyncio.get_event_loop().time() - start_time) * 1000
-        log.error("RKN throttle check timeout", target=target)
+        log.error("RKN throttle check timeout (connection not established)", target=target)
 
         return DiagnosticResult(
             check_name=check_name,
-            status=CheckStatus.TIMEOUT,
-            severity=CheckSeverity.ERROR,
-            message=f"Превышено время ожидания при проверке RKN throttle ({RKN_THROTTLE_TIMEOUT}s)",
+            status=CheckStatus.FAIL,
+            severity=CheckSeverity.CRITICAL,
+            message=(
+                f"IP полностью заблокирован: не удалось установить соединение "
+                f"за {RKN_THROTTLE_TIMEOUT}s — сервер не отвечает"
+            ),
             details={
                 "target": target,
                 "timeout_seconds": RKN_THROTTLE_TIMEOUT,
                 "duration_ms": round(duration_ms, 2),
+                "bytes_received": 0,
             },
             recommendations=[
-                "Не удалось завершить проверку — таймаут соединения",
-                "Возможно, сервер полностью заблокирован",
+                "IP-адрес сервера заблокирован РКН — соединение не устанавливается",
+                "Смените IP-адрес сервера на новый из другой подсети",
+                "Или прокиньте мост через рабочий прокси до этого сервера",
             ],
         )
 
