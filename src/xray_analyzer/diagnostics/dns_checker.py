@@ -199,20 +199,15 @@ async def check_dns_with_checkhost(host: str) -> DiagnosticResult:
             )
         else:
             # No common IPs - possible DNS poisoning or geo-blocking
+            # Local DNS resolves, so it's not a failure — just a geo-blocking indicator
             return DiagnosticResult(
                 check_name="DNS Resolution (Check-Host)",
-                status=CheckStatus.FAIL,
+                status=CheckStatus.PASS,
                 severity=CheckSeverity.WARNING,
                 message=(
                     f"DNS для {host}: локальные IP не совпадают с Check-Host (возможно DNS poisoning или geo-blocking)"
                 ),
                 details=details,
-                recommendations=[
-                    "Локальный DNS возвращает IP, отличные от Check-Host.net",
-                    "Возможна DNS-подмена или geo-блокировка",
-                    "Проверьте: dig @8.8.8.8 <домен> и сравните с dig <домен>",
-                    "Попробуйте использовать публичные DNS (8.8.8.8, 1.1.1.1)",
-                ],
             )
     elif not local_success and checkhost_success:
         # Local DNS fails but Check-Host resolves - DNS issue

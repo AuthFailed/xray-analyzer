@@ -66,6 +66,30 @@ async def check_proxy_via_xray(
         ip_results = await _run_xray_tests(ip_share, label_suffix=f" (IP: {fallback_server_ip})")
         results.extend(ip_results)
 
+        # If fallback IP tests succeeded, replace failed domain results
+        ip_connectivity = next((r for r in ip_results if r.check_name.startswith("Proxy Xray Connectivity")), None)
+        if ip_connectivity and ip_connectivity.status == CheckStatus.PASS:
+            # Remove failed domain tests and keep only the successful IP fallback results
+            results = [r for r in results if r.status not in {CheckStatus.FAIL, CheckStatus.TIMEOUT}]
+            # Add a note that domain test failed but IP worked
+            results.insert(
+                0,
+                DiagnosticResult(
+                    check_name="Proxy Xray Connectivity",
+                    status=CheckStatus.PASS,
+                    severity=CheckSeverity.WARNING,
+                    message=(
+                        f"Домен {share.server} не отвечал, но IP {fallback_server_ip} работает "
+                        f"(возможно DNS/geo-blocking). Прокси рабочий."
+                    ),
+                    details={
+                        "domain": share.server,
+                        "fallback_ip": fallback_server_ip,
+                        "http_status": ip_connectivity.details.get("http_status"),
+                    },
+                ),
+            )
+
     return results
 
 

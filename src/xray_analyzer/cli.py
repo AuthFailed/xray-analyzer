@@ -13,7 +13,10 @@ from xray_analyzer.core.analyzer import XrayAnalyzer
 from xray_analyzer.core.config import settings
 from xray_analyzer.core.logger import get_logger, setup_logging
 from xray_analyzer.core.models import CheckSeverity, CheckStatus, HostDiagnostic
+from xray_analyzer.core.standalone_analyzer import analyze_subscription_proxies
 from xray_analyzer.core.xray_client import XrayCheckerClient
+from xray_analyzer.diagnostics.subscription_parser import fetch_subscription
+from xray_analyzer.diagnostics.xray_downloader import ensure_xray
 
 log = get_logger("cli")
 console = Console()
@@ -36,6 +39,82 @@ def create_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Continuously monitor proxies at configured interval",
     )
+    # Standalone mode options (run without .env configuration)
+    analyze_parser.add_argument(
+        "--subscription-url",
+        type=str,
+        help="Subscription URL with VLESS/Trojan/SS share links (overrides SUBSCRIPTION_URL)",
+    )
+    analyze_parser.add_argument(
+        "--subscription-hwid",
+        type=str,
+        help="HWID header for subscription (overrides SUBSCRIPTION_HWID)",
+    )
+    analyze_parser.add_argument(
+        "--checker-api-url",
+        type=str,
+        help="Xray Checker API URL (overrides CHECKER_API_URL)",
+    )
+    analyze_parser.add_argument(
+        "--checker-api-username",
+        type=str,
+        help="Basic auth username (overrides CHECKER_API_USERNAME)",
+    )
+    analyze_parser.add_argument(
+        "--checker-api-password",
+        type=str,
+        help="Basic auth password (overrides CHECKER_API_PASSWORD)",
+    )
+    analyze_parser.add_argument(
+        "--analyze-online",
+        action="store_true",
+        help="Analyze all proxies including online ones (overrides ANALYZE_ONLINE_PROXIES)",
+    )
+    analyze_parser.add_argument(
+        "--no-xray",
+        action="store_true",
+        help="Disable Xray-based proxy testing (overrides XRAY_TEST_ENABLED)",
+    )
+    analyze_parser.add_argument(
+        "--no-rkn-throttle",
+        action="store_true",
+        help="Disable RKN DPI throttle detection (overrides RKN_THROTTLE_CHECK_ENABLED)",
+    )
+    analyze_parser.add_argument(
+        "--no-sni",
+        action="store_true",
+        help="Disable SNI connection test (overrides PROXY_SNI_TEST_ENABLED)",
+    )
+    analyze_parser.add_argument(
+        "--rkn-check",
+        action="store_true",
+        help="Enable RKN blocking checks (overrides RKN_CHECK_ENABLED)",
+    )
+    analyze_parser.add_argument(
+        "--check-host-api-key",
+        type=str,
+        help="API key for Check-Host.net (overrides CHECK_HOST_API_KEY)",
+    )
+    analyze_parser.add_argument(
+        "--proxy-status-url",
+        type=str,
+        help="URL for proxy status verification (overrides PROXY_STATUS_CHECK_URL)",
+    )
+    analyze_parser.add_argument(
+        "--proxy-ip-url",
+        type=str,
+        help="URL for exit IP verification (overrides PROXY_IP_CHECK_URL)",
+    )
+    analyze_parser.add_argument(
+        "--sni-domain",
+        type=str,
+        help="Domain for SNI testing (overrides PROXY_SNI_DOMAIN)",
+    )
+    analyze_parser.add_argument(
+        "--interval",
+        type=int,
+        help="Check interval in seconds for --watch mode (overrides CHECK_INTERVAL_SECONDS)",
+    )
 
     # check command
     check_parser = subparsers.add_parser("check", help="Check a single host")
@@ -48,8 +127,64 @@ def create_parser() -> argparse.ArgumentParser:
     return parser
 
 
-async def cmd_analyze(watch: bool = False) -> int:
+async def cmd_analyze(args: argparse.Namespace) -> int:
     """Run full analysis command."""
+    # Apply CLI overrides to settings
+    _apply_cli_overrides(args)
+
+    # Determine if we're running in standalone mode (subscription URL only, no checker API)
+    is_standalone = (
+        settings.subscription_url and not settings.checker_api_username and not settings.checker_api_password
+    )
+
+    if is_standalone:
+        return await _run_standalone_analysis()
+    else:
+        return await _run_full_analysis_with_checker(args.watch)
+
+
+async def _run_standalone_analysis() -> int:
+    """Run analysis using only subscription URL without checker API."""
+    console.print("[bold blue]Running in standalone mode (subscription only, no checker API)[/bold blue]\n")
+
+    try:
+        # Ensure Xray is available if testing VLESS/Trojan/SS
+        if settings.xray_test_enabled:
+            console.print("[dim]Checking Xray binary...[/dim]")
+            xray_path = await ensure_xray(settings.xray_binary_path)
+            if xray_path:
+                settings.xray_binary_path = xray_path
+                console.print(f"[green]✓ Xray available at: {xray_path}[/green]\n")
+            else:
+                console.print("[yellow]⚠ Xray not found — VLESS/Trojan/SS tests will be skipped[/yellow]\n")
+                settings.xray_test_enabled = False
+
+        # Fetch subscription proxies
+        console.print("[dim]Fetching subscription...[/dim]")
+        shares = await fetch_subscription(
+            settings.subscription_url,
+            hwid=settings.subscription_hwid,
+        )
+        console.print(f"[green]✓ Loaded {len(shares)} proxies from subscription[/green]\n")
+
+        if not shares:
+            console.print("[yellow]No proxies found in subscription[/yellow]")
+            return 0
+
+        # Run diagnostics on all proxies
+        console.print(f"[bold]Testing {len(shares)} proxies...[/bold]\n")
+        diagnostics = await analyze_subscription_proxies(shares)
+        _print_analysis_results(diagnostics)
+        return 0
+
+    except Exception as e:
+        error_console.print(f"[bold red]Error: {e}[/bold red]")
+        log.error("Standalone analysis failed", error=str(e))
+        return 1
+
+
+async def _run_full_analysis_with_checker(watch: bool = False) -> int:
+    """Run analysis with checker API."""
     analyzer = XrayAnalyzer()
 
     try:
@@ -71,6 +206,61 @@ async def cmd_analyze(watch: bool = False) -> int:
         return 1
     finally:
         await analyzer.close()
+
+
+def _apply_cli_overrides(args: argparse.Namespace) -> None:
+    """Apply CLI argument overrides to the global settings object."""
+    # Xray Checker API
+    if hasattr(args, "checker_api_url") and args.checker_api_url:
+        settings.checker_api_url = args.checker_api_url
+    if hasattr(args, "checker_api_username") and args.checker_api_username:
+        settings.checker_api_username = args.checker_api_username
+    if hasattr(args, "checker_api_password") and args.checker_api_password:
+        settings.checker_api_password = args.checker_api_password
+
+    # Subscription
+    if hasattr(args, "subscription_url") and args.subscription_url:
+        settings.subscription_url = args.subscription_url
+    if hasattr(args, "subscription_hwid") and args.subscription_hwid:
+        settings.subscription_hwid = args.subscription_hwid
+
+    # Analysis scope
+    if hasattr(args, "analyze_online") and args.analyze_online:
+        settings.analyze_online_proxies = True
+
+    # Xray testing
+    if hasattr(args, "no_xray") and args.no_xray:
+        settings.xray_test_enabled = False
+
+    # RKN throttle check
+    if hasattr(args, "no_rkn_throttle") and args.no_rkn_throttle:
+        settings.rkn_throttle_check_enabled = False
+
+    # SNI check
+    if hasattr(args, "no_sni") and args.no_sni:
+        settings.proxy_sni_test_enabled = False
+
+    # RKN check
+    if hasattr(args, "rkn_check") and args.rkn_check:
+        settings.rkn_check_enabled = True
+
+    # Check-Host.net API key
+    if hasattr(args, "check_host_api_key") and args.check_host_api_key:
+        settings.check_host_api_key = args.check_host_api_key
+
+    # Proxy status/IP check URLs
+    if hasattr(args, "proxy_status_url") and args.proxy_status_url:
+        settings.proxy_status_check_url = args.proxy_status_url
+    if hasattr(args, "proxy_ip_url") and args.proxy_ip_url:
+        settings.proxy_ip_check_url = args.proxy_ip_url
+
+    # SNI domain
+    if hasattr(args, "sni_domain") and args.sni_domain:
+        settings.proxy_sni_domain = args.sni_domain
+
+    # Check interval
+    if hasattr(args, "interval") and args.interval:
+        settings.check_interval_seconds = args.interval
 
 
 async def cmd_check(host: str, port: int) -> int:
@@ -144,14 +334,13 @@ def _print_analysis_results(diagnostics: list[HostDiagnostic]) -> None:
         console.print("[yellow]No proxies to analyze[/yellow]")
         return
 
-    # Filter out skipped virtual hosts (no results means host was skipped)
+    # Filter out skipped virtual/invalid hosts (no results means host was skipped)
     real_diagnostics = [d for d in diagnostics if d.results]
-    virtual_hosts = [d for d in diagnostics if not d.results]
+    skipped_hosts = [d for d in diagnostics if not d.results]
 
-    if virtual_hosts:
-        for vh in virtual_hosts:
-            host_name = vh.host.split(":")[0]
-            console.print(f"[dim]○ Пропущен виртуальный хост: {host_name}[/dim]")
+    if skipped_hosts:
+        for sh in skipped_hosts:
+            console.print(f"[dim]○ Пропущен: {sh.host}[/dim]")
 
     if not real_diagnostics:
         console.print("[yellow]No real hosts to analyze (only virtual/skipped hosts)[/yellow]")
@@ -418,7 +607,7 @@ def main() -> None:
         sys.exit(1)
 
     if args.command == "analyze":
-        exit_code = asyncio.run(cmd_analyze(watch=args.watch))
+        exit_code = asyncio.run(cmd_analyze(args))
         sys.exit(exit_code)
     elif args.command == "check":
         exit_code = asyncio.run(cmd_check(args.host, args.port))
