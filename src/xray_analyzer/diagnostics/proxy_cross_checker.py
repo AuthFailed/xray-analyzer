@@ -35,7 +35,7 @@ async def check_via_proxy(
     Returns:
         DiagnosticResult with connectivity status.
     """
-    start_time = asyncio.get_event_loop().time()
+    start_time = asyncio.get_running_loop().time()
 
     # Use the status check URL as a connectivity probe through the target
     test_url = settings.proxy_status_check_url
@@ -50,7 +50,7 @@ async def check_via_proxy(
                 allow_redirects=True,
             ) as response,
         ):
-            duration_ms = (asyncio.get_event_loop().time() - start_time) * 1000
+            duration_ms = (asyncio.get_running_loop().time() - start_time) * 1000
             status_code = response.status
 
             if status_code in (200, 204):
@@ -87,7 +87,7 @@ async def check_via_proxy(
                 )
 
     except TimeoutError:
-        duration_ms = (asyncio.get_event_loop().time() - start_time) * 1000
+        duration_ms = (asyncio.get_running_loop().time() - start_time) * 1000
         return DiagnosticResult(
             check_name="Cross-Proxy Connectivity",
             status=CheckStatus.TIMEOUT,
@@ -106,7 +106,7 @@ async def check_via_proxy(
         )
 
     except aiohttp.ClientError as e:
-        duration_ms = (asyncio.get_event_loop().time() - start_time) * 1000
+        duration_ms = (asyncio.get_running_loop().time() - start_time) * 1000
         return DiagnosticResult(
             check_name="Cross-Proxy Connectivity",
             status=CheckStatus.FAIL,
@@ -152,16 +152,18 @@ async def check_xray_cross_connectivity(
     Returns:
         DiagnosticResult with cross-connectivity status.
     """
-    start_time = asyncio.get_event_loop().time()
+    start_time = asyncio.get_running_loop().time()
     log.info(
         f"Cross-test: checking {target_host}:{target_port} via {working_proxy_name} ({working_proxy_share.protocol})"
     )
 
     xray = XrayInstance(working_proxy_share)
     socks_port = 0
+    xray_started = False
 
     try:
         socks_port = await xray.start()
+        xray_started = True
     except RuntimeError as e:
         log.error(f"Failed to start working Xray proxy for cross-test: {e}")
         return DiagnosticResult(
@@ -182,105 +184,105 @@ async def check_xray_cross_connectivity(
 
     try:
         # Test connectivity to the target server through the working proxy
-        async with (
-            aiohttp.ClientSession() as session,
-            session.get(
-                settings.proxy_status_check_url,
-                proxy=socks_url,
-                timeout=aiohttp.ClientTimeout(total=15),
-                allow_redirects=True,
-            ) as response,
-        ):
-            duration_ms = (asyncio.get_event_loop().time() - start_time) * 1000
-            status_code = response.status
+        async with aiohttp.ClientSession() as session:
+            try:
+                async with session.get(
+                    settings.proxy_status_check_url,
+                    proxy=socks_url,
+                    timeout=aiohttp.ClientTimeout(total=15),
+                    allow_redirects=True,
+                ) as response:
+                    duration_ms = (asyncio.get_running_loop().time() - start_time) * 1000
+                    status_code = response.status
 
-            if status_code in (200, 204):
+                    if status_code in (200, 204):
+                        return DiagnosticResult(
+                            check_name="Xray Cross-Proxy Connectivity",
+                            status=CheckStatus.PASS,
+                            severity=CheckSeverity.INFO,
+                            message=(
+                                f"✓ Сервер доступен через {working_proxy_name}: "
+                                f"HTTP {status_code}, {round(duration_ms)}ms"
+                            ),
+                            details={
+                                "target_host": target_host,
+                                "target_port": target_port,
+                                "target_protocol": target_protocol,
+                                "working_proxy": working_proxy_name,
+                                "working_proxy_protocol": working_proxy_share.protocol,
+                                "http_status": status_code,
+                                "duration_ms": round(duration_ms, 2),
+                                "recommendations": [
+                                    "Сервер доступен через другой рабочий прокси",
+                                    "Возможно, сервер заблокирован (RKN) или недоступен из вашего местоположения",
+                                    "Попробуйте использовать другой сервер из подписки",
+                                ],
+                            },
+                        )
+                    else:
+                        return DiagnosticResult(
+                            check_name="Xray Cross-Proxy Connectivity",
+                            status=CheckStatus.FAIL,
+                            severity=CheckSeverity.WARNING,
+                            message=f"HTTP {status_code} через {working_proxy_name}",
+                            details={
+                                "target_host": target_host,
+                                "target_port": target_port,
+                                "target_protocol": target_protocol,
+                                "working_proxy": working_proxy_name,
+                                "working_proxy_protocol": working_proxy_share.protocol,
+                                "http_status": status_code,
+                                "duration_ms": round(duration_ms, 2),
+                            },
+                        )
+
+            except TimeoutError:
+                duration_ms = (asyncio.get_running_loop().time() - start_time) * 1000
                 return DiagnosticResult(
                     check_name="Xray Cross-Proxy Connectivity",
-                    status=CheckStatus.PASS,
-                    severity=CheckSeverity.INFO,
-                    message=(
-                        f"✓ Сервер доступен через {working_proxy_name}: HTTP {status_code}, {round(duration_ms)}ms"
-                    ),
+                    status=CheckStatus.TIMEOUT,
+                    severity=CheckSeverity.CRITICAL,
+                    message=f"Таймаут через {working_proxy_name}",
                     details={
                         "target_host": target_host,
                         "target_port": target_port,
                         "target_protocol": target_protocol,
                         "working_proxy": working_proxy_name,
                         "working_proxy_protocol": working_proxy_share.protocol,
-                        "http_status": status_code,
                         "duration_ms": round(duration_ms, 2),
                         "recommendations": [
-                            "Сервер доступен через другой рабочий прокси",
-                            "Возможно, сервер заблокирован (RKN) или недоступен из вашего местоположения",
-                            "Попробуйте использовать другой сервер из подписки",
+                            "Сервер недоступен даже через другой рабочий прокси",
+                            "Возможно, сервер выключен или заблокирован на уровне сети",
+                            "Проверьте статус сервера на других ресурсах",
                         ],
                     },
                 )
-            else:
+
+            except aiohttp.ClientError as e:
+                duration_ms = (asyncio.get_running_loop().time() - start_time) * 1000
                 return DiagnosticResult(
                     check_name="Xray Cross-Proxy Connectivity",
                     status=CheckStatus.FAIL,
-                    severity=CheckSeverity.WARNING,
-                    message=f"HTTP {status_code} через {working_proxy_name}",
+                    severity=CheckSeverity.CRITICAL,
+                    message=f"Ошибка через {working_proxy_name} — {e}",
                     details={
                         "target_host": target_host,
                         "target_port": target_port,
                         "target_protocol": target_protocol,
                         "working_proxy": working_proxy_name,
                         "working_proxy_protocol": working_proxy_share.protocol,
-                        "http_status": status_code,
+                        "error": str(e),
+                        "error_type": type(e).__name__,
                         "duration_ms": round(duration_ms, 2),
                     },
+                    recommendations=[
+                        "Не удалось подключиться через рабочий прокси",
+                        "Сервер может быть недоступен или заблокирован",
+                    ],
                 )
-
-    except TimeoutError:
-        duration_ms = (asyncio.get_event_loop().time() - start_time) * 1000
-        return DiagnosticResult(
-            check_name="Xray Cross-Proxy Connectivity",
-            status=CheckStatus.TIMEOUT,
-            severity=CheckSeverity.CRITICAL,
-            message=f"Таймаут через {working_proxy_name}",
-            details={
-                "target_host": target_host,
-                "target_port": target_port,
-                "target_protocol": target_protocol,
-                "working_proxy": working_proxy_name,
-                "working_proxy_protocol": working_proxy_share.protocol,
-                "duration_ms": round(duration_ms, 2),
-                "recommendations": [
-                    "Сервер недоступен даже через другой рабочий прокси",
-                    "Возможно, сервер выключен или заблокирован на уровне сети",
-                    "Проверьте статус сервера на других ресурсах",
-                ],
-            },
-        )
-
-    except aiohttp.ClientError as e:
-        duration_ms = (asyncio.get_event_loop().time() - start_time) * 1000
-        return DiagnosticResult(
-            check_name="Xray Cross-Proxy Connectivity",
-            status=CheckStatus.FAIL,
-            severity=CheckSeverity.CRITICAL,
-            message=f"Ошибка через {working_proxy_name} — {e}",
-            details={
-                "target_host": target_host,
-                "target_port": target_port,
-                "target_protocol": target_protocol,
-                "working_proxy": working_proxy_name,
-                "working_proxy_protocol": working_proxy_share.protocol,
-                "error": str(e),
-                "error_type": type(e).__name__,
-                "duration_ms": round(duration_ms, 2),
-            },
-            recommendations=[
-                "Не удалось подключиться через рабочий прокси",
-                "Сервер может быть недоступен или заблокирован",
-            ],
-        )
-
     finally:
-        await xray.stop()
+        if xray_started:
+            await xray.stop()
 
 
 def _is_ipv4(s: str) -> bool:

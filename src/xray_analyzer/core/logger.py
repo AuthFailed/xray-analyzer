@@ -7,6 +7,8 @@ import structlog
 
 from xray_analyzer.core.config import settings
 
+_PROJECT_LOGGER_NAME = "xray_analyzer"
+
 
 def setup_logging() -> None:
     """Configure structured logging: human-readable console + JSON file."""
@@ -54,12 +56,14 @@ def setup_logging() -> None:
     )
     file_handler.setFormatter(file_formatter)
 
-    root_logger = logging.getLogger()
-    root_logger.handlers.clear()
-    root_logger.addHandler(console_handler)
-    root_logger.addHandler(file_handler)
-    root_logger.setLevel(log_level)
-    root_logger.propagate = False
+    # Use project-specific logger instead of root logger
+    # This avoids interfering with third-party libraries
+    project_logger = logging.getLogger(_PROJECT_LOGGER_NAME)
+    project_logger.handlers.clear()
+    project_logger.addHandler(console_handler)
+    project_logger.addHandler(file_handler)
+    project_logger.setLevel(log_level)
+    project_logger.propagate = False
 
     # Silence third-party noisy loggers
     for name in ("aiohttp", "asyncio"):
@@ -67,5 +71,6 @@ def setup_logging() -> None:
 
 
 def get_logger(name: str | None = None) -> structlog.stdlib.BoundLogger:
-    """Get a configured logger instance."""
-    return structlog.get_logger(name)
+    """Get a configured logger instance scoped to the project logger."""
+    full_name = f"{_PROJECT_LOGGER_NAME}.{name}" if name else _PROJECT_LOGGER_NAME
+    return structlog.get_logger(full_name)

@@ -54,7 +54,7 @@ async def check_proxy_tunnel(proxy_url: str, test_url: str | None = None) -> Dia
         )
 
     test_url = test_url or settings.tunnel_test_url
-    start_time = asyncio.get_event_loop().time()
+    start_time = asyncio.get_running_loop().time()
     log.debug("Checking proxy tunnel", proxy=proxy_url, test_url=test_url)
 
     try:
@@ -72,7 +72,7 @@ async def check_proxy_tunnel(proxy_url: str, test_url: str | None = None) -> Dia
                 proxy_auth=proxy_auth,
                 timeout=aiohttp.ClientTimeout(total=15),
             ) as response:
-                duration_ms = (asyncio.get_event_loop().time() - start_time) * 1000
+                duration_ms = (asyncio.get_running_loop().time() - start_time) * 1000
                 await response.text()
 
                 log.info(
@@ -96,7 +96,7 @@ async def check_proxy_tunnel(proxy_url: str, test_url: str | None = None) -> Dia
                 )
 
     except TimeoutError:
-        duration_ms = (asyncio.get_event_loop().time() - start_time) * 1000
+        duration_ms = (asyncio.get_running_loop().time() - start_time) * 1000
         log.error("Proxy tunnel check timed out", proxy=proxy_url)
 
         return DiagnosticResult(
@@ -117,7 +117,7 @@ async def check_proxy_tunnel(proxy_url: str, test_url: str | None = None) -> Dia
         )
 
     except aiohttp.ClientProxyConnectionError as e:
-        duration_ms = (asyncio.get_event_loop().time() - start_time) * 1000
+        duration_ms = (asyncio.get_running_loop().time() - start_time) * 1000
         log.error(
             "Proxy connection error",
             proxy=proxy_url,
@@ -145,7 +145,7 @@ async def check_proxy_tunnel(proxy_url: str, test_url: str | None = None) -> Dia
         )
 
     except aiohttp.ClientError as e:
-        duration_ms = (asyncio.get_event_loop().time() - start_time) * 1000
+        duration_ms = (asyncio.get_running_loop().time() - start_time) * 1000
         log.error(
             "Proxy tunnel HTTP error",
             proxy=proxy_url,
@@ -172,7 +172,7 @@ async def check_proxy_tunnel(proxy_url: str, test_url: str | None = None) -> Dia
         )
 
     except Exception as e:
-        duration_ms = (asyncio.get_event_loop().time() - start_time) * 1000
+        duration_ms = (asyncio.get_running_loop().time() - start_time) * 1000
         log.error(
             "Proxy tunnel unexpected error",
             proxy=proxy_url,

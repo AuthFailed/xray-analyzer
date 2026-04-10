@@ -77,9 +77,11 @@ async def _run_xray_tests(
     results: list[DiagnosticResult] = []
     xray = XrayInstance(share)
     socks_port = 0
+    xray_started = False
 
     try:
         socks_port = await xray.start()
+        xray_started = True
     except RuntimeError as e:
         log.error(f"Failed to start Xray for {share.name}: {e}")
         results.append(
@@ -139,7 +141,8 @@ async def _run_xray_tests(
             )
 
     finally:
-        await xray.stop()
+        if xray_started:
+            await xray.stop()
 
     return results
 
@@ -151,7 +154,7 @@ async def _check_proxy_status(
 ) -> DiagnosticResult:
     """Check proxy connectivity through Xray SOCKS tunnel."""
     test_url = settings.proxy_status_check_url
-    start_time = asyncio.get_event_loop().time()
+    start_time = asyncio.get_running_loop().time()
 
     try:
         async with (
@@ -163,7 +166,7 @@ async def _check_proxy_status(
                 allow_redirects=True,
             ) as response,
         ):
-            duration_ms = (asyncio.get_event_loop().time() - start_time) * 1000
+            duration_ms = (asyncio.get_running_loop().time() - start_time) * 1000
             status_code = response.status
 
             details: dict[str, Any] = {
@@ -196,7 +199,7 @@ async def _check_proxy_status(
                 )
 
     except TimeoutError:
-        duration_ms = (asyncio.get_event_loop().time() - start_time) * 1000
+        duration_ms = (asyncio.get_running_loop().time() - start_time) * 1000
         return DiagnosticResult(
             check_name=f"Proxy Xray Connectivity{label_suffix}",
             status=CheckStatus.TIMEOUT,
@@ -217,7 +220,7 @@ async def _check_proxy_status(
         )
 
     except aiohttp.ClientError as e:
-        duration_ms = (asyncio.get_event_loop().time() - start_time) * 1000
+        duration_ms = (asyncio.get_running_loop().time() - start_time) * 1000
         return DiagnosticResult(
             check_name=f"Proxy Xray Connectivity{label_suffix}",
             status=CheckStatus.FAIL,
@@ -245,7 +248,7 @@ async def _check_proxy_exit_ip(
 ) -> DiagnosticResult:
     """Check exit IP through Xray SOCKS tunnel."""
     ip_check_url = settings.proxy_ip_check_url
-    start_time = asyncio.get_event_loop().time()
+    start_time = asyncio.get_running_loop().time()
 
     try:
         async with (
@@ -256,7 +259,7 @@ async def _check_proxy_exit_ip(
                 timeout=aiohttp.ClientTimeout(total=15),
             ) as response,
         ):
-            duration_ms = (asyncio.get_event_loop().time() - start_time) * 1000
+            duration_ms = (asyncio.get_running_loop().time() - start_time) * 1000
             if response.status != 200:
                 return DiagnosticResult(
                     check_name=f"Proxy Exit IP (Xray){label_suffix}",
@@ -284,7 +287,7 @@ async def _check_proxy_exit_ip(
             )
 
     except TimeoutError:
-        duration_ms = (asyncio.get_event_loop().time() - start_time) * 1000
+        duration_ms = (asyncio.get_running_loop().time() - start_time) * 1000
         return DiagnosticResult(
             check_name=f"Proxy Exit IP (Xray){label_suffix}",
             status=CheckStatus.TIMEOUT,
@@ -294,7 +297,7 @@ async def _check_proxy_exit_ip(
         )
 
     except aiohttp.ClientError as e:
-        duration_ms = (asyncio.get_event_loop().time() - start_time) * 1000
+        duration_ms = (asyncio.get_running_loop().time() - start_time) * 1000
         return DiagnosticResult(
             check_name=f"Proxy Exit IP (Xray){label_suffix}",
             status=CheckStatus.FAIL,
@@ -312,7 +315,7 @@ async def _check_proxy_sni(
     """Check SNI connection through Xray SOCKS tunnel."""
     sni_domain = settings.proxy_sni_domain
     test_url = f"https://{sni_domain}"
-    start_time = asyncio.get_event_loop().time()
+    start_time = asyncio.get_running_loop().time()
 
     try:
         async with (
@@ -324,7 +327,7 @@ async def _check_proxy_sni(
                 allow_redirects=True,
             ) as response,
         ):
-            duration_ms = (asyncio.get_event_loop().time() - start_time) * 1000
+            duration_ms = (asyncio.get_running_loop().time() - start_time) * 1000
             status_code = response.status
 
             if status_code in (200, 204, 301, 302, 304):
@@ -355,7 +358,7 @@ async def _check_proxy_sni(
                 )
 
     except TimeoutError:
-        duration_ms = (asyncio.get_event_loop().time() - start_time) * 1000
+        duration_ms = (asyncio.get_running_loop().time() - start_time) * 1000
         return DiagnosticResult(
             check_name=f"Proxy SNI Connection (Xray){label_suffix}",
             status=CheckStatus.TIMEOUT,
@@ -365,7 +368,7 @@ async def _check_proxy_sni(
         )
 
     except aiohttp.ClientError as e:
-        duration_ms = (asyncio.get_event_loop().time() - start_time) * 1000
+        duration_ms = (asyncio.get_running_loop().time() - start_time) * 1000
         return DiagnosticResult(
             check_name=f"Proxy SNI Connection (Xray){label_suffix}",
             status=CheckStatus.FAIL,

@@ -34,7 +34,7 @@ async def check_proxy_exit_ip(
     if ip_check_url is None:
         ip_check_url = settings.proxy_ip_check_url
 
-    start_time = asyncio.get_event_loop().time()
+    start_time = asyncio.get_running_loop().time()
     log.debug("Checking proxy exit IP", proxy_url=proxy_url, ip_check_url=ip_check_url)
 
     # Check if proxy scheme is supported
@@ -72,7 +72,7 @@ async def check_proxy_exit_ip(
                 timeout=aiohttp.ClientTimeout(total=15),
             ) as response,
         ):
-            duration_ms = (asyncio.get_event_loop().time() - start_time) * 1000
+            duration_ms = (asyncio.get_running_loop().time() - start_time) * 1000
 
             if response.status != 200:
                 return DiagnosticResult(
@@ -114,7 +114,7 @@ async def check_proxy_exit_ip(
             )
 
     except aiohttp.ClientProxyConnectionError as e:
-        duration_ms = (asyncio.get_event_loop().time() - start_time) * 1000
+        duration_ms = (asyncio.get_running_loop().time() - start_time) * 1000
         log.error("Proxy exit IP connection error", proxy_url=proxy_url, error=str(e))
 
         return DiagnosticResult(
@@ -137,7 +137,7 @@ async def check_proxy_exit_ip(
         )
 
     except aiohttp.ClientConnectorError as e:
-        duration_ms = (asyncio.get_event_loop().time() - start_time) * 1000
+        duration_ms = (asyncio.get_running_loop().time() - start_time) * 1000
         log.error("Proxy exit IP connector error", proxy_url=proxy_url, error=str(e))
 
         return DiagnosticResult(
@@ -155,7 +155,7 @@ async def check_proxy_exit_ip(
         )
 
     except TimeoutError:
-        duration_ms = (asyncio.get_event_loop().time() - start_time) * 1000
+        duration_ms = (asyncio.get_running_loop().time() - start_time) * 1000
         log.error("Proxy exit IP timeout", proxy_url=proxy_url)
 
         return DiagnosticResult(
@@ -176,7 +176,7 @@ async def check_proxy_exit_ip(
         )
 
     except aiohttp.ClientError as e:
-        duration_ms = (asyncio.get_event_loop().time() - start_time) * 1000
+        duration_ms = (asyncio.get_running_loop().time() - start_time) * 1000
         log.error("Proxy exit IP client error", proxy_url=proxy_url, error=str(e))
 
         return DiagnosticResult(
@@ -198,7 +198,7 @@ async def check_proxy_exit_ip(
         )
 
     except ImportError as e:
-        duration_ms = (asyncio.get_event_loop().time() - start_time) * 1000
+        duration_ms = (asyncio.get_running_loop().time() - start_time) * 1000
         log.error("Proxy exit IP import error", proxy_url=proxy_url, error=str(e))
 
         return DiagnosticResult(
@@ -218,7 +218,7 @@ async def check_proxy_exit_ip(
         )
 
     except Exception as e:
-        duration_ms = (asyncio.get_event_loop().time() - start_time) * 1000
+        duration_ms = (asyncio.get_running_loop().time() - start_time) * 1000
         log.error("Proxy exit IP unexpected error", proxy_url=proxy_url, error=str(e))
 
         return DiagnosticResult(

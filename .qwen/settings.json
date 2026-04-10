@@ -4,7 +4,8 @@
       "WebFetch(xray-checker.kutovoy.dev)",
       "Bash(uv *)",
       "Bash(curl *)",
-      "Bash(base64 *)"
+      "Bash(base64 *)",
+      "Bash(find *)"
     ]
   },
   "$version": 3

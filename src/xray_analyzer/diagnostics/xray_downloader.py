@@ -205,7 +205,10 @@ async def ensure_xray(
     # 3. Auto-download
     if auto_download:
         log.info("Xray binary not found, downloading from GitHub...")
-        downloaded = await download_xray()
+        # Download to the parent directory of the specified binary path
+        parent = Path(binary_path).parent
+        install_dir = parent if parent != Path() else _get_default_install_dir()
+        downloaded = await download_xray(install_dir=install_dir)
         if downloaded:
             return downloaded
         log.error("Failed to auto-download Xray")

@@ -34,7 +34,7 @@ class Settings(BaseSettings):
 
     # RKN Check
     rkn_api_url: str = Field(default="https://rknweb.ru/api")
-    rkn_check_enabled: bool = True
+    rkn_check_enabled: bool = False  # Disabled by default — rknweb.ru API often unavailable
 
     # Proxy SNI Check
     proxy_sni_test_enabled: bool = True

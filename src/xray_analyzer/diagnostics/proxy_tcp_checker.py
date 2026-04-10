@@ -33,7 +33,7 @@ async def check_proxy_tcp_tunnel(
     if test_url is None:
         test_url = settings.proxy_status_check_url
 
-    start_time = asyncio.get_event_loop().time()
+    start_time = asyncio.get_running_loop().time()
     log.debug("Checking proxy TCP tunnel", proxy_url=proxy_url, test_url=test_url)
 
     # Check if proxy scheme is supported for tunnel test
@@ -80,7 +80,7 @@ async def check_proxy_tcp_tunnel(
                 allow_redirects=True,
             ) as response,
         ):
-            duration_ms = (asyncio.get_event_loop().time() - start_time) * 1000
+            duration_ms = (asyncio.get_running_loop().time() - start_time) * 1000
             status_code = response.status
 
             details: dict[str, Any] = {
@@ -123,7 +123,7 @@ async def check_proxy_tcp_tunnel(
                 )
 
     except aiohttp.ClientProxyConnectionError as e:
-        duration_ms = (asyncio.get_event_loop().time() - start_time) * 1000
+        duration_ms = (asyncio.get_running_loop().time() - start_time) * 1000
         log.error("Proxy TCP tunnel connection error", proxy_url=proxy_url, error=str(e))
 
         return DiagnosticResult(
@@ -146,7 +146,7 @@ async def check_proxy_tcp_tunnel(
         )
 
     except aiohttp.ClientConnectorError as e:
-        duration_ms = (asyncio.get_event_loop().time() - start_time) * 1000
+        duration_ms = (asyncio.get_running_loop().time() - start_time) * 1000
         log.error("Proxy TCP tunnel connector error", proxy_url=proxy_url, error=str(e))
 
         return DiagnosticResult(
@@ -169,7 +169,7 @@ async def check_proxy_tcp_tunnel(
         )
 
     except TimeoutError:
-        duration_ms = (asyncio.get_event_loop().time() - start_time) * 1000
+        duration_ms = (asyncio.get_running_loop().time() - start_time) * 1000
         log.error("Proxy TCP tunnel timeout", proxy_url=proxy_url, test_url=test_url)
 
         return DiagnosticResult(
@@ -191,7 +191,7 @@ async def check_proxy_tcp_tunnel(
         )
 
     except aiohttp.ClientError as e:
-        duration_ms = (asyncio.get_event_loop().time() - start_time) * 1000
+        duration_ms = (asyncio.get_running_loop().time() - start_time) * 1000
         log.error("Proxy TCP tunnel client error", proxy_url=proxy_url, error=str(e))
 
         return DiagnosticResult(
@@ -214,7 +214,7 @@ async def check_proxy_tcp_tunnel(
         )
 
     except ImportError as e:
-        duration_ms = (asyncio.get_event_loop().time() - start_time) * 1000
+        duration_ms = (asyncio.get_running_loop().time() - start_time) * 1000
         log.error("Proxy TCP tunnel import error", proxy_url=proxy_url, error=str(e))
 
         return DiagnosticResult(
@@ -234,7 +234,7 @@ async def check_proxy_tcp_tunnel(
         )
 
     except Exception as e:
-        duration_ms = (asyncio.get_event_loop().time() - start_time) * 1000
+        duration_ms = (asyncio.get_running_loop().time() - start_time) * 1000
         log.error("Proxy TCP tunnel unexpected error", proxy_url=proxy_url, error=str(e))
 
         return DiagnosticResult(

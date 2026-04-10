@@ -36,7 +36,7 @@ async def check_proxy_sni_connection(
     if sni_domain is None:
         sni_domain = settings.proxy_sni_domain
 
-    start_time = asyncio.get_event_loop().time()
+    start_time = asyncio.get_running_loop().time()
     log.debug("Checking proxy SNI connection", proxy_url=proxy_url, sni_domain=sni_domain)
 
     # Check if proxy scheme is supported
@@ -82,7 +82,7 @@ async def check_proxy_sni_connection(
                 ssl=ssl_context,
                 allow_redirects=True,
             ) as response:
-                duration_ms = (asyncio.get_event_loop().time() - start_time) * 1000
+                duration_ms = (asyncio.get_running_loop().time() - start_time) * 1000
                 status_code = response.status
 
                 # Get SSL/TLS info if available
@@ -139,7 +139,7 @@ async def check_proxy_sni_connection(
                     )
 
     except aiohttp.ClientProxyConnectionError as e:
-        duration_ms = (asyncio.get_event_loop().time() - start_time) * 1000
+        duration_ms = (asyncio.get_running_loop().time() - start_time) * 1000
         log.error("Proxy SNI connection error", proxy_url=proxy_url, error=str(e))
 
         return DiagnosticResult(
@@ -162,7 +162,7 @@ async def check_proxy_sni_connection(
         )
 
     except aiohttp.ClientConnectorCertificateError as e:
-        duration_ms = (asyncio.get_event_loop().time() - start_time) * 1000
+        duration_ms = (asyncio.get_running_loop().time() - start_time) * 1000
         log.error("Proxy SNI certificate error", proxy_url=proxy_url, error=str(e))
 
         return DiagnosticResult(
@@ -185,7 +185,7 @@ async def check_proxy_sni_connection(
         )
 
     except aiohttp.ClientConnectorSSLError as e:
-        duration_ms = (asyncio.get_event_loop().time() - start_time) * 1000
+        duration_ms = (asyncio.get_running_loop().time() - start_time) * 1000
         log.error("Proxy SNI SSL error", proxy_url=proxy_url, error=str(e))
 
         return DiagnosticResult(
@@ -208,7 +208,7 @@ async def check_proxy_sni_connection(
         )
 
     except aiohttp.ClientConnectorError as e:
-        duration_ms = (asyncio.get_event_loop().time() - start_time) * 1000
+        duration_ms = (asyncio.get_running_loop().time() - start_time) * 1000
         log.error("Proxy SNI connector error", proxy_url=proxy_url, error=str(e))
 
         return DiagnosticResult(
@@ -231,7 +231,7 @@ async def check_proxy_sni_connection(
         )
 
     except TimeoutError:
-        duration_ms = (asyncio.get_event_loop().time() - start_time) * 1000
+        duration_ms = (asyncio.get_running_loop().time() - start_time) * 1000
         log.error("Proxy SNI timeout", proxy_url=proxy_url, sni_domain=sni_domain)
 
         return DiagnosticResult(
@@ -253,7 +253,7 @@ async def check_proxy_sni_connection(
         )
 
     except aiohttp.ClientError as e:
-        duration_ms = (asyncio.get_event_loop().time() - start_time) * 1000
+        duration_ms = (asyncio.get_running_loop().time() - start_time) * 1000
         log.error("Proxy SNI client error", proxy_url=proxy_url, error=str(e))
 
         return DiagnosticResult(
@@ -275,7 +275,7 @@ async def check_proxy_sni_connection(
         )
 
     except ImportError as e:
-        duration_ms = (asyncio.get_event_loop().time() - start_time) * 1000
+        duration_ms = (asyncio.get_running_loop().time() - start_time) * 1000
         log.error("Proxy SNI import error", proxy_url=proxy_url, error=str(e))
 
         return DiagnosticResult(
@@ -295,7 +295,7 @@ async def check_proxy_sni_connection(
         )
 
     except Exception as e:
-        duration_ms = (asyncio.get_event_loop().time() - start_time) * 1000
+        duration_ms = (asyncio.get_running_loop().time() - start_time) * 1000
         log.error("Proxy SNI unexpected error", proxy_url=proxy_url, error=str(e))
 
         return DiagnosticResult(

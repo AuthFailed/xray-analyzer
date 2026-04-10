@@ -2,23 +2,26 @@
 
 ## Project Overview
 
-**Xray Analyzer** is an advanced diagnostics tool for Xray proxy servers. It provides comprehensive health checks including DNS resolution (with Check-Host.net comparison), TCP connectivity and ping, RKN blocking detection (domains + IPs), proxy tunnel verification, exit IP checks, SNI connectivity tests, and full VLESS/Trojan/Shadowsocks proxy testing via Xray core. The tool works alongside `xray-checker` (a separate proxy monitoring service) and can send Telegram notifications when issues are detected.
+**Xray Analyzer** is an advanced diagnostics tool for Xray proxy servers (VLESS/Trojan/Shadowsocks/HTTP/SOCKS). It provides comprehensive health checks including DNS resolution (with Check-Host.net comparison), TCP connectivity and ping, RKN blocking detection (domains + IPs), proxy tunnel verification, exit IP checks, SNI connectivity tests, RKN DPI throttle detection (16-20KB cutoff pattern), cross-proxy connectivity tests, and full VLESS/Trojan/Shadowsocks proxy testing via Xray core. The tool works alongside `xray-checker` (a separate proxy monitoring service by kutovoys) and can send Telegram notifications when issues are detected.
 
 ### Key Features
 
 - **DNS Diagnostics** — domain name resolution with Check-Host.net comparison (detects DNS poisoning, geo-blocking)
 - **TCP Connection Checks** — connectivity testing with timeout and failure handling
-- **TCP Ping** — latency measurement (min/max/avg, packet loss)
+- **TCP Ping** — latency measurement (min/max/avg, packet loss) over 3 attempts
 - **RKN Block Check** — checks if domains or IPs are blocked by Roskomnadzor via rknweb.ru API
+- **RKN DPI Throttle Detection** — detects 16-20KB cutoff pattern indicating DPI throttling
 - **Proxy Tunnel Verification** — proxy tunnel functionality testing for HTTP/SOCKS
 - **Proxy Exit IP Check** — verifies exit IP through proxy via configured URL
 - **Proxy SNI Check** — tests TLS connection through proxy to a known non-blocked domain (default: max.ru)
 - **VLESS/Trojan/Shadowsocks Testing via Xray Core** — full proxy testing by launching Xray subprocess with REALITY/TLS/XTLS support
 - **Xray Auto-Download** — automatically downloads latest Xray binary from GitHub releases if not found
 - **Subscription URL Parsing** — fetches and parses subscription URLs (with HWID support) to get VLESS/Trojan/SS share links
+- **Cross-Proxy Testing** — tests connectivity to problematic hosts through working proxies (HTTP/SOCKS and Xray)
 - **Telegram Notifications** — alerts when problems are detected
 - **Structured Logging** — detailed logging of all checks to console and file
 - **Docker Support** — easy deployment via Docker Compose alongside xray-checker
+- **Watch Mode** — continuous monitoring at configurable intervals
 
 ## Tech Stack
 

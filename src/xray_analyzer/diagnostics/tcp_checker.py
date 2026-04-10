@@ -19,7 +19,7 @@ async def check_tcp_connection(host: str, port: int) -> DiagnosticResult:
     - Network unreachable
     - Other connection errors
     """
-    start_time = asyncio.get_event_loop().time()
+    start_time = asyncio.get_running_loop().time()
     log.debug("Checking TCP connection", host=host, port=port)
 
     try:
@@ -30,7 +30,7 @@ async def check_tcp_connection(host: str, port: int) -> DiagnosticResult:
         writer.close()
         await writer.wait_closed()
 
-        duration_ms = (asyncio.get_event_loop().time() - start_time) * 1000
+        duration_ms = (asyncio.get_running_loop().time() - start_time) * 1000
 
         log.info(
             "TCP connection successful",
@@ -53,7 +53,7 @@ async def check_tcp_connection(host: str, port: int) -> DiagnosticResult:
         )
 
     except TimeoutError:
-        duration_ms = (asyncio.get_event_loop().time() - start_time) * 1000
+        duration_ms = (asyncio.get_running_loop().time() - start_time) * 1000
         log.error(
             "TCP connection timed out",
             host=host,
@@ -82,7 +82,7 @@ async def check_tcp_connection(host: str, port: int) -> DiagnosticResult:
         )
 
     except ConnectionRefusedError:
-        duration_ms = (asyncio.get_event_loop().time() - start_time) * 1000
+        duration_ms = (asyncio.get_running_loop().time() - start_time) * 1000
         log.error("TCP connection refused", host=host, port=port)
 
         return DiagnosticResult(
@@ -106,7 +106,7 @@ async def check_tcp_connection(host: str, port: int) -> DiagnosticResult:
         )
 
     except OSError as e:
-        duration_ms = (asyncio.get_event_loop().time() - start_time) * 1000
+        duration_ms = (asyncio.get_running_loop().time() - start_time) * 1000
         error_str = str(e)
         log.error("TCP connection OS error", host=host, port=port, error=error_str)
 
@@ -128,7 +128,7 @@ async def check_tcp_connection(host: str, port: int) -> DiagnosticResult:
         )
 
     except Exception as e:
-        duration_ms = (asyncio.get_event_loop().time() - start_time) * 1000
+        duration_ms = (asyncio.get_running_loop().time() - start_time) * 1000
         log.error("TCP connection unexpected error", host=host, port=port, error=str(e))
 
         return DiagnosticResult(

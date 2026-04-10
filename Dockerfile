@@ -18,8 +18,8 @@ COPY README.md ./
 # Install the project itself
 RUN uv sync --frozen --no-dev
 
-# Create logs directory
-RUN mkdir -p /app/logs
+# Create logs and xray data directories
+RUN mkdir -p /app/logs /app/xray-bin
 
 # Create non-root user
 RUN useradd -m -u 1000 appuser && chown -R appuser:appuser /app

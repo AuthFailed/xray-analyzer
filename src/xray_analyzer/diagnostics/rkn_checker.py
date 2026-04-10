@@ -34,7 +34,7 @@ async def check_rkn_blocking(domain: str) -> DiagnosticResult:
     # Determine if input is an IP or domain
     is_ip = _is_ip_address(domain)
 
-    start_time = asyncio.get_event_loop().time()
+    start_time = asyncio.get_running_loop().time()
     log.debug("Checking RKN blocking", domain=domain, is_ip=is_ip)
 
     try:
@@ -56,7 +56,7 @@ async def check_rkn_blocking(domain: str) -> DiagnosticResult:
                 params=params,
                 timeout=aiohttp.ClientTimeout(total=10),
             ) as response:
-                duration_ms = (asyncio.get_event_loop().time() - start_time) * 1000
+                duration_ms = (asyncio.get_running_loop().time() - start_time) * 1000
                 content_type = response.content_type or ""
 
                 # Check if response is actually JSON
@@ -120,7 +120,7 @@ async def check_rkn_blocking(domain: str) -> DiagnosticResult:
                     )
 
     except TimeoutError:
-        duration_ms = (asyncio.get_event_loop().time() - start_time) * 1000
+        duration_ms = (asyncio.get_running_loop().time() - start_time) * 1000
         log.error("RKN check timed out", domain=domain)
 
         return DiagnosticResult(
@@ -140,7 +140,7 @@ async def check_rkn_blocking(domain: str) -> DiagnosticResult:
         )
 
     except aiohttp.ClientResponseError as e:
-        duration_ms = (asyncio.get_event_loop().time() - start_time) * 1000
+        duration_ms = (asyncio.get_running_loop().time() - start_time) * 1000
         log.error("RKN check HTTP error", domain=domain, status=e.status, error=str(e))
 
         return DiagnosticResult(
@@ -160,7 +160,7 @@ async def check_rkn_blocking(domain: str) -> DiagnosticResult:
         )
 
     except aiohttp.ClientError as e:
-        duration_ms = (asyncio.get_event_loop().time() - start_time) * 1000
+        duration_ms = (asyncio.get_running_loop().time() - start_time) * 1000
         log.error("RKN check HTTP error", domain=domain, error=str(e))
 
         return DiagnosticResult(
@@ -182,7 +182,7 @@ async def check_rkn_blocking(domain: str) -> DiagnosticResult:
         )
 
     except Exception as e:
-        duration_ms = (asyncio.get_event_loop().time() - start_time) * 1000
+        duration_ms = (asyncio.get_running_loop().time() - start_time) * 1000
         log.error("RKN check unexpected error", domain=domain, error=str(e))
 
         return DiagnosticResult(

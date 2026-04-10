@@ -22,7 +22,7 @@ async def check_dns_resolution(host: str) -> DiagnosticResult:
 
     Returns a DiagnosticResult with status, resolved IPs, and recommendations.
     """
-    start_time = asyncio.get_event_loop().time()
+    start_time = asyncio.get_running_loop().time()
     log.debug("Checking DNS resolution", host=host)
 
     try:
@@ -41,7 +41,7 @@ async def check_dns_resolution(host: str) -> DiagnosticResult:
             if ip not in resolved_ips:
                 resolved_ips.append(ip)
 
-        duration_ms = (asyncio.get_event_loop().time() - start_time) * 1000
+        duration_ms = (asyncio.get_running_loop().time() - start_time) * 1000
 
         ip_types = []
         for ip_str in resolved_ips:
@@ -71,13 +71,13 @@ async def check_dns_resolution(host: str) -> DiagnosticResult:
         )
 
     except socket.gaierror as e:
-        duration_ms = (asyncio.get_event_loop().time() - start_time) * 1000
+        duration_ms = (asyncio.get_running_loop().time() - start_time) * 1000
         error_msg = str(e)
 
         log.error("DNS resolution failed", host=host, error=error_msg)
 
         severity = CheckSeverity.CRITICAL
-        _get_dns_recommendation(error_msg)
+        recommendations = _get_dns_recommendation(error_msg)
 
         return DiagnosticResult(
             check_name="DNS Resolution",
@@ -89,10 +89,11 @@ async def check_dns_resolution(host: str) -> DiagnosticResult:
                 "error_str": error_msg,
                 "duration_ms": round(duration_ms, 2),
             },
+            recommendations=recommendations,
         )
 
     except TimeoutError:
-        duration_ms = (asyncio.get_event_loop().time() - start_time) * 1000
+        duration_ms = (asyncio.get_running_loop().time() - start_time) * 1000
         log.error("DNS resolution timed out", host=host)
 
         return DiagnosticResult(
@@ -123,7 +124,7 @@ async def check_dns_with_checkhost(host: str) -> DiagnosticResult:
     - Init: GET /check-dns?host=<HOST>&max_nodes=3
     - Result: GET /check-result/<REQUEST_ID>
     """
-    start_time = asyncio.get_event_loop().time()
+    start_time = asyncio.get_running_loop().time()
     log.debug("Checking DNS resolution with Check-Host.net comparison", host=host)
 
     # Run local DNS and Check-Host concurrently
@@ -133,7 +134,7 @@ async def check_dns_with_checkhost(host: str) -> DiagnosticResult:
     local_result = await local_task
     checkhost_result = await checkhost_task
 
-    duration_ms = (asyncio.get_event_loop().time() - start_time) * 1000
+    duration_ms = (asyncio.get_running_loop().time() - start_time) * 1000
 
     # Build details
     details: dict[str, Any] = {

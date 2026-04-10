@@ -109,7 +109,7 @@ async def _perform_throttle_check(
     Makes a range request for 64KB and checks if we receive only 16-20KB
     before the connection is throttled/times out.
     """
-    start_time = asyncio.get_event_loop().time()
+    start_time = asyncio.get_running_loop().time()
     check_name = f"RKN Throttle{label_suffix}"
 
     try:
@@ -168,7 +168,7 @@ async def _perform_throttle_check(
                         error=str(e),
                     )
 
-                duration_ms = (asyncio.get_event_loop().time() - start_time) * 1000
+                duration_ms = (asyncio.get_running_loop().time() - start_time) * 1000
 
                 details = {
                     "target": target,
@@ -269,7 +269,7 @@ async def _perform_throttle_check(
                     )
 
     except TimeoutError:
-        duration_ms = (asyncio.get_event_loop().time() - start_time) * 1000
+        duration_ms = (asyncio.get_running_loop().time() - start_time) * 1000
         log.error("RKN throttle check timeout (connection not established)", target=target)
 
         return DiagnosticResult(
@@ -294,7 +294,7 @@ async def _perform_throttle_check(
         )
 
     except aiohttp.ClientConnectionError as e:
-        duration_ms = (asyncio.get_event_loop().time() - start_time) * 1000
+        duration_ms = (asyncio.get_running_loop().time() - start_time) * 1000
         log.error("RKN throttle connection error", target=target, error=str(e))
 
         return DiagnosticResult(
@@ -315,7 +315,7 @@ async def _perform_throttle_check(
         )
 
     except aiohttp.ClientError as e:
-        duration_ms = (asyncio.get_event_loop().time() - start_time) * 1000
+        duration_ms = (asyncio.get_running_loop().time() - start_time) * 1000
         log.error("RKN throttle client error", target=target, error=str(e))
 
         return DiagnosticResult(
@@ -336,7 +336,7 @@ async def _perform_throttle_check(
         )
 
     except Exception as e:
-        duration_ms = (asyncio.get_event_loop().time() - start_time) * 1000
+        duration_ms = (asyncio.get_running_loop().time() - start_time) * 1000
         log.error("RKN throttle unexpected error", target=target, error=str(e))
 
         return DiagnosticResult(

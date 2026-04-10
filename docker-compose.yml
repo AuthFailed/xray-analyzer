@@ -16,7 +16,7 @@ services:
     restart: unless-stopped
     container_name: xray-checker
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:2112/health"]
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:2112/health')"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -30,8 +30,11 @@ services:
       dockerfile: Dockerfile
     env_file:
       - .env
+    environment:
+      - XRAY_BINARY_PATH=/app/xray-bin/xray
     volumes:
       - ./logs:/app/logs
+      - xray-data:/app/xray-bin
     restart: unless-stopped
     container_name: xray-analyzer
     depends_on:
@@ -43,3 +46,7 @@ services:
 networks:
   xray-net:
     driver: bridge
+
+volumes:
+  xray-data:
+    driver: local

@@ -21,7 +21,7 @@ async def check_tcp_ping(host: str, port: int = 443, count: int = 3) -> Diagnost
         port: Target port (default: 443)
         count: Number of connection attempts (default: 3)
     """
-    start_time = asyncio.get_event_loop().time()
+    start_time = asyncio.get_running_loop().time()
     log.debug("Checking TCP ping", host=host, port=port, count=count)
 
     latencies: list[float] = []
@@ -29,7 +29,7 @@ async def check_tcp_ping(host: str, port: int = 443, count: int = 3) -> Diagnost
     errors: list[str] = []
 
     for i in range(count):
-        attempt_start = asyncio.get_event_loop().time()
+        attempt_start = asyncio.get_running_loop().time()
         try:
             _reader, writer = await asyncio.wait_for(
                 asyncio.open_connection(host, port),
@@ -38,7 +38,7 @@ async def check_tcp_ping(host: str, port: int = 443, count: int = 3) -> Diagnost
             writer.close()
             await writer.wait_closed()
 
-            attempt_ms = (asyncio.get_event_loop().time() - attempt_start) * 1000
+            attempt_ms = (asyncio.get_running_loop().time() - attempt_start) * 1000
             latencies.append(attempt_ms)
             log.debug(f"TCP ping attempt {i + 1}/{count}", host=host, port=port, latency_ms=round(attempt_ms, 2))
 
@@ -51,7 +51,7 @@ async def check_tcp_ping(host: str, port: int = 443, count: int = 3) -> Diagnost
             errors.append(f"Attempt {i + 1}: {e}")
             log.debug(f"TCP ping attempt {i + 1}/{count} failed", host=host, port=port, error=str(e))
 
-    total_duration_ms = (asyncio.get_event_loop().time() - start_time) * 1000
+    total_duration_ms = (asyncio.get_running_loop().time() - start_time) * 1000
     packet_loss_pct = (failures / count * 100) if count > 0 else 100
 
     details = {

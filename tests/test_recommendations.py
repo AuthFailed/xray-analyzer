@@ -1,12 +1,12 @@
 """Tests for smart recommendations based on cross-proxy test results."""
 
-from xray_analyzer.core.analyzer import XrayAnalyzer
 from xray_analyzer.core.models import (
     CheckSeverity,
     CheckStatus,
     DiagnosticResult,
     HostDiagnostic,
 )
+from xray_analyzer.core.recommendation_engine import RecommendationEngine
 
 
 def _make_xray_result(
@@ -99,8 +99,8 @@ def test_recommendation_blocked_for_direct_connections():
     diag.add_result(_make_xray_result(CheckStatus.TIMEOUT, "IP: 1.2.3.4", server="1.2.3.4"))
     diag.add_result(_make_cross_result(CheckStatus.PASS))
 
-    analyzer = XrayAnalyzer()
-    analyzer._add_blocking_recommendations(diag)
+    analyzer = RecommendationEngine()
+    analyzer.add_blocking_recommendations(diag)
 
     assert len(diag.recommendations) == 3
     assert "заблокирован для прямых подключений" in diag.recommendations[0]
@@ -119,8 +119,8 @@ def test_recommendation_domain_level_block():
     diag.add_result(_make_xray_result(CheckStatus.PASS, "IP: 1.2.3.4", server="1.2.3.4"))
     diag.add_result(_make_cross_result(CheckStatus.PASS))
 
-    analyzer = XrayAnalyzer()
-    analyzer._add_blocking_recommendations(diag)
+    analyzer = RecommendationEngine()
+    analyzer.add_blocking_recommendations(diag)
 
     assert len(diag.recommendations) == 3
     assert "заблокирован (DNS/SNI)" in diag.recommendations[0]
@@ -135,8 +135,8 @@ def test_recommendation_ip_level_block():
     diag.add_result(_make_xray_result(CheckStatus.TIMEOUT, "IP: 1.2.3.4", server="1.2.3.4"))
     diag.add_result(_make_cross_result(CheckStatus.TIMEOUT))
 
-    analyzer = XrayAnalyzer()
-    analyzer._add_blocking_recommendations(diag)
+    analyzer = RecommendationEngine()
+    analyzer.add_blocking_recommendations(diag)
 
     assert len(diag.recommendations) == 3
     assert "заблокирован или сервер недоступен" in diag.recommendations[0]
@@ -153,8 +153,8 @@ def test_recommendation_dns_failure():
     diag.add_result(_make_cross_result(CheckStatus.PASS))
     diag.add_result(_make_dns_result(CheckStatus.FAIL))
 
-    analyzer = XrayAnalyzer()
-    analyzer._add_blocking_recommendations(diag)
+    analyzer = RecommendationEngine()
+    analyzer.add_blocking_recommendations(diag)
 
     # DNS check triggers before cross-proxy analysis, so we get DNS recs
     assert len(diag.recommendations) == 3
@@ -178,8 +178,8 @@ def test_recommendation_rkn_throttle_detected():
     diag.add_result(_make_cross_result(CheckStatus.PASS))
     diag.add_result(_make_throttle_result(CheckStatus.FAIL, bytes_received=16_000))
 
-    analyzer = XrayAnalyzer()
-    analyzer._add_blocking_recommendations(diag)
+    analyzer = RecommendationEngine()
+    analyzer.add_blocking_recommendations(diag)
 
     assert len(diag.recommendations) == 3
     assert "DPI-троттлинг" in diag.recommendations[0]
@@ -200,8 +200,8 @@ def test_recommendation_ip_fully_blocked():
     diag.add_result(_make_cross_result(CheckStatus.PASS))
     diag.add_result(_make_throttle_result(CheckStatus.FAIL, bytes_received=0))
 
-    analyzer = XrayAnalyzer()
-    analyzer._add_blocking_recommendations(diag)
+    analyzer = RecommendationEngine()
+    analyzer.add_blocking_recommendations(diag)
 
     assert len(diag.recommendations) == 3
     assert "заблокирован для прямых подключений" in diag.recommendations[0]
@@ -218,8 +218,8 @@ def test_recommendation_ip_blocked_but_cross_works():
     diag.add_result(_make_cross_result(CheckStatus.PASS))
     diag.add_result(_make_throttle_result(CheckStatus.FAIL, bytes_received=0))
 
-    analyzer = XrayAnalyzer()
-    analyzer._add_blocking_recommendations(diag)
+    analyzer = RecommendationEngine()
+    analyzer.add_blocking_recommendations(diag)
 
     assert len(diag.recommendations) == 3
     assert "сервер рабочий" in diag.recommendations[1]
@@ -234,8 +234,8 @@ def test_recommendation_no_cross_proxy_data():
     diag = HostDiagnostic(host="test.example.com:443")
     diag.add_result(_make_xray_result(CheckStatus.TIMEOUT, "домен: test.example.com"))
 
-    analyzer = XrayAnalyzer()
-    analyzer._add_blocking_recommendations(diag)
+    analyzer = RecommendationEngine()
+    analyzer.add_blocking_recommendations(diag)
 
     assert len(diag.recommendations) == 0
 
@@ -246,8 +246,8 @@ def test_recommendation_direct_passed():
     diag.add_result(_make_xray_result(CheckStatus.PASS, "домен: test.example.com"))
     diag.add_result(_make_cross_result(CheckStatus.PASS))
 
-    analyzer = XrayAnalyzer()
-    analyzer._add_blocking_recommendations(diag)
+    analyzer = RecommendationEngine()
+    analyzer.add_blocking_recommendations(diag)
 
     assert len(diag.recommendations) == 0
 
@@ -258,8 +258,8 @@ def test_recommendation_no_ip_result_but_cross_pass():
     diag.add_result(_make_xray_result(CheckStatus.TIMEOUT, "домен: test.example.com"))
     diag.add_result(_make_cross_result(CheckStatus.PASS))
 
-    analyzer = XrayAnalyzer()
-    analyzer._add_blocking_recommendations(diag)
+    analyzer = RecommendationEngine()
+    analyzer.add_blocking_recommendations(diag)
 
     assert len(diag.recommendations) == 3
     assert "заблокирован для прямых подключений" in diag.recommendations[0]
@@ -274,9 +274,9 @@ def test_recommendation_deduplicates():
     # Pre-add a recommendation to test dedup
     diag.add_recommendation("existing")
 
-    analyzer = XrayAnalyzer()
-    analyzer._add_blocking_recommendations(diag)
-    analyzer._add_blocking_recommendations(diag)  # call again
+    analyzer = RecommendationEngine()
+    analyzer.add_blocking_recommendations(diag)
+    analyzer.add_blocking_recommendations(diag)  # call again
 
     # Should still be 4 (1 existing + 3 new), not more
     assert len(diag.recommendations) == 4
@@ -307,8 +307,8 @@ def test_recommendation_exit_ip_sni_failed_but_connectivity_passed():
     )
     diag.add_result(_make_cross_result(CheckStatus.PASS))
 
-    analyzer = XrayAnalyzer()
-    analyzer._add_blocking_recommendations(diag)
+    analyzer = RecommendationEngine()
+    analyzer.add_blocking_recommendations(diag)
 
     assert len(diag.recommendations) == 3
     assert "подключается, но не достигает внешних сервисов" in diag.recommendations[0]
