@@ -47,7 +47,7 @@ async def check_proxy_exit_ip(
                 check_name="Proxy Exit IP",
                 status=CheckStatus.SKIP,
                 severity=CheckSeverity.INFO,
-                message=f"Протокол прокси '{scheme}' не поддерживается для Exit IP check",
+                message=f"Proxy protocol '{scheme}' not supported for Exit IP check",
                 details={
                     "proxy_url": proxy_url,
                     "scheme": scheme,
@@ -59,7 +59,7 @@ async def check_proxy_exit_ip(
             check_name="Proxy Exit IP",
             status=CheckStatus.FAIL,
             severity=CheckSeverity.ERROR,
-            message=f"Некорректный URL прокси: {e}",
+            message=f"Invalid proxy URL: {e}",
             details={"proxy_url": proxy_url, "error": str(e)},
         )
 
@@ -79,7 +79,7 @@ async def check_proxy_exit_ip(
                     check_name="Proxy Exit IP",
                     status=CheckStatus.FAIL,
                     severity=CheckSeverity.ERROR,
-                    message=f"IP check вернул HTTP {response.status}",
+                    message=f"IP check returned HTTP {response.status}",
                     details={
                         "proxy_url": proxy_url,
                         "ip_check_url": ip_check_url,
@@ -109,7 +109,7 @@ async def check_proxy_exit_ip(
                 check_name="Proxy Exit IP",
                 status=CheckStatus.PASS,
                 severity=CheckSeverity.INFO,
-                message=f"Exit IP через прокси: {exit_ip}",
+                message=f"Exit IP via proxy: {exit_ip}",
                 details=details,
             )
 
@@ -121,7 +121,7 @@ async def check_proxy_exit_ip(
             check_name="Proxy Exit IP",
             status=CheckStatus.FAIL,
             severity=CheckSeverity.CRITICAL,
-            message=f"Не удалось подключиться к прокси: {e}",
+            message=f"Failed to connect to proxy: {e}",
             details={
                 "proxy_url": proxy_url,
                 "ip_check_url": ip_check_url,
@@ -130,9 +130,9 @@ async def check_proxy_exit_ip(
                 "duration_ms": round(duration_ms, 2),
             },
             recommendations=[
-                "Прокси-сервер недоступен",
-                "Проверьте адрес и порт прокси",
-                "Убедитесь, что прокси запущен",
+                "Proxy server unavailable",
+                "Check proxy address and port",
+                "Make sure the proxy is running",
             ],
         )
 
@@ -144,7 +144,7 @@ async def check_proxy_exit_ip(
             check_name="Proxy Exit IP",
             status=CheckStatus.FAIL,
             severity=CheckSeverity.CRITICAL,
-            message=f"Ошибка подключения через прокси: {e}",
+            message=f"Connection error through proxy: {e}",
             details={
                 "proxy_url": proxy_url,
                 "ip_check_url": ip_check_url,
@@ -162,7 +162,7 @@ async def check_proxy_exit_ip(
             check_name="Proxy Exit IP",
             status=CheckStatus.TIMEOUT,
             severity=CheckSeverity.CRITICAL,
-            message="Превышено время ожидания проверки Exit IP (15s)",
+            message="Exit IP check timed out (15s)",
             details={
                 "proxy_url": proxy_url,
                 "ip_check_url": ip_check_url,
@@ -170,8 +170,8 @@ async def check_proxy_exit_ip(
                 "duration_ms": round(duration_ms, 2),
             },
             recommendations=[
-                "Прокси не отвечает в течение заданного таймаута",
-                "Проверьте, что прокси запущен и не перегружен",
+                "Proxy not responding within the timeout period",
+                "Check that the proxy is running and not overloaded",
             ],
         )
 
@@ -183,7 +183,7 @@ async def check_proxy_exit_ip(
             check_name="Proxy Exit IP",
             status=CheckStatus.FAIL,
             severity=CheckSeverity.ERROR,
-            message=f"Ошибка при проверке Exit IP: {e}",
+            message=f"Error checking Exit IP: {e}",
             details={
                 "proxy_url": proxy_url,
                 "ip_check_url": ip_check_url,
@@ -192,8 +192,8 @@ async def check_proxy_exit_ip(
                 "duration_ms": round(duration_ms, 2),
             },
             recommendations=[
-                "Для SOCKS прокси убедитесь, что установлен aiohttp-socks",
-                "Проверьте корректность URL прокси",
+                "For SOCKS proxies make sure aiohttp-socks is installed",
+                "Check proxy URL validity",
             ],
         )
 
@@ -205,15 +205,15 @@ async def check_proxy_exit_ip(
             check_name="Proxy Exit IP",
             status=CheckStatus.FAIL,
             severity=CheckSeverity.ERROR,
-            message=f"Отсутствует необходимая зависимость: {e}",
+            message=f"Missing required dependency: {e}",
             details={
                 "proxy_url": proxy_url,
                 "error": str(e),
                 "duration_ms": round(duration_ms, 2),
             },
             recommendations=[
-                "Для SOCKS прокси требуется пакет aiohttp-socks",
-                "Установите: pip install aiohttp-socks",
+                "SOCKS proxies require the aiohttp-socks package",
+                "Install: pip install aiohttp-socks",
             ],
         )
 
@@ -225,7 +225,7 @@ async def check_proxy_exit_ip(
             check_name="Proxy Exit IP",
             status=CheckStatus.FAIL,
             severity=CheckSeverity.ERROR,
-            message=f"Неожиданная ошибка при проверке Exit IP: {e}",
+            message=f"Unexpected error checking Exit IP: {e}",
             details={
                 "proxy_url": proxy_url,
                 "ip_check_url": ip_check_url,

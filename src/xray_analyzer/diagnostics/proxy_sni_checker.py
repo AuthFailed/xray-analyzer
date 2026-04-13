@@ -49,7 +49,7 @@ async def check_proxy_sni_connection(
                 check_name="Proxy SNI Connection",
                 status=CheckStatus.SKIP,
                 severity=CheckSeverity.INFO,
-                message=f"Протокол прокси '{scheme}' не поддерживается для SNI check",
+                message=f"Proxy protocol '{scheme}' not supported for SNI check",
                 details={
                     "proxy_url": proxy_url,
                     "sni_domain": sni_domain,
@@ -62,7 +62,7 @@ async def check_proxy_sni_connection(
             check_name="Proxy SNI Connection",
             status=CheckStatus.FAIL,
             severity=CheckSeverity.ERROR,
-            message=f"Некорректный URL прокси: {e}",
+            message=f"Invalid proxy URL: {e}",
             details={"proxy_url": proxy_url, "error": str(e)},
         )
 
@@ -122,7 +122,7 @@ async def check_proxy_sni_connection(
                         check_name="Proxy SNI Connection",
                         status=CheckStatus.PASS,
                         severity=CheckSeverity.INFO,
-                        message=f"Прокси подключился к {sni_domain} (SNI): HTTP {status_code}",
+                        message=f"Proxy connected to {sni_domain} (SNI): HTTP {status_code}",
                         details=details,
                     )
                 else:
@@ -130,11 +130,11 @@ async def check_proxy_sni_connection(
                         check_name="Proxy SNI Connection",
                         status=CheckStatus.FAIL,
                         severity=CheckSeverity.WARNING,
-                        message=f"Прокси вернул неожиданный статус для {sni_domain}: HTTP {status_code}",
+                        message=f"Proxy returned unexpected status for {sni_domain}: HTTP {status_code}",
                         details=details,
                         recommendations=[
-                            f"Прокси вернул HTTP {status_code} для {sni_domain}",
-                            f"{sni_domain} — известный неблокированный домен, проблема может быть на стороне прокси",
+                            f"Proxy returned HTTP {status_code} for {sni_domain}",
+                            f"{sni_domain} is a known non-blocked domain, issue may be on the proxy side",
                         ],
                     )
 
@@ -146,7 +146,7 @@ async def check_proxy_sni_connection(
             check_name="Proxy SNI Connection",
             status=CheckStatus.FAIL,
             severity=CheckSeverity.CRITICAL,
-            message=f"Не удалось подключиться к прокси для SNI check: {e}",
+            message=f"Failed to connect to proxy for SNI check: {e}",
             details={
                 "proxy_url": proxy_url,
                 "sni_domain": sni_domain,
@@ -155,9 +155,9 @@ async def check_proxy_sni_connection(
                 "duration_ms": round(duration_ms, 2),
             },
             recommendations=[
-                "Прокси-сервер недоступен",
-                "Проверьте адрес и порт прокси",
-                "Убедитесь, что прокси запущен",
+                "Proxy server unavailable",
+                "Check proxy address and port",
+                "Make sure the proxy is running",
             ],
         )
 
@@ -169,7 +169,7 @@ async def check_proxy_sni_connection(
             check_name="Proxy SNI Connection",
             status=CheckStatus.FAIL,
             severity=CheckSeverity.CRITICAL,
-            message=f"Ошибка SSL-сертификата при подключении через прокси: {e}",
+            message=f"SSL certificate error when connecting through proxy: {e}",
             details={
                 "proxy_url": proxy_url,
                 "sni_domain": sni_domain,
@@ -178,9 +178,9 @@ async def check_proxy_sni_connection(
                 "duration_ms": round(duration_ms, 2),
             },
             recommendations=[
-                "Возможна MITM-атака (перехват TLS) на уровне прокси",
-                "Прокси может подменять SSL-сертификаты",
-                "Используйте другой прокси или проверьте его настройки",
+                "Possible MITM attack (TLS interception) at proxy level",
+                "Proxy may be substituting SSL certificates",
+                "Use a different proxy or check its settings",
             ],
         )
 
@@ -192,7 +192,7 @@ async def check_proxy_sni_connection(
             check_name="Proxy SNI Connection",
             status=CheckStatus.FAIL,
             severity=CheckSeverity.CRITICAL,
-            message=f"Ошибка SSL при подключении через прокси: {e}",
+            message=f"SSL error when connecting through proxy: {e}",
             details={
                 "proxy_url": proxy_url,
                 "sni_domain": sni_domain,
@@ -201,9 +201,9 @@ async def check_proxy_sni_connection(
                 "duration_ms": round(duration_ms, 2),
             },
             recommendations=[
-                "Ошибка SSL-соединения через прокси",
-                "Возможно, прокси блокирует или модифицирует TLS-соединения",
-                "Проверьте, поддерживает ли прокси TLS-туннелирование",
+                "SSL connection error through proxy",
+                "Proxy may be blocking or modifying TLS connections",
+                "Check if the proxy supports TLS tunneling",
             ],
         )
 
@@ -215,7 +215,7 @@ async def check_proxy_sni_connection(
             check_name="Proxy SNI Connection",
             status=CheckStatus.FAIL,
             severity=CheckSeverity.CRITICAL,
-            message=f"Ошибка подключения через прокси к {sni_domain}: {e}",
+            message=f"Connection error through proxy to {sni_domain}: {e}",
             details={
                 "proxy_url": proxy_url,
                 "sni_domain": sni_domain,
@@ -224,9 +224,9 @@ async def check_proxy_sni_connection(
                 "duration_ms": round(duration_ms, 2),
             },
             recommendations=[
-                f"Не удалось подключиться к {sni_domain} через прокси",
-                "Возможно, домен заблокирован или прокси не может установить соединение",
-                "Проверьте сетевые настройки прокси",
+                f"Could not connect to {sni_domain} through proxy",
+                "Domain may be blocked or proxy cannot establish connection",
+                "Check proxy network settings",
             ],
         )
 
@@ -238,7 +238,7 @@ async def check_proxy_sni_connection(
             check_name="Proxy SNI Connection",
             status=CheckStatus.TIMEOUT,
             severity=CheckSeverity.CRITICAL,
-            message=f"Превышено время ожидания подключения к {sni_domain} через прокси (15s)",
+            message=f"Connection to {sni_domain} through proxy timed out (15s)",
             details={
                 "proxy_url": proxy_url,
                 "sni_domain": sni_domain,
@@ -246,9 +246,9 @@ async def check_proxy_sni_connection(
                 "duration_ms": round(duration_ms, 2),
             },
             recommendations=[
-                f"Прокси не может подключиться к {sni_domain} в течение заданного таймаута",
-                f"{sni_domain} — неблокированный домен, проблема на стороне прокси",
-                "Проверьте, что прокси запущен и не перегружен",
+                f"Proxy cannot connect to {sni_domain} within the timeout period",
+                f"{sni_domain} is a non-blocked domain — issue is on the proxy side",
+                "Check that the proxy is running and not overloaded",
             ],
         )
 
@@ -260,7 +260,7 @@ async def check_proxy_sni_connection(
             check_name="Proxy SNI Connection",
             status=CheckStatus.FAIL,
             severity=CheckSeverity.ERROR,
-            message=f"Ошибка при проверке SNI через прокси: {e}",
+            message=f"Error checking SNI through proxy: {e}",
             details={
                 "proxy_url": proxy_url,
                 "sni_domain": sni_domain,
@@ -269,8 +269,8 @@ async def check_proxy_sni_connection(
                 "duration_ms": round(duration_ms, 2),
             },
             recommendations=[
-                "Для SOCKS прокси убедитесь, что установлен aiohttp-socks",
-                "Проверьте корректность URL прокси",
+                "For SOCKS proxies make sure aiohttp-socks is installed",
+                "Check proxy URL validity",
             ],
         )
 
@@ -282,15 +282,15 @@ async def check_proxy_sni_connection(
             check_name="Proxy SNI Connection",
             status=CheckStatus.FAIL,
             severity=CheckSeverity.ERROR,
-            message=f"Отсутствует необходимая зависимость: {e}",
+            message=f"Missing required dependency: {e}",
             details={
                 "proxy_url": proxy_url,
                 "error": str(e),
                 "duration_ms": round(duration_ms, 2),
             },
             recommendations=[
-                "Для SOCKS прокси требуется пакет aiohttp-socks",
-                "Установите: pip install aiohttp-socks",
+                "SOCKS proxies require the aiohttp-socks package",
+                "Install: pip install aiohttp-socks",
             ],
         )
 
@@ -302,7 +302,7 @@ async def check_proxy_sni_connection(
             check_name="Proxy SNI Connection",
             status=CheckStatus.FAIL,
             severity=CheckSeverity.ERROR,
-            message=f"Неожиданная ошибка при проверке SNI: {e}",
+            message=f"Unexpected error checking SNI: {e}",
             details={
                 "proxy_url": proxy_url,
                 "sni_domain": sni_domain,
@@ -311,7 +311,7 @@ async def check_proxy_sni_connection(
                 "duration_ms": round(duration_ms, 2),
             },
             recommendations=[
-                "Произошла неожиданная ошибка — проверьте логи",
-                "Попробуйте повторить попытку",
+                "An unexpected error occurred — check logs",
+                "Try again",
             ],
         )

@@ -145,7 +145,7 @@ async def analyze_single_proxy(share: ProxyShareURL) -> HostDiagnostic:
                     check_name="Proxy Xray Test",
                     status=CheckStatus.SKIP,
                     severity=CheckSeverity.INFO,
-                    message=f"Xray testing disabled (--no-xray). Для тестирования {share.protocol} требуется Xray core",
+                    message=f"Xray testing disabled (--no-xray). Testing {share.protocol} requires Xray core",
                     details={"protocol": share.protocol, "server": share.server, "port": share.port},
                 )
             )
@@ -202,10 +202,10 @@ def _add_standalone_recommendations(diagnostic: HostDiagnostic, share: ProxyShar
     )
     if dns_warning:
         diagnostic.add_recommendation(
-            f"⚠️ DNS для {server_domain} не совпадает с Check-Host (geo-blocking)"
+            f"⚠️ DNS for {server_domain} doesn't match Check-Host (geo-blocking)"
         )
         diagnostic.add_recommendation(
-            "Локальный DNS возвращает другие IP, чем внешние ноды Check-Host.net"
+            "Local DNS returns different IPs than external Check-Host.net nodes"
         )
 
     # Check if Xray connectivity passed but Exit IP/SNI failed
@@ -229,23 +229,23 @@ def _add_standalone_recommendations(diagnostic: HostDiagnostic, share: ProxyShar
         if sni_failed:
             failed_services.append("SNI check")
         diagnostic.add_recommendation(
-            f"⚠️ Сервер {server_domain} подключается, но не достигает внешних сервисов"
+            f"⚠️ Server {server_domain} connects but cannot reach external services"
         )
         diagnostic.add_recommendation(
-            f"Причина: Xray подключился (HTTP 204), но {', '.join(failed_services)} провалились — "
-            f"сервер не может достичь внешних хостов"
+            f"Reason: Xray connected (HTTP 204) but {', '.join(failed_services)} failed — "
+            f"server cannot reach external hosts"
         )
         diagnostic.add_recommendation(
-            "Решения:\n"
-            "  1) Проверить маршрутизацию и firewall на сервере\n"
-            "  2) Убедиться что сервер имеет доступ к внешнему интернету\n"
-            "  3) Проверить DNS-настройки сервера (resolv.conf)"
+            "Solutions:\n"
+            "  1) Check routing and firewall on the server\n"
+            "  2) Make sure the server has internet access\n"
+            "  3) Check DNS settings on the server (resolv.conf)"
         )
 
     # Xray connectivity failed but IP fallback worked
     xray_domain_failed = any(
         r.check_name.startswith("Proxy Xray Connectivity")
-        and "домен:" in r.check_name
+        and ("домен:" in r.check_name or "domain:" in r.check_name)
         and r.status in (CheckStatus.FAIL, CheckStatus.TIMEOUT)
         for r in results
     )
@@ -258,21 +258,21 @@ def _add_standalone_recommendations(diagnostic: HostDiagnostic, share: ProxyShar
 
     if xray_domain_failed and xray_ip_passed:
         ip_str = server_ip or "IP"
-        diagnostic.add_recommendation(f"🔒 Домен {server_domain} заблокирован (DNS/SNI)")
+        diagnostic.add_recommendation(f"🔒 Domain {server_domain} is blocked (DNS/SNI)")
         diagnostic.add_recommendation(
-            f"Причина: по домену не подключается, но по IP ({ip_str}) проходит"
+            f"Reason: cannot connect by domain, but works by IP ({ip_str})"
         )
         diagnostic.add_recommendation(
-            "Решения:\n"
-            "  1) Заменить домен на новый в конфигурации сервера\n"
-            "  2) Настроить клиентов на подключение по IP вместо домена\n"
-            "  3) Использовать SNI-обфускацию или selfsteal-сертификат"
+            "Solutions:\n"
+            "  1) Replace the domain with a new one in server configuration\n"
+            "  2) Configure clients to connect by IP instead of domain\n"
+            "  3) Use SNI obfuscation or selfsteal certificate"
         )
 
     # Xray connectivity failed (both domain and IP)
     xray_domain_failed = any(
         r.check_name.startswith("Proxy Xray Connectivity")
-        and "домен:" in r.check_name
+        and ("домен:" in r.check_name or "domain:" in r.check_name)
         and r.status in (CheckStatus.FAIL, CheckStatus.TIMEOUT)
         for r in results
     )
@@ -285,14 +285,14 @@ def _add_standalone_recommendations(diagnostic: HostDiagnostic, share: ProxyShar
 
     if xray_domain_failed and xray_ip_failed:
         ip_str = f"IP {server_ip}" if server_ip else server_domain
-        diagnostic.add_recommendation(f"🚫 {ip_str} не отвечает — таймаут подключения")
+        diagnostic.add_recommendation(f"🚫 {ip_str} not responding — connection timeout")
         diagnostic.add_recommendation(
-            "Причина: сервер не отвечает ни по домену, ни по IP — возможно выключен или заблокирован"
+            "Reason: server not responding by domain or IP — may be down or blocked"
         )
         diagnostic.add_recommendation(
-            "Решения:\n"
-            "  1) Проверить доступность сервера и перезапустить\n"
-            "  2) Проверить Xray-конфиг (UUID, порты, сертификаты)"
+            "Solutions:\n"
+            "  1) Check server availability and restart\n"
+            "  2) Check Xray config (UUID, ports, certificates)"
         )
 
 
@@ -391,33 +391,33 @@ async def _run_standalone_cross_tests(
                     status_code = response.status
                     if status_code in (200, 204):
                         diag.add_recommendation(
-                            f"✓ {target_host}:{target_port} доступен через {working_share.name} (HTTP {status_code})"
+                            f"✓ {target_host}:{target_port} reachable via {working_share.name} (HTTP {status_code})"
                         )
                         diag.add_recommendation(
-                            "Причина: сервер работает через другой прокси — "
-                            "возможно заблокирован для прямых подключений из нашей сети"
+                            "Reason: server works through another proxy — "
+                            "may be blocked for direct connections from our network"
                         )
                         diag.add_recommendation(
-                            "Решения:\n"
-                            "  1) Использовать мост (bridge) через рабочий прокси\n"
-                            "  2) Сменить IP-адрес сервера на новый из другой подсети\n"
-                            "  3) Настроить клиентов на подключение через рабочий прокси"
+                            "Solutions:\n"
+                            "  1) Use bridge through a working proxy\n"
+                            "  2) Change server IP to a new one from a different subnet\n"
+                            "  3) Configure clients to connect through a working proxy"
                         )
                     else:
                         diag.add_recommendation(
-                            f"⚠ {target_host}:{target_port} → HTTP {status_code} через {working_share.name}"
+                            f"⚠ {target_host}:{target_port} → HTTP {status_code} via {working_share.name}"
                         )
             except TimeoutError:
                 diag.add_recommendation(
-                    f"✗ {target_host}:{target_port} недоступен через {working_share.name}: таймаут"
+                    f"✗ {target_host}:{target_port} unreachable via {working_share.name}: timeout"
                 )
                 diag.add_recommendation(
-                    "Сервер не отвечает даже через рабочий прокси — "
-                    "возможно сервер выключен или заблокирован глобально"
+                    "Server not responding even through a working proxy — "
+                    "may be down or globally blocked"
                 )
             except aiohttp.ClientError as e:
                 diag.add_recommendation(
-                    f"✗ {target_host}:{target_port} недоступен через {working_share.name}: {e}"
+                    f"✗ {target_host}:{target_port} unreachable via {working_share.name}: {e}"
                 )
     except Exception as e:
         log.error(f"Failed to start working proxy for cross-tests: {e}")

@@ -15,7 +15,7 @@ from xray_analyzer.core.logger import get_logger, setup_logging
 from xray_analyzer.core.models import CheckSeverity, CheckStatus, HostDiagnostic
 from xray_analyzer.core.standalone_analyzer import analyze_subscription_proxies
 from xray_analyzer.core.xray_client import XrayCheckerClient
-from xray_analyzer.diagnostics.censor_checker import DomainStatus, run_censor_check
+from xray_analyzer.diagnostics.censor_checker import DomainStatus, fetch_whitelist_domains, run_censor_check
 
 log = get_logger("cli")
 console = Console()
@@ -135,7 +135,14 @@ def create_parser() -> argparse.ArgumentParser:
     censor_parser.add_argument(
         "--domains",
         nargs="*",
-        help="List of domains to check (default: predefined list)",
+        help="List of domains to check (overrides --list)",
+    )
+    censor_parser.add_argument(
+        "--list",
+        choices=["default", "whitelist"],
+        default="default",
+        help="Predefined domain list to use: 'default' (built-in list) or 'whitelist' "
+             "(Russia mobile internet whitelist from github.com/hxehex/russia-mobile-internet-whitelist)",
     )
     censor_parser.add_argument(
         "--proxy",
@@ -305,6 +312,7 @@ async def cmd_status() -> int:
 
 async def cmd_censor_check(
     domains: list[str] | None = None,
+    domain_list: str = "default",
     proxy_url: str = "",
     timeout: int | None = None,
     max_parallel: int | None = None,
@@ -321,7 +329,7 @@ async def cmd_censor_check(
         if settings.censor_check_domains:
             domains = [d.strip() for d in settings.censor_check_domains.split(",") if d.strip()]
         else:
-            domains = []  # Will use defaults in run_censor_check
+            domains = []  # Will use defaults / list selection below
     elif len(domains) == 1 and "," in domains[0]:
         # Handle comma-separated domains passed as single argument
         domains = [d.strip() for d in domains[0].split(",") if d.strip()]
@@ -337,9 +345,23 @@ async def cmd_censor_check(
         console.print("[dim]Mode: Direct connection[/dim]")
     console.print()
 
+    # If no explicit domains given, apply the selected list
+    if not domains:
+        if domain_list == "whitelist":
+            console.print("[dim]Fetching Russia mobile internet whitelist...[/dim]")
+            domains = await fetch_whitelist_domains()
+            if not domains:
+                error_console.print("[bold red]Failed to fetch whitelist — falling back to default list[/bold red]")
+                domains = None  # run_censor_check will use DEFAULT_CENSOR_DOMAINS
+            else:
+                console.print(f"[green]✓ Loaded {len(domains)} domains from whitelist[/green]")
+            console.print()
+        else:
+            domains = None  # run_censor_check will use DEFAULT_CENSOR_DOMAINS
+
     try:
         summary = await run_censor_check(
-            domains=domains if domains else None,
+            domains=domains,
             proxy_url=proxy_url,
             timeout=timeout,
             max_parallel=max_parallel,
@@ -367,7 +389,7 @@ def _print_analysis_results(diagnostics: list[HostDiagnostic]) -> None:
 
     if skipped_hosts:
         for sh in skipped_hosts:
-            console.print(f"[dim]○ Пропущен: {sh.host}[/dim]")
+            console.print(f"[dim]○ Skipped: {sh.host}[/dim]")
 
     if not real_diagnostics:
         console.print("[yellow]No real hosts to analyze (only virtual/skipped hosts)[/yellow]")
@@ -383,11 +405,11 @@ def _print_analysis_results(diagnostics: list[HostDiagnostic]) -> None:
     console.print()
     console.print(
         Panel(
-            f"[bold]Всего хостов:[/bold] {len(real_diagnostics)}  |  "
+            f"[bold]Total hosts:[/bold] {len(real_diagnostics)}  |  "
             f"[green]✓ OK:[/green] {len(passing)}"
             f"{warn_part}  |  "
             f"[red]✗ PROBLEMS:[/red] {len(failing)}",
-            title="[bold blue]Результат анализа[/bold blue]",
+            title="[bold blue]Analysis Result[/bold blue]",
             border_style="green" if not failing else "red",
         )
     )
@@ -398,7 +420,7 @@ def _print_analysis_results(diagnostics: list[HostDiagnostic]) -> None:
 
     # === PROBLEM HOSTS (detailed) ===
     if failing:
-        console.print("[bold red]⚠ ХОСТЫ С ПРОБЛЕМАМИ[/bold red]\n")
+        console.print("[bold red]⚠ HOSTS WITH PROBLEMS[/bold red]\n")
 
         for diag in failing:
             failed_checks = [r for r in diag.results if r.status in (CheckStatus.FAIL, CheckStatus.TIMEOUT)]
@@ -436,7 +458,7 @@ def _print_analysis_results(diagnostics: list[HostDiagnostic]) -> None:
 
             # Print recommendations
             if diag.recommendations:
-                console.print("    [bold yellow]Что делать:[/bold yellow]")
+                console.print("    [bold yellow]What to do:[/bold yellow]")
                 for rec in diag.recommendations:
                     console.print(f"      → {rec}")
 
@@ -444,7 +466,7 @@ def _print_analysis_results(diagnostics: list[HostDiagnostic]) -> None:
 
     # === PASSING + WARN HOSTS (compact) ===
     if passing_and_warn:
-        console.print("[bold green]✓ ХОСТЫ БЕЗ ПРОБЛЕМ[/bold green]\n")
+        console.print("[bold green]✓ HOSTS WITHOUT ISSUES[/bold green]\n")
 
         table = Table(show_header=True, box=None, padding=(0, 2))
         table.add_column("Host", style="cyan")
@@ -481,7 +503,7 @@ def _print_analysis_results(diagnostics: list[HostDiagnostic]) -> None:
     problem_hosts_only = [d for d in real_diagnostics if d.overall_status not in (CheckStatus.PASS, CheckStatus.WARN)]
 
     if problem_hosts_only:
-        console.print("[bold]Подробные результаты:[/bold]\n")
+        console.print("[bold]Detailed results:[/bold]\n")
 
         for diag in problem_hosts_only:
             status_color = "green" if diag.overall_status == CheckStatus.PASS else "red"
@@ -502,7 +524,7 @@ def _print_analysis_results(diagnostics: list[HostDiagnostic]) -> None:
                 if "total_bytes_received" in details:
                     bytes_val = details["total_bytes_received"]
                     kb_val = bytes_val / 1024
-                    console.print(f"       [dim]Получено: {bytes_val} байт ({kb_val:.1f}KB)[/dim]")
+                    console.print(f"       [dim]Received: {bytes_val} bytes ({kb_val:.1f}KB)[/dim]")
                 if "http_status" in details:
                     console.print(f"       [dim]HTTP: {details['http_status']}[/dim]")
                 if "exit_ip" in details:
@@ -519,13 +541,13 @@ def _print_analysis_results(diagnostics: list[HostDiagnostic]) -> None:
                 if "packet_loss_pct" in details:
                     console.print(f"       [dim]Loss: {details['packet_loss_pct']}%[/dim]")
                 if "sni_domain" in details:
-                    console.print(f"       [dim]SNI домен: {details['sni_domain']}[/dim]")
+                    console.print(f"       [dim]SNI domain: {details['sni_domain']}[/dim]")
                 if "checked_for_proxy" in details:
-                    console.print(f"       [dim]Проверка для прокси: {details['checked_for_proxy']}[/dim]")
+                    console.print(f"       [dim]Check for proxy: {details['checked_for_proxy']}[/dim]")
 
             # Skipped checks — compact
             for result in skipped:
-                reason = result.message[:60] if result.message else "пропущено"
+                reason = result.message[:60] if result.message else "skipped"
                 console.print(f"    [dim]○ SKIP  {result.check_name}: {reason}[/dim]")
 
             # Passed checks — compact with key details
@@ -536,7 +558,7 @@ def _print_analysis_results(diagnostics: list[HostDiagnostic]) -> None:
                 if "total_bytes_received" in details:
                     bytes_val = details["total_bytes_received"]
                     kb_val = bytes_val / 1024
-                    console.print(f"       [dim]Получено: {bytes_val} байт ({kb_val:.1f}KB)[/dim]")
+                    console.print(f"       [dim]Received: {bytes_val} bytes ({kb_val:.1f}KB)[/dim]")
                 if "common_ips" in details:
                     console.print(f"       [dim]Match Check-Host: {', '.join(details['common_ips'])}[/dim]")
                 if "latency_avg_ms" in details:
@@ -551,9 +573,9 @@ def _print_analysis_results(diagnostics: list[HostDiagnostic]) -> None:
                 if "http_status" in details:
                     console.print(f"       [dim]HTTP: {details['http_status']}[/dim]")
                 if "working_proxy" in details:
-                    console.print(f"       [dim]Через прокси: {details['working_proxy']}[/dim]")
+                    console.print(f"       [dim]Via proxy: {details['working_proxy']}[/dim]")
                     if "duration_ms" in details:
-                        console.print(f"       [dim]Время: {details['duration_ms']}ms[/dim]")
+                        console.print(f"       [dim]Duration: {details['duration_ms']}ms[/dim]")
 
             console.print()
 
@@ -592,12 +614,12 @@ def _print_censor_check_results(summary) -> None:
     console.print()
     console.print(
         Panel(
-            f"[bold]Всего доменов:[/bold] {summary.total}  |  "
+            f"[bold]Total domains:[/bold] {summary.total}  |  "
             f"[green]✓ OK:[/green] {summary.ok}  |  "
             f"[red]✗ BLOCKED:[/red] {summary.blocked}  |  "
             f"[yellow]⚠ PARTIAL:[/yellow] {summary.partial}  |  "
-            f"[dim]Время: {summary.duration_seconds:.1f}s[/dim]",
-            title="[bold blue]Результат Censor-Check[/bold blue]",
+            f"[dim]Duration: {summary.duration_seconds:.1f}s[/dim]",
+            title="[bold blue]Censor-Check Result[/bold blue]",
             border_style="green" if not summary.blocked else "red",
         )
     )
@@ -614,7 +636,7 @@ def _print_censor_check_results(summary) -> None:
 
     # BLOCKED domains (detailed)
     if blocked:
-        console.print("[bold red]✗ ЗАБЛОКИРОВАННЫЕ ДОМЕНЫ[/bold red]\n")
+        console.print("[bold red]✗ BLOCKED DOMAINS[/bold red]\n")
 
         for result in blocked:
             block_type_str = f" ({result.block_type})" if result.block_type else ""
@@ -628,7 +650,7 @@ def _print_censor_check_results(summary) -> None:
 
     # PARTIAL domains (detailed)
     if partial:
-        console.print("[bold yellow]⚠ ЧАСТИЧНО ДОСТУПНЫЕ ДОМЕНЫ[/bold yellow]\n")
+        console.print("[bold yellow]⚠ PARTIALLY ACCESSIBLE DOMAINS[/bold yellow]\n")
 
         for result in partial:
             block_type_str = f" ({result.block_type})" if result.block_type else ""
@@ -642,7 +664,7 @@ def _print_censor_check_results(summary) -> None:
 
     # OK domains (compact table)
     if ok:
-        console.print("[bold green]✓ ДОСТУПНЫЕ ДОМЕНЫ[/bold green]\n")
+        console.print("[bold green]✓ ACCESSIBLE DOMAINS[/bold green]\n")
 
         table = Table(show_header=False, box=None, padding=(0, 2))
         table.add_column("Domain", style="green")
@@ -670,9 +692,9 @@ def _print_censor_check_results(summary) -> None:
     # Footer
     console.print("[dim]" + "─" * 60 + "[/dim]")
     if summary.proxy_url:
-        console.print(f"[dim]Проверка через прокси: {summary.proxy_url}[/dim]")
+        console.print(f"[dim]Checked via proxy: {summary.proxy_url}[/dim]")
     else:
-        console.print("[dim]Прямая проверка (без прокси)[/dim]")
+        console.print("[dim]Direct check (no proxy)[/dim]")
     console.print()
 
 
@@ -752,6 +774,7 @@ def main() -> None:
         exit_code = asyncio.run(
             cmd_censor_check(
                 domains=args.domains,
+                domain_list=args.list,
                 proxy_url=args.proxy,
                 timeout=args.timeout,
                 max_parallel=args.max_parallel,

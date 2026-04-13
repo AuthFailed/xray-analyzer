@@ -110,9 +110,9 @@ async def check_tcp_ping(host: str, port: int = 443, count: int = 3) -> Diagnost
             ),
             details=details,
             recommendations=[
-                f"Частичная потеря пакетей ({packet_loss_pct:.0f}%) до {host}:{port}",
-                "Проверьте стабильность сетевого подключения",
-                "Возможна перегрузка сети или сервера",
+                f"Partial packet loss ({packet_loss_pct:.0f}%) to {host}:{port}",
+                "Check network connection stability",
+                "Network or server may be overloaded",
             ],
         )
     else:
@@ -121,12 +121,12 @@ async def check_tcp_ping(host: str, port: int = 443, count: int = 3) -> Diagnost
             check_name="TCP Ping",
             status=CheckStatus.FAIL,
             severity=CheckSeverity.CRITICAL,
-            message=f"TCP ping to {host}:{port}: все {count} попыток неудачны",
+            message=f"TCP ping to {host}:{port}: all {count} attempts failed",
             details=details,
             recommendations=[
-                f"Сервер {host}:{port} недоступен — все {count} попыток подключения неудачны",
-                "Проверьте настройки фаервола (iptables, ufw)",
-                f"Убедитесь, что порт {port} открыт: netstat -tlnp | grep {port}",
-                "Проверьте сетевую доступность: ping <хост>",
+                f"Server {host}:{port} unreachable — all {count} connection attempts failed",
+                "Check firewall settings (iptables, ufw)",
+                f"Verify port {port} is open: netstat -tlnp | grep {port}",
+                "Check network reachability: ping <host>",
             ],
         )

@@ -233,7 +233,7 @@ class XrayAnalyzer:
             )
             diagnostic = HostDiagnostic(host=f"{proxy.stable_id}:skipped")
             diagnostic.add_recommendation(
-                "Настройте авторизацию (CHECKER_API_USERNAME/PASSWORD) для получения адресов серверов"
+                "Configure authentication (CHECKER_API_USERNAME/PASSWORD) to obtain server addresses"
             )
             return diagnostic
 
@@ -266,7 +266,7 @@ class XrayAnalyzer:
         diagnostic.add_result(dns_result)
 
         if dns_result.status == CheckStatus.FAIL:
-            diagnostic.add_recommendation("DNS не разрешается — проверьте домен и DNS-настройки")
+            diagnostic.add_recommendation("DNS cannot be resolved — check domain and DNS settings")
 
         # 2. TCP Connection
         tcp_result = await check_tcp_connection(host, port)
@@ -331,11 +331,11 @@ class XrayAnalyzer:
                     check_name="Proxy Xray Test",
                     status=CheckStatus.SKIP,
                     severity=CheckSeverity.INFO,
-                    message=f"Для {protocol} требуется SUBSCRIPTION_URL в конфигурации",
+                    message=f"SUBSCRIPTION_URL is required in configuration for {protocol}",
                     details={"protocol": protocol, "server": host},
                     recommendations=[
-                        "Укажите SUBSCRIPTION_URL для тестирования VLESS/Trojan/SS прокси",
-                        "Или используйте xray-checker API для проверки статуса прокси",
+                        "Set SUBSCRIPTION_URL to test VLESS/Trojan/SS proxies",
+                        "Or use xray-checker API to check proxy status",
                     ],
                 )
             )
@@ -360,11 +360,11 @@ class XrayAnalyzer:
                     check_name="Proxy Xray Test",
                     status=CheckStatus.SKIP,
                     severity=CheckSeverity.WARNING,
-                    message=f"Не найден share URL для {host}:{port} ({protocol}) в подписке",
+                    message=f"Share URL not found for {host}:{port} ({protocol}) in subscription",
                     details={"protocol": protocol, "server": host, "port": port},
                     recommendations=[
-                        "Проверьте, что subscription URL содержит данный прокси",
-                        "Убедитесь, что SUBSCRIPTION_URL настроен корректно",
+                        "Check that the subscription URL contains this proxy",
+                        "Make sure SUBSCRIPTION_URL is configured correctly",
                     ],
                 )
             )

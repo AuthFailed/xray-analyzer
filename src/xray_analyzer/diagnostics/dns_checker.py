@@ -86,9 +86,9 @@ async def check_dns_resolution(host: str) -> DiagnosticResult:
                 "duration_ms": round(duration_ms, 2),
             },
             recommendations=[
-                "Проверьте правильность написания доменного имени",
-                "Проверьте настройки DNS-сервера в /etc/resolv.conf",
-                "Попробуйте использовать публичные DNS (8.8.8.8, 1.1.1.1)",
+                "Check the domain name spelling",
+                "Check DNS server settings in /etc/resolv.conf",
+                "Try using public DNS (8.8.8.8, 1.1.1.1)",
             ],
         )
 
@@ -106,9 +106,9 @@ async def check_dns_resolution(host: str) -> DiagnosticResult:
                 "duration_ms": round(duration_ms, 2),
             },
             recommendations=[
-                "Проверьте настройки DNS-сервера в /etc/resolv.conf",
-                "Убедитесь, что DNS-сервер доступен",
-                "Попробуйте использовать публичные DNS (8.8.8.8, 1.1.1.1)",
+                "Check DNS server settings in /etc/resolv.conf",
+                "Make sure the DNS server is accessible",
+                "Try using public DNS (8.8.8.8, 1.1.1.1)",
             ],
         )
 
@@ -168,8 +168,8 @@ async def check_dns_with_checkhost(host: str) -> DiagnosticResult:
             status=CheckStatus.PASS,
             severity=CheckSeverity.INFO,
             message=(
-                f"DNS для {host}: обнаружен Xray FakeDNS "
-                f"(виртуальные IP: {', '.join(fakedns_ips)}) — расхождение с Check-Host ожидаемо"
+                f"DNS for {host}: Xray FakeDNS detected "
+                f"(virtual IPs: {', '.join(fakedns_ips)}) — mismatch with Check-Host is expected"
             ),
             details=details,
         )
@@ -184,7 +184,7 @@ async def check_dns_with_checkhost(host: str) -> DiagnosticResult:
                 check_name="DNS Resolution (Check-Host)",
                 status=CheckStatus.PASS,
                 severity=CheckSeverity.INFO,
-                message=f"DNS resolved successfully for {host} (Check-Host недоступен)",
+                message=f"DNS resolved successfully for {host} (Check-Host unavailable)",
                 details=details,
             )
         else:
@@ -195,8 +195,8 @@ async def check_dns_with_checkhost(host: str) -> DiagnosticResult:
                 message=f"DNS resolution failed for {host}: {local_result.get('error', 'unknown')}",
                 details=details,
                 recommendations=[
-                    "Проверьте настройки DNS-сервера в /etc/resolv.conf",
-                    "Попробуйте использовать публичные DNS (8.8.8.8, 1.1.1.1)",
+                    "Check DNS server settings in /etc/resolv.conf",
+                    "Try using public DNS (8.8.8.8, 1.1.1.1)",
                 ],
             )
 
@@ -236,7 +236,7 @@ async def check_dns_with_checkhost(host: str) -> DiagnosticResult:
                 status=CheckStatus.PASS,
                 severity=CheckSeverity.WARNING,
                 message=(
-                    f"DNS для {host}: локальные IP не совпадают с Check-Host (возможно DNS poisoning или geo-blocking)"
+                    f"DNS for {host}: local IPs don't match Check-Host (possible DNS poisoning or geo-blocking)"
                 ),
                 details=details,
             )
@@ -246,12 +246,12 @@ async def check_dns_with_checkhost(host: str) -> DiagnosticResult:
             check_name="DNS Resolution (Check-Host)",
             status=CheckStatus.FAIL,
             severity=CheckSeverity.CRITICAL,
-            message=f"Локальный DNS не разрешает {host}, но Check-Host разрешает (проблема DNS)",
+            message=f"Local DNS cannot resolve {host}, but Check-Host resolves it (DNS issue)",
             details=details,
             recommendations=[
-                "Check-Host.net успешно разрешает домен, но локальный DNS — нет",
-                "Проверьте настройки DNS-сервера в /etc/resolv.conf",
-                "Попробуйте использовать публичные DNS (8.8.8.8, 1.1.1.1)",
+                "Check-Host.net resolves the domain, but local DNS does not",
+                "Check DNS server settings in /etc/resolv.conf",
+                "Try using public DNS (8.8.8.8, 1.1.1.1)",
             ],
         )
     else:
@@ -260,12 +260,12 @@ async def check_dns_with_checkhost(host: str) -> DiagnosticResult:
             check_name="DNS Resolution (Check-Host)",
             status=CheckStatus.FAIL,
             severity=CheckSeverity.CRITICAL,
-            message=f"DNS не разрешает {host} ни локально, ни через Check-Host",
+            message=f"DNS cannot resolve {host} locally or through Check-Host",
             details=details,
             recommendations=[
-                "Домен не разрешается ни локально, ни через Check-Host.net",
-                "Проверьте правильность написания доменного имени",
-                "Убедитесь, что домен зарегистрирован и активен",
+                "Domain not resolved locally or through Check-Host.net",
+                "Check the domain name spelling",
+                "Make sure the domain is registered and active",
             ],
         )
 

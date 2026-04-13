@@ -20,7 +20,9 @@ class RecommendationEngine:
         """
         # Prevent duplicate recommendations
         if diag.recommendations and any(
-            "заблокирован" in r or "недоступен" in r or "троттлинг" in r.lower() for r in diag.recommendations
+            "blocked" in r.lower() or "unreachable" in r.lower() or "throttling" in r.lower()
+            or "заблокирован" in r or "недоступен" in r or "троттлинг" in r.lower()
+            for r in diag.recommendations
         ):
             return
 
@@ -30,8 +32,11 @@ class RecommendationEngine:
 
         for r in diag.results:
             # Get domain from the FIRST Xray connectivity test (domain test)
-            if r.check_name.startswith("Proxy Xray Connectivity") and "домен:" in r.check_name:
-                domain_in_label = r.check_name.split("домен:")[-1].strip().rstrip(")")
+            if r.check_name.startswith("Proxy Xray Connectivity") and (
+                "домен:" in r.check_name or "domain:" in r.check_name
+            ):
+                sep = "domain:" if "domain:" in r.check_name else "домен:"
+                domain_in_label = r.check_name.split(sep)[-1].strip().rstrip(")")
                 if domain_in_label:
                     server_domain = domain_in_label
                 # Also get server from details if it's a domain (not IP)
@@ -81,15 +86,15 @@ class RecommendationEngine:
             r.check_name.startswith("DNS Resolution") and r.status == CheckStatus.FAIL for r in diag.results
         )
         if dns_failed:
-            diag.add_recommendation(f"🔒 DNS для {server_domain} не разрешается или не совпадает с Check-Host")
+            diag.add_recommendation(f"🔒 DNS for {server_domain} cannot be resolved or doesn't match Check-Host")
             diag.add_recommendation(
-                "Причина: DNS poisoning или geo-blocking — локальный DNS возвращает другие IP, чем внешние ноды"
+                "Reason: DNS poisoning or geo-blocking — local DNS returns different IPs than external nodes"
             )
             diag.add_recommendation(
-                "Решения:\n"
-                "  1) Использовать публичный DNS (Google 8.8.8.8, Cloudflare 1.1.1.1)\n"
-                "  2) Настроить клиентов на подключение по IP напрямую\n"
-                "  3) Сменить домен, если он попал в блокировки DNS-провайдеров"
+                "Solutions:\n"
+                "  1) Use public DNS (Google 8.8.8.8, Cloudflare 1.1.1.1)\n"
+                "  2) Configure clients to connect by IP directly\n"
+                "  3) Change the domain if it's in ISP DNS blocklists"
             )
             return
 
@@ -112,17 +117,17 @@ class RecommendationEngine:
                 failed_services.append("Exit IP check")
             if sni_failed:
                 failed_services.append("SNI check")
-            diag.add_recommendation(f"⚠️ Сервер {server_domain} подключается, но не достигает внешних сервисов")
+            diag.add_recommendation(f"⚠️ Server {server_domain} connects but cannot reach external services")
             diag.add_recommendation(
-                f"Причина: Xray подключился (HTTP 204), но {', '.join(failed_services)} провалились — "
-                f"сервер не может достичь api.ipify.org или других внешних хостов"
+                f"Reason: Xray connected (HTTP 204) but {', '.join(failed_services)} failed — "
+                f"server cannot reach api.ipify.org or other external hosts"
             )
             diag.add_recommendation(
-                "Решения:\n"
-                "  1) Проверить маршрутизацию и firewall на сервере\n"
-                "  2) Убедиться что сервер имеет доступ к внешнему интернету\n"
-                "  3) Проверить DNS-настройки сервера (resolv.conf)\n"
-                "  4) Возможно, сервер находится в NAT без внешнего доступа"
+                "Solutions:\n"
+                "  1) Check routing and firewall on the server\n"
+                "  2) Make sure the server has internet access\n"
+                "  3) Check DNS settings on the server (resolv.conf)\n"
+                "  4) Server may be behind NAT without external access"
             )
             return
 
@@ -145,32 +150,32 @@ class RecommendationEngine:
             if bytes_received == 0:
                 ip_str = f"IP {server_ip}" if server_ip else server_domain
                 if cross_works:
-                    diag.add_recommendation(f"🔒 {ip_str} заблокирован для прямых подключений")
+                    diag.add_recommendation(f"🔒 {ip_str} is blocked for direct connections")
                     diag.add_recommendation(
-                        f"Причина: 0 байт получено, но через {cross_proxy_name} работает — "
-                        f"сервер рабочий, только прямые подключения заблокированы"
+                        f"Reason: 0 bytes received, but works via {cross_proxy_name} — "
+                        f"server is functional, only direct connections are blocked"
                     )
                 else:
-                    diag.add_recommendation(f"🚫 {ip_str} заблокирован РКН")
-                    diag.add_recommendation("Причина: 0 байт получено — сервер не отвечает на запросы")
+                    diag.add_recommendation(f"🚫 {ip_str} is blocked by RKN")
+                    diag.add_recommendation("Reason: 0 bytes received — server not responding to requests")
                 diag.add_recommendation(
-                    "Решения:\n"
-                    "  1) Сменить IP-адрес сервера на новый из другой подсети\n"
-                    "  2) Прокинуть мост (bridge) через рабочий прокси"
+                    "Solutions:\n"
+                    "  1) Change the server IP to a new one from a different subnet\n"
+                    "  2) Bridge through a working proxy"
                 )
             else:
                 kb_received = bytes_received / 1024
-                diag.add_recommendation(f"🐌 Сервер {server_domain} — DPI-троттлинг ({kb_received:.0f}KB cutoff)")
+                diag.add_recommendation(f"🐌 Server {server_domain} — DPI throttling ({kb_received:.0f}KB cutoff)")
                 diag.add_recommendation(
-                    f"Причина: РКН обрывает соединение после ~{kb_received:.0f}KB — "
-                    "типичный паттерн DPI-фильтра (TLS ClientHello/SNI)"
+                    f"Reason: RKN drops connection after ~{kb_received:.0f}KB — "
+                    "typical DPI filter pattern (TLS ClientHello/SNI)"
                 )
                 diag.add_recommendation(
-                    "Решения:\n"
-                    "  1) Включить обфускацию транспорта (XHTTP/GRPC/WebSocket)\n"
-                    "  2) Использовать VLESS + Reality с selfsteal-сертификатом\n"
-                    "  3) Настроить TLS fingerprint под обычный веб-трафик (ja3)\n"
-                    "  4) Подключаться через рабочий прокси-мост"
+                    "Solutions:\n"
+                    "  1) Enable transport obfuscation (XHTTP/GRPC/WebSocket)\n"
+                    "  2) Use VLESS + Reality with selfsteal certificate\n"
+                    "  3) Configure TLS fingerprint to mimic normal web traffic (ja3)\n"
+                    "  4) Connect through a working proxy bridge"
                 )
             return
 
@@ -179,7 +184,9 @@ class RecommendationEngine:
         xray_ip_result = None
 
         for r in diag.results:
-            if r.check_name.startswith("Proxy Xray Connectivity") and "домен:" in r.check_name:
+            if r.check_name.startswith("Proxy Xray Connectivity") and (
+                "домен:" in r.check_name or "domain:" in r.check_name
+            ):
                 xray_domain_result = r
             elif r.check_name.startswith("Proxy Xray Connectivity") and "IP:" in r.check_name:
                 xray_ip_result = r
@@ -199,15 +206,15 @@ class RecommendationEngine:
             and cross_status == CheckStatus.PASS
         ):
             ip_str = f"IP {server_ip}" if server_ip else server_domain
-            diag.add_recommendation(f"🔒 {ip_str} заблокирован для прямых подключений")
+            diag.add_recommendation(f"🔒 {ip_str} is blocked for direct connections")
             diag.add_recommendation(
-                f"Причина: не подключается напрямую, но через {cross_proxy_name} работает — "
-                f"сервер рабочий, блокировка для нашей подсети"
+                f"Reason: cannot connect directly, but works via {cross_proxy_name} — "
+                f"server is functional, blocked for our subnet"
             )
             diag.add_recommendation(
-                "Решения:\n"
-                "  1) Прокинуть мост (bridge) через рабочий прокси до сервера\n"
-                "  2) Сменить IP-адрес сервера на новый из другой подсети"
+                "Solutions:\n"
+                "  1) Bridge through a working proxy to the server\n"
+                "  2) Change the server IP to a new one from a different subnet"
             )
             return
 
@@ -217,15 +224,15 @@ class RecommendationEngine:
             and xray_ip_result
             and xray_ip_result.status == CheckStatus.PASS
         ):
-            diag.add_recommendation(f"🔒 Домен {server_domain} заблокирован (DNS/SNI)")
+            diag.add_recommendation(f"🔒 Domain {server_domain} is blocked (DNS/SNI)")
             diag.add_recommendation(
-                f"Причина: по домену не подключается, но по IP ({xray_ip_result.details.get('server', '')}) проходит"
+                f"Reason: cannot connect by domain, but works by IP ({xray_ip_result.details.get('server', '')})"
             )
             diag.add_recommendation(
-                "Решения:\n"
-                "  1) Заменить домен на новый в конфигурации сервера\n"
-                "  2) Настроить клиентов на подключение по IP вместо домена\n"
-                "  3) Использовать SNI-обфускацию или selfsteal-сертификат"
+                "Solutions:\n"
+                "  1) Replace the domain with a new one in server configuration\n"
+                "  2) Configure clients to connect by IP instead of domain\n"
+                "  3) Use SNI obfuscation or selfsteal certificate"
             )
             return
 
@@ -236,15 +243,15 @@ class RecommendationEngine:
             and cross_status in (CheckStatus.FAIL, CheckStatus.TIMEOUT)
         ):
             ip_str = f"IP {server_ip}" if server_ip else server_domain
-            diag.add_recommendation(f"🚫 {ip_str} заблокирован или сервер недоступен")
+            diag.add_recommendation(f"🚫 {ip_str} is blocked or server is unreachable")
             diag.add_recommendation(
-                f"Причина: не работает ни напрямую, ни через {cross_proxy_name} — "
-                f"сервер выключен или заблокирован глобально"
+                f"Reason: not working directly or via {cross_proxy_name} — "
+                f"server is down or globally blocked"
             )
             diag.add_recommendation(
-                "Решения:\n"
-                "  1) Проверить доступность сервера и перезапустить\n"
-                "  2) Если сервер работает — сменить IP-адрес на новый\n"
-                "  3) Проверить Xray-конфиг (UUID, порты, сертификаты)"
+                "Solutions:\n"
+                "  1) Check server availability and restart\n"
+                "  2) If server is working — change IP to a new one\n"
+                "  3) Check Xray config (UUID, ports, certificates)"
             )
             return

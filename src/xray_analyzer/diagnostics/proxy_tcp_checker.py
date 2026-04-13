@@ -46,7 +46,7 @@ async def check_proxy_tcp_tunnel(
                 check_name="Proxy TCP Tunnel",
                 status=CheckStatus.SKIP,
                 severity=CheckSeverity.INFO,
-                message=f"Протокол прокси '{scheme}' не поддерживается для TCP tunnel check",
+                message=f"Proxy protocol '{scheme}' not supported for TCP tunnel check",
                 details={
                     "proxy_url": proxy_url,
                     "test_url": test_url,
@@ -54,8 +54,8 @@ async def check_proxy_tcp_tunnel(
                     "supported_schemes": list(supported_schemes),
                 },
                 recommendations=[
-                    f"Протокол {scheme} не поддерживается для туннельной проверки",
-                    "Используйте HTTP или SOCKS прокси для данной проверки",
+                    f"Protocol {scheme} is not supported for tunnel check",
+                    "Use HTTP or SOCKS proxy for this check",
                 ],
             )
     except Exception as e:
@@ -63,7 +63,7 @@ async def check_proxy_tcp_tunnel(
             check_name="Proxy TCP Tunnel",
             status=CheckStatus.FAIL,
             severity=CheckSeverity.ERROR,
-            message=f"Некорректный URL прокси: {e}",
+            message=f"Invalid proxy URL: {e}",
             details={"proxy_url": proxy_url, "error": str(e)},
         )
 
@@ -105,7 +105,7 @@ async def check_proxy_tcp_tunnel(
                     check_name="Proxy TCP Tunnel",
                     status=CheckStatus.PASS,
                     severity=CheckSeverity.INFO,
-                    message=f"TCP tunnel через прокси работает: HTTP {status_code} ({test_url})",
+                    message=f"TCP tunnel via proxy working: HTTP {status_code} ({test_url})",
                     details=details,
                 )
             else:
@@ -113,12 +113,12 @@ async def check_proxy_tcp_tunnel(
                     check_name="Proxy TCP Tunnel",
                     status=CheckStatus.FAIL,
                     severity=CheckSeverity.ERROR,
-                    message=f"TCP tunnel вернул неожиданный статус: HTTP {status_code}",
+                    message=f"TCP tunnel returned unexpected status: HTTP {status_code}",
                     details=details,
                     recommendations=[
-                        f"Прокси вернул HTTP {status_code} вместо 200/204",
-                        "Проверьте, что прокси работает корректно",
-                        f"Тестовый URL: {test_url}",
+                        f"Proxy returned HTTP {status_code} instead of 200/204",
+                        "Check that the proxy is working correctly",
+                        f"Test URL: {test_url}",
                     ],
                 )
 
@@ -130,7 +130,7 @@ async def check_proxy_tcp_tunnel(
             check_name="Proxy TCP Tunnel",
             status=CheckStatus.FAIL,
             severity=CheckSeverity.CRITICAL,
-            message=f"Не удалось подключиться к прокси: {e}",
+            message=f"Failed to connect to proxy: {e}",
             details={
                 "proxy_url": proxy_url,
                 "test_url": test_url,
@@ -139,9 +139,9 @@ async def check_proxy_tcp_tunnel(
                 "duration_ms": round(duration_ms, 2),
             },
             recommendations=[
-                "Прокси-сервер недоступен или отклоняет подключение",
-                "Проверьте адрес и порт прокси",
-                "Убедитесь, что прокси запущен и слушает указанный порт",
+                "Proxy server unavailable or rejecting connections",
+                "Check proxy address and port",
+                "Make sure proxy is running and listening on the specified port",
             ],
         )
 
@@ -153,7 +153,7 @@ async def check_proxy_tcp_tunnel(
             check_name="Proxy TCP Tunnel",
             status=CheckStatus.FAIL,
             severity=CheckSeverity.CRITICAL,
-            message=f"Ошибка подключения через прокси: {e}",
+            message=f"Connection error through proxy: {e}",
             details={
                 "proxy_url": proxy_url,
                 "test_url": test_url,
@@ -162,9 +162,9 @@ async def check_proxy_tcp_tunnel(
                 "duration_ms": round(duration_ms, 2),
             },
             recommendations=[
-                "Ошибка при подключении через прокси-туннель",
-                "Возможно, целевой сервер недоступен через данный прокси",
-                "Проверьте сетевые настройки прокси",
+                "Error connecting through proxy tunnel",
+                "Target server may be unreachable through this proxy",
+                "Check proxy network settings",
             ],
         )
 
@@ -176,7 +176,7 @@ async def check_proxy_tcp_tunnel(
             check_name="Proxy TCP Tunnel",
             status=CheckStatus.TIMEOUT,
             severity=CheckSeverity.CRITICAL,
-            message=f"Превышено время ожидания TCP tunnel через прокси ({settings.tcp_timeout}s)",
+            message=f"TCP tunnel via proxy timed out ({settings.tcp_timeout}s)",
             details={
                 "proxy_url": proxy_url,
                 "test_url": test_url,
@@ -184,9 +184,9 @@ async def check_proxy_tcp_tunnel(
                 "duration_ms": round(duration_ms, 2),
             },
             recommendations=[
-                "Прокси не отвечает в течение заданного таймаута",
-                "Проверьте, что прокси запущен и не перегружен",
-                "Возможно, прокси не может установить соединение с целевым сервером",
+                "Proxy not responding within the timeout period",
+                "Check that the proxy is running and not overloaded",
+                "Proxy may not be able to connect to the target server",
             ],
         )
 
@@ -198,7 +198,7 @@ async def check_proxy_tcp_tunnel(
             check_name="Proxy TCP Tunnel",
             status=CheckStatus.FAIL,
             severity=CheckSeverity.ERROR,
-            message=f"Ошибка при проверке TCP tunnel: {e}",
+            message=f"Error checking TCP tunnel: {e}",
             details={
                 "proxy_url": proxy_url,
                 "test_url": test_url,
@@ -207,9 +207,9 @@ async def check_proxy_tcp_tunnel(
                 "duration_ms": round(duration_ms, 2),
             },
             recommendations=[
-                "Ошибка HTTP клиента при проверке туннеля",
-                "Проверьте корректность URL прокси",
-                "Для SOCKS прокси убедитесь, что установлен aiohttp-socks",
+                "HTTP client error during tunnel check",
+                "Check proxy URL validity",
+                "For SOCKS proxies make sure aiohttp-socks is installed",
             ],
         )
 
@@ -221,15 +221,15 @@ async def check_proxy_tcp_tunnel(
             check_name="Proxy TCP Tunnel",
             status=CheckStatus.FAIL,
             severity=CheckSeverity.ERROR,
-            message=f"Отсутствует необходимая зависимость: {e}",
+            message=f"Missing required dependency: {e}",
             details={
                 "proxy_url": proxy_url,
                 "error": str(e),
                 "duration_ms": round(duration_ms, 2),
             },
             recommendations=[
-                "Для SOCKS прокси требуется пакет aiohttp-socks",
-                "Установите: pip install aiohttp-socks",
+                "SOCKS proxies require the aiohttp-socks package",
+                "Install: pip install aiohttp-socks",
             ],
         )
 
@@ -241,7 +241,7 @@ async def check_proxy_tcp_tunnel(
             check_name="Proxy TCP Tunnel",
             status=CheckStatus.FAIL,
             severity=CheckSeverity.ERROR,
-            message=f"Неожиданная ошибка при проверке TCP tunnel: {e}",
+            message=f"Unexpected error checking TCP tunnel: {e}",
             details={
                 "proxy_url": proxy_url,
                 "test_url": test_url,
@@ -250,7 +250,7 @@ async def check_proxy_tcp_tunnel(
                 "duration_ms": round(duration_ms, 2),
             },
             recommendations=[
-                "Произошла неожиданная ошибка — проверьте логи",
-                "Попробуйте повторить попытку",
+                "An unexpected error occurred — check logs",
+                "Try again",
             ],
         )

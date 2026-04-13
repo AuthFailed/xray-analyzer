@@ -32,7 +32,7 @@ def _format_dns_check(details: dict) -> list[str]:
     # Show local IPs
     if local_ips:
         for ip in local_ips[:3]:  # Limit to 3
-            lines.append(f"   🖥 Локальный DNS: {ip}")
+            lines.append(f"   🖥 Local DNS: {ip}")
 
     # Show Check-Host IPs
     if checkhost_ips:
@@ -42,10 +42,10 @@ def _format_dns_check(details: dict) -> list[str]:
     # Show mismatch warning
     common = set(local_ips) & set(checkhost_ips)
     if not common and local_ips and checkhost_ips:
-        lines.append("   ⚠️ IP не совпадают — возможна DNS-подмена или geo-блокировка")
+        lines.append("   ⚠️ IPs don't match — possible DNS spoofing or geo-blocking")
 
     if not lines:
-        lines.append("   нет данных")
+        lines.append("   no data")
 
     return lines
 
@@ -56,31 +56,31 @@ def _format_tcp_ping(details: dict) -> str:
     packet_loss = details.get("packet_loss_pct")
 
     if latency_avg is None and packet_loss is None:
-        return "нет данных"
+        return "no data"
 
     parts = []
 
     if latency_avg is not None:
         if packet_loss and packet_loss > 0:
-            parts.append(f"{int(latency_avg)}ms (потери {int(packet_loss)}%)")
+            parts.append(f"{int(latency_avg)}ms (loss {int(packet_loss)}%)")
         else:
             parts.append(f"{int(latency_avg)}ms")
 
     if packet_loss is not None and packet_loss > 0:
         if packet_loss >= 50:
-            return f"🔴 критические потери {int(packet_loss)}%"
+            return f"🔴 critical loss {int(packet_loss)}%"
         elif packet_loss >= 20:
-            return f"🟡 потери {int(packet_loss)}%"
+            return f"🟡 loss {int(packet_loss)}%"
 
     if latency_avg is not None:
         if latency_avg > PING_HIGH_THRESHOLD:
-            return f"🟡 высокий {parts[0]}"
+            return f"🟡 high {parts[0]}"
         elif latency_avg > PING_GOOD_THRESHOLD:
             return parts[0]
         else:
             return f"✓ {parts[0]}"
 
-    return parts[0] if parts else "нет данных"
+    return parts[0] if parts else "no data"
 
 
 def _format_check_result(check) -> str | list[str]:
@@ -92,13 +92,13 @@ def _format_check_result(check) -> str | list[str]:
 
     # Skip checks - show them now
     if check.status == CheckStatus.SKIP:
-        skip_reason = check.message[:80] if check.message else "пропущено"
-        return f"○ {check_name}: пропущено — {skip_reason}"
+        skip_reason = check.message[:80] if check.message else "skipped"
+        return f"○ {check_name}: skipped — {skip_reason}"
 
     # Passed checks
     if check.status == CheckStatus.PASS:
         if "dns resolution" in check.check_name.lower():
-            lines = [f"✓ {check_name}: DNS разрешён"]
+            lines = [f"✓ {check_name}: DNS resolved"]
             dns_lines = _format_dns_check(check.details)
             lines.extend(dns_lines)
             return lines
@@ -106,21 +106,21 @@ def _format_check_result(check) -> str | list[str]:
             ping_status = _format_tcp_ping(check.details)
             return f"• {check_name}: {ping_status}"
         elif "tcp connection" in check.check_name.lower():
-            return f"• {check_name}: ✓ доступен (проверка TCP-соединения с сервером)"
+            return f"• {check_name}: ✓ reachable (TCP connection check)"
         elif "exit ip" in check.check_name.lower():
-            exit_ip = check.details.get("exit_ip", "нет данных")
+            exit_ip = check.details.get("exit_ip", "no data")
             return f"• {check_name}: {exit_ip}"
         elif "rkn" in check.check_name.lower():
-            return f"• {check_name}: ✓ не заблокирован"
+            return f"• {check_name}: ✓ not blocked"
         elif "sni" in check.check_name.lower():
-            return f"• {check_name}: ✓ подключено"
+            return f"• {check_name}: ✓ connected"
         elif "tunnel" in check.check_name.lower():
-            return f"• {check_name}: ✓ туннель работает"
+            return f"• {check_name}: ✓ tunnel working"
         elif "cross-proxy" in check.check_name.lower() or "cross" in check.check_name.lower():
-            working_proxy = check.details.get("working_proxy", "неизвестно")
-            return f"• {check_name}: ✓ доступен через {working_proxy} (Xray) — сервер работает, возможна блокировка"
+            working_proxy = check.details.get("working_proxy", "unknown")
+            return f"• {check_name}: ✓ reachable via {working_proxy} (Xray) — server works, possible blocking"
         elif "connectivity" in check.check_name.lower():
-            return f"• {check_name}: ✓ подключено"
+            return f"• {check_name}: ✓ connected"
         else:
             return f"• {check_name}: ✓ OK"
 
@@ -146,19 +146,19 @@ def _format_check_result(check) -> str | list[str]:
 
         # Cross-proxy connectivity - explain what this test does
         if "cross-proxy" in check.check_name.lower() or "cross" in check.check_name.lower():
-            working_proxy = check.details.get("working_proxy", "неизвестно")
+            working_proxy = check.details.get("working_proxy", "unknown")
             if check.status == CheckStatus.PASS:
-                return f"✓ {check_name}: ✓ доступен через {working_proxy} (Xray) — сервер работает, возможна блокировка"
+                return f"✓ {check_name}: ✓ reachable via {working_proxy} (Xray) — server works, possible blocking"
             else:
-                return f"{icon} {check_name}: недоступен через {working_proxy} (Xray) — сервер может быть выключен"
+                return f"{icon} {check_name}: unreachable via {working_proxy} (Xray) — server may be down"
 
         # Xray connectivity with label suffix (IP fallback)
         if "connectivity" in check.check_name.lower():
             label_suffix = ""
             if "(ip:" in check.check_name.lower():
-                label_suffix = " — fallback по IP (основной тест по домену не прошёл)"
+                label_suffix = " — IP fallback (domain test failed)"
             else:
-                label_suffix = " — основная проверка через Xray"
+                label_suffix = " — primary Xray check"
             return f"{icon} {check_name}: {error_msg}{detail_str}{label_suffix}"
 
         return f"{icon} {check_name}: {error_msg}{detail_str}"
@@ -255,11 +255,11 @@ class TelegramNotifier(Notifier):
     ) -> str:
         """Build compact HTML message from diagnostics."""
         lines = [
-            "<b>🔍 Xray Analyzer — Проблемы обнаружены</b>",
+            "<b>🔍 Xray Analyzer — Problems detected</b>",
             "",
-            f"📊 Хостов проверено: <code>{len(all_diagnostics)}</code>",
-            f"❌ С проблемами: <code>{len(problematic)}</code>",
-            f"✅ В порядке: <code>{len(all_diagnostics) - len(problematic)}</code>",
+            f"📊 Hosts checked: <code>{len(all_diagnostics)}</code>",
+            f"❌ With problems: <code>{len(problematic)}</code>",
+            f"✅ OK: <code>{len(all_diagnostics) - len(problematic)}</code>",
             "",
             "━" * 25,
             "",
@@ -282,7 +282,7 @@ class TelegramNotifier(Notifier):
             lines.append("")
 
             # Test results
-            lines.append("<b>Тесты:</b>")
+            lines.append("<b>Tests:</b>")
             check_idx = 1
             for check in diag.results:
                 formatted = _format_check_result(check)
@@ -303,7 +303,7 @@ class TelegramNotifier(Notifier):
             # Recommendations
             recs = _format_recommendations(diag)
             if recs:
-                lines.append("<b>Что проверить:</b>")
+                lines.append("<b>What to check:</b>")
                 lines.append(recs)
 
             # Separator between hosts (except last)
@@ -315,12 +315,12 @@ class TelegramNotifier(Notifier):
         # Footer
         lines.append("")
         lines.append("━" * 25)
-        lines.append("💡 <i>Подробный отчёт: xray-analyzer analyze</i>")
+        lines.append("💡 <i>Full report: xray-analyzer analyze</i>")
 
         message = "\n".join(lines)
 
         # Truncate if too long for Telegram
         if len(message) > MAX_MESSAGE_LENGTH:
-            message = message[:MAX_MESSAGE_LENGTH] + "\n\n⚠️ <i>Сообщение обрезано</i>"
+            message = message[:MAX_MESSAGE_LENGTH] + "\n\n⚠️ <i>Message truncated</i>"
 
         return message

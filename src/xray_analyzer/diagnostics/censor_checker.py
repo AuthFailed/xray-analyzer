@@ -19,6 +19,9 @@ from xray_analyzer.core.logger import get_logger
 
 log = get_logger("censor_checker")
 
+# URL for Russia mobile internet whitelist
+WHITELIST_URL = "https://raw.githubusercontent.com/hxehex/russia-mobile-internet-whitelist/refs/heads/main/whitelist.txt"
+
 # Default list of domains to check (from bash script)
 DEFAULT_CENSOR_DOMAINS: list[str] = [
     "youtube.com",
@@ -572,6 +575,33 @@ async def check_domain(
             result.status = DomainStatus.PARTIAL
 
     return result
+
+
+async def fetch_whitelist_domains() -> list[str]:
+    """Fetch domain list from russia-mobile-internet-whitelist GitHub repo."""
+    log.info(f"Fetching whitelist from {WHITELIST_URL}")
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.get(
+                WHITELIST_URL,
+                timeout=ClientTimeout(total=30),
+            ) as response:
+                if response.status != 200:
+                    log.error(f"Failed to fetch whitelist: HTTP {response.status}")
+                    return []
+                text = await response.text()
+
+        domains = []
+        for line in text.splitlines():
+            line = line.strip()
+            if line and not line.startswith("#"):
+                domains.append(line)
+
+        log.info(f"Fetched {len(domains)} domains from whitelist")
+        return domains
+    except Exception as e:
+        log.error(f"Error fetching whitelist: {e}")
+        return []
 
 
 async def run_censor_check(

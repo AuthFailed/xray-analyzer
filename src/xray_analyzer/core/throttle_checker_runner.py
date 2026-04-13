@@ -247,7 +247,7 @@ class ThrottleCheckRunner:
                     check_name="RKN Throttle (via Xray)",
                     status=CheckStatus.SKIP,
                     severity=CheckSeverity.WARNING,
-                    message=f"Не удалось запустить Xray для проверки: {e}",
+                    message=f"Failed to start Xray for check: {e}",
                     details={
                         "target_host": target_host,
                         "working_proxy": working_name,
@@ -264,7 +264,7 @@ class ThrottleCheckRunner:
                 socks_url=socks_url,
                 sni_domain=target_host,
                 share_name=working_name,
-                label_suffix=f" (через {working_name})",
+                label_suffix=f" (via {working_name})",
             )
             result.details["target_host"] = target_host
             diag.add_result(result)

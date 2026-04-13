@@ -70,7 +70,7 @@ async def check_rkn_throttle_via_proxy(
     url = f"https://{sni_domain}/"
     log.debug("Checking RKN throttle (via proxy)", proxy_url=proxy_url, sni_domain=sni_domain)
 
-    label_suffix = f" (через прокси: {proxy_url})"
+    label_suffix = f" (via proxy: {proxy_url})"
     return await _perform_throttle_check(url, sni_domain, proxy_url=proxy_url, label_suffix=label_suffix)
 
 
@@ -192,14 +192,14 @@ async def _perform_throttle_check(
                         status=CheckStatus.FAIL,
                         severity=CheckSeverity.CRITICAL,
                         message=(
-                            f"IP полностью заблокирован: соединение зависло, 0 байт получено "
-                            f"за {RKN_THROTTLE_TIMEOUT}s — сервер не отвечает"
+                            f"IP fully blocked: connection hung, 0 bytes received "
+                            f"in {RKN_THROTTLE_TIMEOUT}s — server not responding"
                         ),
                         details=details,
                         recommendations=[
-                            "IP-адрес сервера заблокирован РКН — соединение не устанавливается",
-                            "Смените IP-адрес сервера на новый из другой подсети",
-                            "Или прокиньте мост через рабочий прокси до этого сервера",
+                            "Server IP is blocked by RKN — connection cannot be established",
+                            "Change the server IP to a new one from a different subnet",
+                            "Or bridge through a working proxy to this server",
                         ],
                     )
 
@@ -221,16 +221,16 @@ async def _perform_throttle_check(
                         status=CheckStatus.FAIL,
                         severity=CheckSeverity.CRITICAL,
                         message=(
-                            f"Обнаружена RKN-блокировка (DPI throttle): "
-                            f"получено {total_bytes} байт ({total_bytes / 1024:.1f}KB) вместо ожидаемых данных. "
-                            f"Соединение разорвано после ~{total_bytes / 1024:.0f}KB — типичный паттерн DPI."
+                            f"RKN blocking detected (DPI throttle): "
+                            f"received {total_bytes} bytes ({total_bytes / 1024:.1f}KB) instead of expected data. "
+                            f"Connection dropped after ~{total_bytes / 1024:.0f}KB — typical DPI pattern."
                         ),
                         details=details,
                         recommendations=[
-                            "Сервер подвержен блокировке через DPI-фильтры РКН",
-                            "Соединение обрывается после 16-20KB — характерный признак 'удушения'",
-                            "Попробуйте использовать обфускацию или альтернативные протоколы",
-                            "VLESS + Reality + XHTTP/GRPC могут помочь обойти блокировку",
+                            "Server is subject to RKN DPI filter blocking",
+                            "Connection drops after 16-20KB — characteristic 'throttling' pattern",
+                            "Try using obfuscation or alternative protocols",
+                            "VLESS + Reality + XHTTP/GRPC may help bypass the block",
                         ],
                     )
                 elif total_bytes > RKN_THROTTLE_MAX_BYTES:
@@ -246,7 +246,7 @@ async def _perform_throttle_check(
                         check_name=check_name,
                         status=CheckStatus.PASS,
                         severity=CheckSeverity.INFO,
-                        message=f"RKN DPI throttle не обнаружено: получено {total_bytes} байт",
+                        message=f"RKN DPI throttle not detected: received {total_bytes} bytes",
                         details=details,
                     )
                 else:
@@ -263,7 +263,7 @@ async def _perform_throttle_check(
                         status=CheckStatus.PASS,
                         severity=CheckSeverity.INFO,
                         message=(
-                            f"RKN DPI throttle не обнаружено: получено {total_bytes} байт (HTTP {response.status})"
+                            f"RKN DPI throttle not detected: received {total_bytes} bytes (HTTP {response.status})"
                         ),
                         details=details,
                     )
@@ -277,8 +277,8 @@ async def _perform_throttle_check(
             status=CheckStatus.FAIL,
             severity=CheckSeverity.CRITICAL,
             message=(
-                f"IP полностью заблокирован: не удалось установить соединение "
-                f"за {RKN_THROTTLE_TIMEOUT}s — сервер не отвечает"
+                f"IP fully blocked: failed to establish connection "
+                f"in {RKN_THROTTLE_TIMEOUT}s — server not responding"
             ),
             details={
                 "target": target,
@@ -287,9 +287,9 @@ async def _perform_throttle_check(
                 "bytes_received": 0,
             },
             recommendations=[
-                "IP-адрес сервера заблокирован РКН — соединение не устанавливается",
-                "Смените IP-адрес сервера на новый из другой подсети",
-                "Или прокиньте мост через рабочий прокси до этого сервера",
+                "Server IP is blocked by RKN — connection cannot be established",
+                "Change the server IP to a new one from a different subnet",
+                "Or bridge through a working proxy to this server",
             ],
         )
 
@@ -301,7 +301,7 @@ async def _perform_throttle_check(
             check_name=check_name,
             status=CheckStatus.FAIL,
             severity=CheckSeverity.ERROR,
-            message=f"Ошибка подключения при проверке RKN throttle: {e}",
+            message=f"Connection error during RKN throttle check: {e}",
             details={
                 "target": target,
                 "error": str(e),
@@ -309,8 +309,8 @@ async def _perform_throttle_check(
                 "duration_ms": round(duration_ms, 2),
             },
             recommendations=[
-                "Не удалось подключиться к серверу",
-                "Проверьте доступность хоста",
+                "Failed to connect to server",
+                "Check host reachability",
             ],
         )
 
@@ -322,7 +322,7 @@ async def _perform_throttle_check(
             check_name=check_name,
             status=CheckStatus.FAIL,
             severity=CheckSeverity.ERROR,
-            message=f"Ошибка при проверке RKN throttle: {e}",
+            message=f"Error during RKN throttle check: {e}",
             details={
                 "target": target,
                 "error": str(e),
@@ -330,8 +330,8 @@ async def _perform_throttle_check(
                 "duration_ms": round(duration_ms, 2),
             },
             recommendations=[
-                "Произошла ошибка при проверке — проверьте логи",
-                "Попробуйте повторить попытку",
+                "An error occurred during check — check logs",
+                "Try again",
             ],
         )
 
@@ -343,7 +343,7 @@ async def _perform_throttle_check(
             check_name=check_name,
             status=CheckStatus.FAIL,
             severity=CheckSeverity.ERROR,
-            message=f"Неожиданная ошибка при проверке RKN throttle: {e}",
+            message=f"Unexpected error during RKN throttle check: {e}",
             details={
                 "target": target,
                 "error_type": type(e).__name__,
@@ -351,7 +351,7 @@ async def _perform_throttle_check(
                 "duration_ms": round(duration_ms, 2),
             },
             recommendations=[
-                "Произошла неожиданная ошибка — проверьте логи",
-                "Попробуйте повторить попытку",
+                "An unexpected error occurred — check logs",
+                "Try again",
             ],
         )

@@ -41,8 +41,8 @@ async def check_proxy_tunnel(proxy_url: str, test_url: str | None = None) -> Dia
                 message=f"Protocol '{parsed.scheme}' not supported for tunnel check",
                 details={"proxy_url": proxy_url, "protocol": parsed.scheme},
                 recommendations=[
-                    f"Протокол {parsed.scheme} не поддерживает HTTP-туннель через aiohttp",
-                    "Используйте DNS/TCP проверки для диагностики",
+                    f"Protocol {parsed.scheme} does not support HTTP tunnel via aiohttp",
+                    "Use DNS/TCP checks for diagnostics",
                 ],
             )
     except Exception:
@@ -110,9 +110,9 @@ async def check_proxy_tunnel(proxy_url: str, test_url: str | None = None) -> Dia
                 "duration_ms": round(duration_ms, 2),
             },
             recommendations=[
-                "Прокси-сервер не отвечает — проверьте его доступность",
-                "Убедитесь, что прокси запущен и работает",
-                "Проверьте настройки прокси в конфигурации Xray",
+                "Proxy server not responding — check its availability",
+                "Make sure the proxy is running",
+                "Check proxy settings in Xray configuration",
             ],
         )
 
@@ -137,10 +137,10 @@ async def check_proxy_tunnel(proxy_url: str, test_url: str | None = None) -> Dia
                 "duration_ms": round(duration_ms, 2),
             },
             recommendations=[
-                "Проверьте настройки прокси-сервера",
-                "Убедитесь, что прокси доступен по указанному URL",
-                "Проверьте аутентификационные данные прокси",
-                "Проверьте конфигурацию Xray для данного прокси",
+                "Check proxy server settings",
+                "Verify proxy is accessible at the specified URL",
+                "Check proxy authentication credentials",
+                "Check Xray configuration for this proxy",
             ],
         )
 
@@ -165,9 +165,9 @@ async def check_proxy_tunnel(proxy_url: str, test_url: str | None = None) -> Dia
                 "duration_ms": round(duration_ms, 2),
             },
             recommendations=[
-                "Ошибка при подключении через прокси",
-                "Проверьте URL прокси и тестовый URL",
-                "Попробуйте другой тестовый URL",
+                "Error connecting through proxy",
+                "Check proxy URL and test URL",
+                "Try a different test URL",
             ],
         )
 
@@ -192,7 +192,7 @@ async def check_proxy_tunnel(proxy_url: str, test_url: str | None = None) -> Dia
                 "duration_ms": round(duration_ms, 2),
             },
             recommendations=[
-                "Произошла неожиданная ошибка — проверьте логи",
-                "Попробуйте повторить попытку",
+                "An unexpected error occurred — check logs",
+                "Try again",
             ],
         )

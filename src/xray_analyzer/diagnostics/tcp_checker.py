@@ -73,11 +73,11 @@ async def check_tcp_connection(host: str, port: int) -> DiagnosticResult:
                 "duration_ms": round(duration_ms, 2),
             },
             recommendations=[
-                "Сервер не отвечает — проверьте, запущен ли сервис на порту",
-                "Проверьте настройки фаервола (iptables, ufw)",
-                "Убедитесь, что порт открыт на сервере: netstat -tlnp | grep <порт>",
-                "Проверьте сетевую доступность: ping <хост>",
-                "Возможно, сервер перегружен или есть сетевые проблемы",
+                "Server not responding — check if the service is running on this port",
+                "Check firewall settings (iptables, ufw)",
+                "Verify port is open on server: netstat -tlnp | grep <port>",
+                "Check network reachability: ping <host>",
+                "Server may be overloaded or there are network issues",
             ],
         )
 
@@ -97,11 +97,11 @@ async def check_tcp_connection(host: str, port: int) -> DiagnosticResult:
                 "duration_ms": round(duration_ms, 2),
             },
             recommendations=[
-                f"Порт {port} закрыт на сервере {host}",
-                "Проверьте, запущен ли сервис: systemctl status <сервис>",
-                "Проверьте правила фаервола на сервере",
-                "Убедитесь, что сервис слушает правильный порт",
-                "Проверьте: telnet <хост> <порт> или nc -zv <хост> <порт>",
+                f"Port {port} is closed on server {host}",
+                "Check if the service is running: systemctl status <service>",
+                "Check firewall rules on the server",
+                "Make sure the service is listening on the correct port",
+                "Try: telnet <host> <port> or nc -zv <host> <port>",
             ],
         )
 
@@ -144,8 +144,8 @@ async def check_tcp_connection(host: str, port: int) -> DiagnosticResult:
                 "duration_ms": round(duration_ms, 2),
             },
             recommendations=[
-                "Произошла неожиданная ошибка — проверьте логи системы",
-                "Попробуйте повторить попытку",
+                "An unexpected error occurred — check system logs",
+                "Try again",
             ],
         )
 
@@ -159,10 +159,10 @@ def _handle_os_error(e: OSError, host: str, port: int) -> tuple[CheckSeverity, s
             CheckSeverity.CRITICAL,
             f"Network unreachable when connecting to {host}:{port}",
             [
-                "Проверьте сетевое подключение",
-                "Убедитесь, что маршрут до сети существует: ip route",
-                "Проверьте настройки сетевого интерфейса",
-                "Попробуйте: ping 8.8.8.8 для проверки интернета",
+                "Check network connectivity",
+                "Verify routing table: ip route",
+                "Check network interface settings",
+                "Try: ping 8.8.8.8 to verify internet access",
             ],
         )
     elif error_code == 110:  # Connection timed out
@@ -170,9 +170,9 @@ def _handle_os_error(e: OSError, host: str, port: int) -> tuple[CheckSeverity, s
             CheckSeverity.CRITICAL,
             f"Connection timed out to {host}:{port}",
             [
-                "Сервер не отвечает в течение заданного времени",
-                "Проверьте настройки фаервола",
-                "Убедитесь, что сервер доступен",
+                "Server not responding within the timeout period",
+                "Check firewall settings",
+                "Verify server is reachable",
             ],
         )
     elif error_code == 111:  # Connection refused (already handled, but fallback)
@@ -180,8 +180,8 @@ def _handle_os_error(e: OSError, host: str, port: int) -> tuple[CheckSeverity, s
             CheckSeverity.ERROR,
             f"Connection refused by {host}:{port}",
             [
-                "Порт закрыт — проверьте, запущен ли сервис",
-                "Проверьте настройки фаервола",
+                "Port is closed — check if the service is running",
+                "Check firewall settings",
             ],
         )
     elif error_code == 113:  # No route to host
@@ -189,10 +189,10 @@ def _handle_os_error(e: OSError, host: str, port: int) -> tuple[CheckSeverity, s
             CheckSeverity.CRITICAL,
             f"No route to host {host}:{port}",
             [
-                "Нет маршрута до хоста",
-                "Проверьте таблицу маршрутизации: ip route",
-                "Убедитесь, что хост доступен в сети",
-                "Проверьте настройки шлюза",
+                "No route to host",
+                "Check routing table: ip route",
+                "Verify host is reachable on the network",
+                "Check gateway settings",
             ],
         )
     elif error_code in (-2, -3):  # Name resolution errors
@@ -200,9 +200,9 @@ def _handle_os_error(e: OSError, host: str, port: int) -> tuple[CheckSeverity, s
             CheckSeverity.CRITICAL,
             f"DNS resolution failed for {host}",
             [
-                "Проверьте настройки DNS-сервера",
-                "Попробуйте: dig <домен> или nslookup <домен>",
-                "Проверьте /etc/resolv.conf",
+                "Check DNS server settings",
+                "Try: dig <domain> or nslookup <domain>",
+                "Check /etc/resolv.conf",
             ],
         )
     else:
@@ -210,7 +210,7 @@ def _handle_os_error(e: OSError, host: str, port: int) -> tuple[CheckSeverity, s
             CheckSeverity.ERROR,
             f"OS error connecting to {host}:{port}: {e}",
             [
-                f"Код ошибки: {error_code}",
-                "Проверьте сетевые настройки и доступность сервера",
+                f"Error code: {error_code}",
+                "Check network settings and server reachability",
             ],
         )
