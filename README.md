@@ -47,6 +47,10 @@ uv run xray-analyzer check example.com --port 443
 # Show checker API status
 uv run xray-analyzer status
 
+# Test web resources for censorship/blocking
+uv run xray-analyzer censor-check
+uv run xray-analyzer censor-check --domains google.com youtube.com --proxy socks5://127.0.0.1:1080
+
 # Continuous monitoring
 uv run xray-analyzer analyze --watch
 ```
@@ -67,6 +71,10 @@ See `.env.example` for all available options:
 | `NOTIFY_TELEGRAM_ENABLED` | `false` | Enable Telegram notifications |
 | `TELEGRAM_BOT_TOKEN` | | Telegram bot token |
 | `TELEGRAM_CHAT_ID` | | Telegram chat ID |
+| `CENSOR_CHECK_DOMAINS` | | Comma-separated domains (default: ~30 sites) |
+| `CENSOR_CHECK_TIMEOUT` | `4` | Timeout per domain (seconds) |
+| `CENSOR_CHECK_MAX_PARALLEL` | `10` | Max parallel checks |
+| `CENSOR_CHECK_PROXY_URL` | | Proxy URL for testing (empty = direct) |
 
 ## Docker
 

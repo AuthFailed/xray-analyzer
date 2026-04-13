@@ -15,8 +15,7 @@ from xray_analyzer.core.logger import get_logger, setup_logging
 from xray_analyzer.core.models import CheckSeverity, CheckStatus, HostDiagnostic
 from xray_analyzer.core.standalone_analyzer import analyze_subscription_proxies
 from xray_analyzer.core.xray_client import XrayCheckerClient
-from xray_analyzer.diagnostics.subscription_parser import fetch_subscription
-from xray_analyzer.diagnostics.xray_downloader import ensure_xray
+from xray_analyzer.diagnostics.censor_checker import DomainStatus, run_censor_check
 
 log = get_logger("cli")
 console = Console()
@@ -123,6 +122,31 @@ def create_parser() -> argparse.ArgumentParser:
 
     # status command
     subparsers.add_parser("status", help="Show checker API status")
+
+    # censor-check command
+    censor_parser = subparsers.add_parser(
+        "censor-check",
+        help="Test web resources for censorship/blocking through proxy",
+    )
+    censor_parser.add_argument(
+        "--domains",
+        nargs="*",
+        help="List of domains to check (default: predefined list)",
+    )
+    censor_parser.add_argument(
+        "--proxy",
+        help="Proxy URL to use for checking (e.g., socks5://127.0.0.1:1080)",
+    )
+    censor_parser.add_argument(
+        "--timeout",
+        type=int,
+        help="Timeout per domain in seconds (default: from config)",
+    )
+    censor_parser.add_argument(
+        "--max-parallel",
+        type=int,
+        help="Maximum parallel checks (default: from config)",
+    )
 
     return parser
 
@@ -326,6 +350,58 @@ async def cmd_status() -> int:
         return 1
     finally:
         await client.close()
+
+
+async def cmd_censor_check(
+    domains: list[str] | None = None,
+    proxy_url: str = "",
+    timeout: int | None = None,
+    max_parallel: int | None = None,
+) -> int:
+    """Run censor-check command."""
+    # Use config values if not provided via CLI
+    if timeout is None:
+        timeout = settings.censor_check_timeout
+    if max_parallel is None:
+        max_parallel = settings.censor_check_max_parallel
+
+    # Parse domains from CLI or config
+    if domains is None:
+        if settings.censor_check_domains:
+            domains = [d.strip() for d in settings.censor_check_domains.split(",") if d.strip()]
+        else:
+            domains = []  # Will use defaults in run_censor_check
+    elif len(domains) == 1 and "," in domains[0]:
+        # Handle comma-separated domains passed as single argument
+        domains = [d.strip() for d in domains[0].split(",") if d.strip()]
+
+    # Use proxy from config if not provided via CLI
+    if not proxy_url:
+        proxy_url = settings.censor_check_proxy_url
+
+    console.print("[bold blue]🌐 Censor-Check: Testing web resources for blocking[/bold blue]")
+    if proxy_url:
+        console.print(f"[dim]Proxy: {proxy_url}[/dim]")
+    else:
+        console.print("[dim]Mode: Direct connection[/dim]")
+    console.print()
+
+    try:
+        summary = await run_censor_check(
+            domains=domains if domains else None,
+            proxy_url=proxy_url,
+            timeout=timeout,
+            max_parallel=max_parallel,
+        )
+
+        _print_censor_check_results(summary)
+
+        # Return non-zero if there are blocked domains
+        return 1 if summary.blocked > 0 else 0
+    except Exception as e:
+        error_console.print(f"[bold red]Error: {e}[/bold red]")
+        log.error("Censor-check failed", error=str(e))
+        return 1
 
 
 def _print_analysis_results(diagnostics: list[HostDiagnostic]) -> None:
@@ -550,6 +626,96 @@ def _status_icon_and_color(status: CheckStatus) -> tuple[str, str]:
     }.get(status, ("?", "white"))
 
 
+def _print_censor_check_results(summary) -> None:
+    """Print censor-check results with nice formatting."""
+    # Summary panel
+    console.print()
+    console.print(
+        Panel(
+            f"[bold]Всего доменов:[/bold] {summary.total}  |  "
+            f"[green]✓ OK:[/green] {summary.ok}  |  "
+            f"[red]✗ BLOCKED:[/red] {summary.blocked}  |  "
+            f"[yellow]⚠ PARTIAL:[/yellow] {summary.partial}  |  "
+            f"[dim]Время: {summary.duration_seconds:.1f}s[/dim]",
+            title="[bold blue]Результат Censor-Check[/bold blue]",
+            border_style="green" if not summary.blocked else "red",
+        )
+    )
+    console.print()
+
+    if not summary.results:
+        console.print("[yellow]No results[/yellow]")
+        return
+
+    # Separate by status
+    blocked = [r for r in summary.results if r.status == DomainStatus.BLOCKED]
+    partial = [r for r in summary.results if r.status == DomainStatus.PARTIAL]
+    ok = [r for r in summary.results if r.status == DomainStatus.OK]
+
+    # BLOCKED domains (detailed)
+    if blocked:
+        console.print("[bold red]✗ ЗАБЛОКИРОВАННЫЕ ДОМЕНЫ[/bold red]\n")
+
+        for result in blocked:
+            block_type_str = f" ({result.block_type})" if result.block_type else ""
+            console.print(f"  [bold red]{result.domain:<25}[/bold red][red] BLOCKED{block_type_str}[/red]")
+
+            if result.ips:
+                console.print(f"    [dim]IPs: {', '.join(result.ips[:3])}[/dim]")
+            if result.details.get("rkn_stub_ip"):
+                console.print(f"    [dim]RKN stub IP: {result.details['rkn_stub_ip']}[/dim]")
+            console.print()
+
+    # PARTIAL domains (detailed)
+    if partial:
+        console.print("[bold yellow]⚠ ЧАСТИЧНО ДОСТУПНЫЕ ДОМЕНЫ[/bold yellow]\n")
+
+        for result in partial:
+            block_type_str = f" ({result.block_type})" if result.block_type else ""
+            console.print(f"  [bold yellow]{result.domain:<25}[/bold yellow][yellow] PARTIAL{block_type_str}[/yellow]")
+
+            if result.http_code or result.https_code:
+                console.print(f"    [dim]HTTP: {result.http_code}, HTTPS: {result.https_code}[/dim]")
+            if not result.tls_valid:
+                console.print("    [dim]✗ TLS certificate invalid[/dim]")
+            console.print()
+
+    # OK domains (compact table)
+    if ok:
+        console.print("[bold green]✓ ДОСТУПНЫЕ ДОМЕНЫ[/bold green]\n")
+
+        table = Table(show_header=False, box=None, padding=(0, 2))
+        table.add_column("Domain", style="green")
+        table.add_column("Status", justify="center")
+        table.add_column("Details", style="dim")
+
+        for result in ok:
+            details = []
+            if result.tls_valid:
+                details.append("✓TLS")
+            if result.https_code:
+                details.append(f"HTTPS:{result.https_code}")
+            elif result.http_code:
+                details.append(f"HTTP:{result.http_code}")
+
+            table.add_row(
+                result.domain,
+                "[green]OK[/green]",
+                " | ".join(details) if details else "",
+            )
+
+        console.print(table)
+        console.print()
+
+    # Footer
+    console.print("[dim]" + "─" * 60 + "[/dim]")
+    if summary.proxy_url:
+        console.print(f"[dim]Проверка через прокси: {summary.proxy_url}[/dim]")
+    else:
+        console.print("[dim]Прямая проверка (без прокси)[/dim]")
+    console.print()
+
+
 def _print_single_diagnostic(diagnostic: HostDiagnostic) -> None:
     """Print detailed diagnostic for a single host."""
     status_emoji = "✓" if diagnostic.overall_status == CheckStatus.PASS else "✗"
@@ -614,6 +780,16 @@ def main() -> None:
         sys.exit(exit_code)
     elif args.command == "status":
         exit_code = asyncio.run(cmd_status())
+        sys.exit(exit_code)
+    elif args.command == "censor-check":
+        exit_code = asyncio.run(
+            cmd_censor_check(
+                domains=args.domains,
+                proxy_url=args.proxy,
+                timeout=args.timeout,
+                max_parallel=args.max_parallel,
+            )
+        )
         sys.exit(exit_code)
     else:
         parser.print_help()

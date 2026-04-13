@@ -64,6 +64,12 @@ class Settings(BaseSettings):
     subscription_url: str = ""  # Subscription URL with VLESS/Trojan/SS share links
     subscription_hwid: str = ""  # HWID header for subscription (x-hwid)
 
+    # Censor-Check Mode
+    censor_check_domains: str = ""  # Comma-separated list of domains (empty = use defaults)
+    censor_check_timeout: int = Field(default=4, ge=1, le=30)
+    censor_check_max_parallel: int = Field(default=10, ge=1, le=50)
+    censor_check_proxy_url: str = ""  # Proxy URL for censor-check (empty = direct)
+
     @property
     def is_api_protected(self) -> bool:
         """Check if the API requires authentication."""
