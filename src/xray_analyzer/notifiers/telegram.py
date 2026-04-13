@@ -53,7 +53,7 @@ def _format_dns_check(details: dict) -> list[str]:
 def _format_tcp_ping(details: dict) -> str:
     """Format TCP ping result into compact status string."""
     latency_avg = details.get("latency_avg_ms")
-    packet_loss = details.get("packet_loss_percent")
+    packet_loss = details.get("packet_loss_pct")
 
     if latency_avg is None and packet_loss is None:
         return "нет данных"
@@ -173,10 +173,7 @@ def _format_recommendations(diag: HostDiagnostic) -> str:
     # Collect recommendations from all failed checks
     for result in diag.results:
         if result.status in (CheckStatus.FAIL, CheckStatus.TIMEOUT):
-            # Check both top-level and details
-            recs.extend(result.details.get("recommendations", []))
-            if hasattr(result, "recommendations"):
-                recs.extend(result.recommendations)  # type: ignore
+            recs.extend(result.recommendations)
 
     # Add host-level recommendations
     recs.extend(diag.recommendations)

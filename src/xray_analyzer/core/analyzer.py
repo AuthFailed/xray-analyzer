@@ -92,7 +92,7 @@ class XrayAnalyzer:
         diagnostics = await self._analyze_all_proxies(targets)
 
         # Filter to only problematic hosts
-        problematic = [d for d in diagnostics if d.overall_status != CheckStatus.PASS]
+        problematic = [d for d in diagnostics if d.overall_status not in (CheckStatus.PASS, CheckStatus.WARN)]
 
         # Run RKN throttle checks on problematic hosts (direct connection test)
         if problematic and settings.rkn_throttle_check_enabled:
@@ -114,12 +114,14 @@ class XrayAnalyzer:
 
         return diagnostics
 
-    async def run_single_host_analysis(self, host: str, port: int = 443) -> HostDiagnostic:
+    async def run_single_host_analysis(
+        self, host: str, port: int = 443, proxy_url: str = ""
+    ) -> HostDiagnostic:
         """Run diagnostic analysis on a single host."""
         log.info(f"Starting analysis for {host}:{port}")
         diagnostic = HostDiagnostic(host=f"{host}:{port}")
 
-        await self._run_all_checks(diagnostic, host, port, None)
+        await self._run_all_checks(diagnostic, host, port, None, direct_proxy_url=proxy_url)
 
         return diagnostic
 
@@ -244,7 +246,7 @@ class XrayAnalyzer:
         log.info(f"Analyzing proxy: {proxy.name} → {host}:{port}")
         diagnostic = HostDiagnostic(host=f"{host}:{port}")
 
-        await self._run_all_checks(diagnostic, host, port, proxy)
+        await self._run_all_checks(diagnostic, host, port, proxy, direct_proxy_url="")
 
         return diagnostic
 
@@ -256,6 +258,7 @@ class XrayAnalyzer:
         host: str,
         port: int,
         proxy: Any,
+        direct_proxy_url: str = "",
     ) -> None:
         """Run all diagnostic checks and add results to diagnostic."""
         # 1. DNS Resolution with Check-Host.net comparison
@@ -285,7 +288,27 @@ class XrayAnalyzer:
                 ip_rkn_result = await check_rkn_blocking(ip_addr)
                 diagnostic.add_result(ip_rkn_result)
 
-        # Proxy-specific checks
+        # Proxy-specific checks — either from API proxy object or direct --proxy URL
+        if not proxy and direct_proxy_url:
+            # First: confirm target host is reachable through the given proxy
+            target_result = await check_via_proxy(host, port, direct_proxy_url, proxy_name=direct_proxy_url)
+            target_result = target_result.model_copy(update={"check_name": "Target via Proxy"})
+            diagnostic.add_result(target_result)
+
+            tunnel_result = await check_proxy_tcp_tunnel(direct_proxy_url)
+            diagnostic.add_result(tunnel_result)
+
+            exit_ip_result = await check_proxy_exit_ip(direct_proxy_url)
+            diagnostic.add_result(exit_ip_result)
+
+            if settings.proxy_sni_test_enabled:
+                sni_result = await check_proxy_sni_connection(direct_proxy_url)
+                diagnostic.add_result(sni_result)
+
+            if settings.tunnel_test_enabled:
+                legacy_tunnel_result = await check_proxy_tunnel(direct_proxy_url)
+                diagnostic.add_result(legacy_tunnel_result)
+
         if proxy:
             await self._run_proxy_specific_checks(diagnostic, host, port, proxy, dns_result)
 

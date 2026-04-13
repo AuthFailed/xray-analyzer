@@ -270,7 +270,7 @@ async def _perform_throttle_check(
 
     except TimeoutError:
         duration_ms = (asyncio.get_running_loop().time() - start_time) * 1000
-        log.error("RKN throttle check timeout (connection not established)", target=target)
+        log.error("RKN throttle check timeout", target=target)
 
         return DiagnosticResult(
             check_name=check_name,

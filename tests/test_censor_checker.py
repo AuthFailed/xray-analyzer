@@ -5,14 +5,14 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from xray_analyzer.diagnostics.censor_checker import (
+    DEFAULT_CENSOR_DOMAINS,
+    RKN_STUB_IPS,
     CensorCheckSummary,
     DomainCheckResult,
     DomainStatus,
-    DEFAULT_CENSOR_DOMAINS,
-    RKN_STUB_IPS,
+    _fetch_http_code,
     _is_rkn_spoof,
     _resolve_dns,
-    _fetch_http_code,
     check_domain,
     run_censor_check,
 )

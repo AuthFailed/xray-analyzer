@@ -1,7 +1,9 @@
 """Manage Xray core subprocess for VLESS/Trojan/SS proxy testing."""
 
 import asyncio
+import itertools
 import json
+import os
 import tempfile
 from contextlib import suppress
 from pathlib import Path
@@ -13,8 +15,14 @@ from xray_analyzer.diagnostics.subscription_parser import ProxyShareURL
 
 log = get_logger("xray_manager")
 
-# Default local SOCKS port range
+# Default local SOCKS port range: 19000-19999
 _BASE_PORT = 19000
+_port_counter = itertools.count(0)
+
+
+def _next_socks_port() -> int:
+    """Return next available SOCKS port in range [19000, 19999]."""
+    return _BASE_PORT + (next(_port_counter) % 1000)
 
 
 def _generate_xray_config(
@@ -25,6 +33,7 @@ def _generate_xray_config(
     Generate Xray JSON config from a share URL.
 
     Creates an outbound with the proxy config and a local SOCKS inbound.
+    All traffic is routed through the proxy outbound (no routing rules).
     """
     # Build outbound based on protocol
     outbound: dict[str, Any] = {
@@ -56,7 +65,6 @@ def _generate_xray_config(
 
         if share.security in ("tls", "reality"):
             if share.security == "reality":
-                # REALITY uses realitySettings directly in streamSettings
                 stream["realitySettings"] = {
                     "publicKey": share.pbk,
                     "shortId": share.sid,
@@ -143,6 +151,9 @@ def _generate_xray_config(
     else:
         raise ValueError(f"Unsupported protocol for Xray: {share.protocol}")
 
+    # No routing rules: all traffic goes through the proxy outbound by default.
+    # This is correct for all use cases (connectivity checks, cross-proxy tests,
+    # throttle checks) — we always want traffic to travel through the proxy.
     config = {
         "log": {"loglevel": "warning"},
         "inbounds": [
@@ -160,21 +171,7 @@ def _generate_xray_config(
                 },
             }
         ],
-        "outbounds": [outbound, {"protocol": "freedom", "tag": "direct"}],
-        "routing": {
-            "domainStrategy": "IPIfNonMatch",
-            "rules": [
-                {
-                    "type": "field",
-                    "outboundTag": "proxy",
-                    "domain": [
-                        "domain:api.ipify.org",
-                        "domain:cp.cloudflare.com",
-                        "domain:max.ru",
-                    ],
-                }
-            ],
-        },
+        "outbounds": [outbound],
     }
 
     return config
@@ -187,6 +184,7 @@ class XrayInstance:
         self.share = share
         self.socks_port = 0
         self._process: asyncio.subprocess.Process | None = None
+        self._config_fd: int | None = None
         self._config_path: str | None = None
 
     async def start(self) -> int:
@@ -195,14 +193,20 @@ class XrayInstance:
 
         Returns the local SOCKS port number.
         """
-        self.socks_port = _BASE_PORT + id(self) % 1000
+        self.socks_port = _next_socks_port()
 
         config = _generate_xray_config(self.share, self.socks_port)
         log.debug(f"Xray config for {self.share.name}: {json.dumps(config, indent=2)}")
 
-        config_path = Path(tempfile.mktemp(suffix=".json", prefix="xray-config-"))
-        self._config_path = str(config_path)
-        config_path.write_text(json.dumps(config))
+        # Use mkstemp to safely create a temp file (avoids TOCTOU race)
+        fd, config_path = tempfile.mkstemp(suffix=".json", prefix="xray-config-")
+        self._config_fd = fd
+        self._config_path = config_path
+        try:
+            os.write(fd, json.dumps(config).encode())
+        finally:
+            os.close(fd)
+            self._config_fd = None
 
         log.info(
             f"Starting Xray for {self.share.name} "
@@ -211,7 +215,6 @@ class XrayInstance:
         )
 
         try:
-            # Use communicate to capture all output including fast exits
             self._process = await asyncio.create_subprocess_exec(
                 settings.xray_binary_path,
                 "run",
@@ -221,7 +224,8 @@ class XrayInstance:
                 stderr=asyncio.subprocess.PIPE,
             )
 
-            # Wait for process to exit or timeout
+            # Wait for process to exit or timeout (8s).
+            # TimeoutError means process is still running → started successfully.
             try:
                 stdout_bytes, stderr_bytes = await asyncio.wait_for(
                     self._process.communicate(),
@@ -230,7 +234,6 @@ class XrayInstance:
                 stdout_str = stdout_bytes.decode("utf-8", errors="replace").strip()
                 stderr_str = stderr_bytes.decode("utf-8", errors="replace").strip()
 
-                # Log all output for debugging
                 if stderr_str:
                     log.debug(f"Xray stderr [{self.share.name}]: {stderr_str}")
                 if stdout_str:
@@ -249,7 +252,7 @@ class XrayInstance:
                 return self.socks_port
 
             except TimeoutError:
-                # Process is still running — it started successfully
+                # Process is still running — started successfully
                 log.info(f"Xray ready for {self.share.name} on port {self.socks_port}")
                 return self.socks_port
 

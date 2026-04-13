@@ -72,7 +72,7 @@ async def test_xray_cross_connectivity_success(working_share):
         assert result.details["target_host"] == "problematic.example.com"
         assert result.details["target_port"] == 443
         assert result.details["working_proxy"] == "Working Proxy"
-        assert len(result.details.get("recommendations", [])) > 0
+        assert len(result.recommendations) > 0
 
 
 @pytest.mark.asyncio
@@ -105,7 +105,7 @@ async def test_xray_cross_connectivity_timeout(working_share):
 
         assert result.status == CheckStatus.TIMEOUT
         assert "Таймаут через" in result.message
-        assert len(result.details.get("recommendations", [])) > 0
+        assert len(result.recommendations) > 0
 
 
 @pytest.mark.asyncio

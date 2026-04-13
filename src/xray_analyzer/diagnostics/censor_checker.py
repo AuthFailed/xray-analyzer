@@ -158,7 +158,7 @@ async def _resolve_dns(domain: str, _timeout: int = 5) -> list[str]:
     Equivalent to: nslookup "$domain" | awk '/^Address: / && !/#/ {print $2}'
     """
     try:
-        loop = asyncio.get_event_loop()
+        loop = asyncio.get_running_loop()
         infos = await loop.getaddrinfo(domain, 443)
         # Filter out localhost
         ips = list({info[4][0] for info in infos if info[4][0] not in ("::1", "127.0.0.1")})

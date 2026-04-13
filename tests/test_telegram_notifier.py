@@ -18,38 +18,38 @@ class TestFormatTcpPing:
     """Test TCP ping formatting."""
 
     def test_good_ping(self):
-        details = {"latency_avg_ms": 45.0, "packet_loss_percent": 0}
+        details = {"latency_avg_ms": 45.0, "packet_loss_pct": 0}
         result = _format_tcp_ping(details)
         assert "✓" in result
         assert "45ms" in result
 
     def test_medium_ping(self):
-        details = {"latency_avg_ms": 150.0, "packet_loss_percent": 0}
+        details = {"latency_avg_ms": 150.0, "packet_loss_pct": 0}
         result = _format_tcp_ping(details)
         assert "150ms" in result
         assert "✓" not in result  # Not marked as good
 
     def test_high_ping(self):
-        details = {"latency_avg_ms": 350.0, "packet_loss_percent": 0}
+        details = {"latency_avg_ms": 350.0, "packet_loss_pct": 0}
         result = _format_tcp_ping(details)
         assert "🟡" in result
         assert "высокий" in result
         assert "350ms" in result
 
     def test_packet_loss_low(self):
-        details = {"latency_avg_ms": 100.0, "packet_loss_percent": 10}
+        details = {"latency_avg_ms": 100.0, "packet_loss_pct": 10}
         result = _format_tcp_ping(details)
         assert "10%" in result
         assert "потери" in result
 
     def test_packet_loss_medium(self):
-        details = {"latency_avg_ms": 200.0, "packet_loss_percent": 30}
+        details = {"latency_avg_ms": 200.0, "packet_loss_pct": 30}
         result = _format_tcp_ping(details)
         assert "🟡" in result
         assert "потери 30%" in result
 
     def test_packet_loss_critical(self):
-        details = {"latency_avg_ms": 500.0, "packet_loss_percent": 75}
+        details = {"latency_avg_ms": 500.0, "packet_loss_pct": 75}
         result = _format_tcp_ping(details)
         assert "🔴" in result
         assert "критические потери 75%" in result
@@ -87,7 +87,7 @@ class TestFormatCheckResult:
             status=CheckStatus.PASS,
             severity=CheckSeverity.INFO,
             message="Ping successful",
-            details={"latency_avg_ms": 50.0, "packet_loss_percent": 0},
+            details={"latency_avg_ms": 50.0, "packet_loss_pct": 0},
         )
         result = _format_check_result(check)
         assert result is not None
@@ -241,7 +241,7 @@ class TestFormatRecommendations:
                 status=CheckStatus.FAIL,
                 severity=CheckSeverity.ERROR,
                 message="Failed",
-                details={"recommendations": ["Check proxy settings", "Verify subscription"]},
+                recommendations=["Check proxy settings", "Verify subscription"],
             )
         )
         diag.add_recommendation("Run analyzer for details")
@@ -263,7 +263,7 @@ class TestFormatRecommendations:
                 status=CheckStatus.FAIL,
                 severity=CheckSeverity.ERROR,
                 message="Failed",
-                details={"recommendations": ["Same recommendation"]},
+                recommendations=["Same recommendation"],
             )
         )
         diag.add_result(
@@ -272,7 +272,7 @@ class TestFormatRecommendations:
                 status=CheckStatus.FAIL,
                 severity=CheckSeverity.ERROR,
                 message="Failed",
-                details={"recommendations": ["Same recommendation"]},
+                recommendations=["Same recommendation"],
             )
         )
 
@@ -289,7 +289,7 @@ class TestFormatRecommendations:
                     status=CheckStatus.FAIL,
                     severity=CheckSeverity.ERROR,
                     message=f"Failed {i}",
-                    details={"recommendations": [f"Recommendation {i}"]},
+                    recommendations=[f"Recommendation {i}"],
                 )
             )
 
@@ -314,14 +314,15 @@ class TestTelegramNotifierBuildMessage:
                         status=CheckStatus.PASS,
                         severity=CheckSeverity.INFO,
                         message="Ping successful",
-                        details={"latency_avg_ms": 50.0, "packet_loss_percent": 0},
+                        details={"latency_avg_ms": 50.0, "packet_loss_pct": 0},
                     ),
                     DiagnosticResult(
                         check_name="Proxy Xray Connectivity",
                         status=CheckStatus.FAIL,
                         severity=CheckSeverity.ERROR,
                         message="Connection timeout",
-                        details={"protocol": "vless", "recommendations": ["Check settings"]},
+                        details={"protocol": "vless"},
+                        recommendations=["Check settings"],
                     ),
                 ],
             ),
@@ -334,7 +335,7 @@ class TestTelegramNotifierBuildMessage:
                         status=CheckStatus.PASS,
                         severity=CheckSeverity.INFO,
                         message="Ping successful",
-                        details={"latency_avg_ms": 30.0, "packet_loss_percent": 0},
+                        details={"latency_avg_ms": 30.0, "packet_loss_pct": 0},
                     ),
                 ],
             ),

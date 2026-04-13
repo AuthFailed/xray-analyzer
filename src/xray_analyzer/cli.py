@@ -119,6 +119,10 @@ def create_parser() -> argparse.ArgumentParser:
     check_parser = subparsers.add_parser("check", help="Check a single host")
     check_parser.add_argument("host", help="Host to check")
     check_parser.add_argument("--port", type=int, default=443, help="Port to check (default: 443)")
+    check_parser.add_argument(
+        "--proxy",
+        help="Proxy URL to route checks through (e.g., socks5://127.0.0.1:1080, http://user:pass@host:port)",
+    )
 
     # status command
     subparsers.add_parser("status", help="Show checker API status")
@@ -232,70 +236,17 @@ async def _run_full_analysis_with_checker(watch: bool = False) -> int:
         await analyzer.close()
 
 
-def _apply_cli_overrides(args: argparse.Namespace) -> None:
-    """Apply CLI argument overrides to the global settings object."""
-    # Xray Checker API
-    if hasattr(args, "checker_api_url") and args.checker_api_url:
-        settings.checker_api_url = args.checker_api_url
-    if hasattr(args, "checker_api_username") and args.checker_api_username:
-        settings.checker_api_username = args.checker_api_username
-    if hasattr(args, "checker_api_password") and args.checker_api_password:
-        settings.checker_api_password = args.checker_api_password
-
-    # Subscription
-    if hasattr(args, "subscription_url") and args.subscription_url:
-        settings.subscription_url = args.subscription_url
-    if hasattr(args, "subscription_hwid") and args.subscription_hwid:
-        settings.subscription_hwid = args.subscription_hwid
-
-    # Analysis scope
-    if hasattr(args, "analyze_online") and args.analyze_online:
-        settings.analyze_online_proxies = True
-
-    # Xray testing
-    if hasattr(args, "no_xray") and args.no_xray:
-        settings.xray_test_enabled = False
-
-    # RKN throttle check
-    if hasattr(args, "no_rkn_throttle") and args.no_rkn_throttle:
-        settings.rkn_throttle_check_enabled = False
-
-    # SNI check
-    if hasattr(args, "no_sni") and args.no_sni:
-        settings.proxy_sni_test_enabled = False
-
-    # RKN check
-    if hasattr(args, "rkn_check") and args.rkn_check:
-        settings.rkn_check_enabled = True
-
-    # Check-Host.net API key
-    if hasattr(args, "check_host_api_key") and args.check_host_api_key:
-        settings.check_host_api_key = args.check_host_api_key
-
-    # Proxy status/IP check URLs
-    if hasattr(args, "proxy_status_url") and args.proxy_status_url:
-        settings.proxy_status_check_url = args.proxy_status_url
-    if hasattr(args, "proxy_ip_url") and args.proxy_ip_url:
-        settings.proxy_ip_check_url = args.proxy_ip_url
-
-    # SNI domain
-    if hasattr(args, "sni_domain") and args.sni_domain:
-        settings.proxy_sni_domain = args.sni_domain
-
-    # Check interval
-    if hasattr(args, "interval") and args.interval:
-        settings.check_interval_seconds = args.interval
-
-
-async def cmd_check(host: str, port: int) -> int:
+async def cmd_check(host: str, port: int, proxy_url: str = "") -> int:
     """Run single host check command."""
     console.print(f"[bold blue]Checking {host}:{port}...[/bold blue]\n")
+    if proxy_url:
+        console.print(f"[dim]Via proxy: {proxy_url}[/dim]\n")
 
     analyzer = XrayAnalyzer()
     try:
-        diagnostic = await analyzer.run_single_host_analysis(host, port)
+        diagnostic = await analyzer.run_single_host_analysis(host, port, proxy_url=proxy_url)
         _print_single_diagnostic(diagnostic)
-        return 0 if diagnostic.overall_status == CheckStatus.PASS else 1
+        return 0 if diagnostic.overall_status in (CheckStatus.PASS, CheckStatus.WARN) else 1
     except Exception as e:
         error_console.print(f"[bold red]Error: {e}[/bold red]")
         return 1
@@ -422,22 +373,28 @@ def _print_analysis_results(diagnostics: list[HostDiagnostic]) -> None:
         console.print("[yellow]No real hosts to analyze (only virtual/skipped hosts)[/yellow]")
         return
 
-    # Separate into passing and failing hosts
+    # Separate into passing, warn, and failing hosts
     passing = [d for d in real_diagnostics if d.overall_status == CheckStatus.PASS]
-    failing = [d for d in real_diagnostics if d.overall_status != CheckStatus.PASS]
+    warning = [d for d in real_diagnostics if d.overall_status == CheckStatus.WARN]
+    failing = [d for d in real_diagnostics if d.overall_status not in (CheckStatus.PASS, CheckStatus.WARN)]
 
     # === SUMMARY HEADER ===
+    warn_part = f"  |  [yellow]⚠ WARN:[/yellow] {len(warning)}" if warning else ""
     console.print()
     console.print(
         Panel(
             f"[bold]Всего хостов:[/bold] {len(real_diagnostics)}  |  "
-            f"[green]✓ OK:[/green] {len(passing)}  |  "
+            f"[green]✓ OK:[/green] {len(passing)}"
+            f"{warn_part}  |  "
             f"[red]✗ PROBLEMS:[/red] {len(failing)}",
             title="[bold blue]Результат анализа[/bold blue]",
             border_style="green" if not failing else "red",
         )
     )
     console.print()
+
+    # WARN hosts go into the passing compact table (they work with caveats)
+    passing_and_warn = passing + warning
 
     # === PROBLEM HOSTS (detailed) ===
     if failing:
@@ -485,8 +442,8 @@ def _print_analysis_results(diagnostics: list[HostDiagnostic]) -> None:
 
             console.print()
 
-    # === PASSING HOSTS (compact) ===
-    if passing:
+    # === PASSING + WARN HOSTS (compact) ===
+    if passing_and_warn:
         console.print("[bold green]✓ ХОСТЫ БЕЗ ПРОБЛЕМ[/bold green]\n")
 
         table = Table(show_header=True, box=None, padding=(0, 2))
@@ -498,7 +455,7 @@ def _print_analysis_results(diagnostics: list[HostDiagnostic]) -> None:
         table.add_column("RKN Thr", justify="center")
         table.add_column("Proxy", justify="center")
 
-        for diag in passing:
+        for diag in passing_and_warn:
             dns = _check_status_icon(diag, "DNS")
             tcp = _check_status_icon(diag, "TCP Connection")
             ping = _check_status_icon(diag, "TCP Ping")
@@ -520,8 +477,8 @@ def _print_analysis_results(diagnostics: list[HostDiagnostic]) -> None:
         console.print()
 
     # === DETAILED CHECK RESULTS FOR ALL HOSTS ===
-    # Only show for problem hosts — passing hosts are already summarized
-    problem_hosts_only = [d for d in real_diagnostics if d.overall_status != CheckStatus.PASS]
+    # Only show for problem hosts — passing/warn hosts are already summarized
+    problem_hosts_only = [d for d in real_diagnostics if d.overall_status not in (CheckStatus.PASS, CheckStatus.WARN)]
 
     if problem_hosts_only:
         console.print("[bold]Подробные результаты:[/bold]\n")
@@ -607,6 +564,8 @@ def _check_status_icon(diagnostic: HostDiagnostic, check_name_part: str) -> str:
         if check_name_part.lower() in result.check_name.lower():
             if result.status == CheckStatus.PASS:
                 return "[green]✓[/green]"
+            elif result.status == CheckStatus.WARN:
+                return "[yellow]⚠[/yellow]"
             elif result.status == CheckStatus.FAIL:
                 return "[red]✗[/red]"
             elif result.status == CheckStatus.TIMEOUT:
@@ -620,6 +579,7 @@ def _status_icon_and_color(status: CheckStatus) -> tuple[str, str]:
     """Get icon and color for a check status."""
     return {
         CheckStatus.PASS: ("✓", "green"),
+        CheckStatus.WARN: ("⚠", "yellow"),
         CheckStatus.FAIL: ("✗", "red"),
         CheckStatus.TIMEOUT: ("⏱", "yellow"),
         CheckStatus.SKIP: ("○", "dim"),
@@ -718,13 +678,18 @@ def _print_censor_check_results(summary) -> None:
 
 def _print_single_diagnostic(diagnostic: HostDiagnostic) -> None:
     """Print detailed diagnostic for a single host."""
-    status_emoji = "✓" if diagnostic.overall_status == CheckStatus.PASS else "✗"
-    status_color = "green" if diagnostic.overall_status == CheckStatus.PASS else "red"
+    if diagnostic.overall_status == CheckStatus.PASS:
+        status_emoji, status_color, border_style = "✓", "green", "green"
+    elif diagnostic.overall_status == CheckStatus.WARN:
+        status_emoji, status_color, border_style = "⚠", "yellow", "yellow"
+    else:
+        status_emoji, status_color, border_style = "✗", "red", "red"
 
     console.print(
         Panel(
             Text(f"{status_emoji} {diagnostic.host}", style=f"bold {status_color}"),
             subtitle=f"Status: {diagnostic.overall_status.value.upper()}",
+            border_style=border_style,
         )
     )
 
@@ -738,6 +703,8 @@ def _print_single_diagnostic(diagnostic: HostDiagnostic) -> None:
     for result in diagnostic.results:
         if result.status == CheckStatus.PASS:
             status = "[green]✓ PASS[/green]"
+        elif result.status == CheckStatus.WARN:
+            status = "[yellow]⚠ WARN[/yellow]"
         elif result.status == CheckStatus.FAIL:
             status = "[red]✗ FAIL[/red]"
         elif result.status == CheckStatus.TIMEOUT:
@@ -776,7 +743,7 @@ def main() -> None:
         exit_code = asyncio.run(cmd_analyze(args))
         sys.exit(exit_code)
     elif args.command == "check":
-        exit_code = asyncio.run(cmd_check(args.host, args.port))
+        exit_code = asyncio.run(cmd_check(args.host, args.port, proxy_url=args.proxy or ""))
         sys.exit(exit_code)
     elif args.command == "status":
         exit_code = asyncio.run(cmd_status())

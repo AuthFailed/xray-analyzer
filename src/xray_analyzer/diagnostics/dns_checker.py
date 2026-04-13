@@ -2,7 +2,7 @@
 
 import asyncio
 import socket
-from ipaddress import ip_address
+from ipaddress import ip_address, ip_network
 from typing import Any
 
 import aiohttp
@@ -15,47 +15,48 @@ log = get_logger("dns_checker")
 
 CHECK_HOST_BASE_URL = "https://check-host.net"
 
+# Xray FakeDNS address pools — virtual IPs assigned by Xray's transparent DNS proxy.
+# These never exist on the real internet, so comparing them against Check-Host is meaningless.
+# https://xtls.github.io/ru/config/fakedns.html
+_FAKEDNS_NETWORKS = [
+    ip_network("198.18.0.0/15"),   # default IPv4 FakeDNS pool
+    ip_network("fc00::/18"),        # default IPv6 FakeDNS pool
+]
+
+
+def _is_fakedns_ip(addr: str) -> bool:
+    """Return True if *addr* belongs to Xray FakeDNS virtual address pools."""
+    try:
+        parsed = ip_address(addr)
+        return any(parsed in net for net in _FAKEDNS_NETWORKS)
+    except ValueError:
+        return False
+
 
 async def check_dns_resolution(host: str) -> DiagnosticResult:
     """
-    Check if a host can be resolved via DNS.
+    Check if a host can be resolved via local DNS.
 
-    Returns a DiagnosticResult with status, resolved IPs, and recommendations.
+    Returns a DiagnosticResult with status and resolved IPs.
     """
-    start_time = asyncio.get_running_loop().time()
+    loop = asyncio.get_running_loop()
+    start_time = loop.time()
     log.debug("Checking DNS resolution", host=host)
 
     try:
-        loop = asyncio.get_event_loop()
-        addr_infos = await loop.getaddrinfo(
-            host,
-            None,
-            family=socket.AF_UNSPEC,
-            type=socket.SOCK_STREAM,
+        addr_infos = await asyncio.wait_for(
+            loop.getaddrinfo(host, None, family=socket.AF_UNSPEC, type=socket.SOCK_STREAM),
+            timeout=settings.dns_timeout,
         )
 
-        # Collect unique IP addresses
         resolved_ips: list[str] = []
         for _family, _, _, _, sockaddr in addr_infos:
             ip = sockaddr[0]
             if ip not in resolved_ips:
                 resolved_ips.append(ip)
 
-        duration_ms = (asyncio.get_running_loop().time() - start_time) * 1000
-
-        ip_types = []
-        for ip_str in resolved_ips:
-            try:
-                ip_types.append("IPv6" if ip_address(ip_str).version == 6 else "IPv4")
-            except ValueError:
-                ip_types.append("unknown")
-
-        log.info(
-            "DNS resolution successful",
-            host=host,
-            ips=resolved_ips,
-            duration_ms=round(duration_ms, 2),
-        )
+        duration_ms = (loop.time() - start_time) * 1000
+        log.info("DNS resolution successful", host=host, ips=resolved_ips, duration_ms=round(duration_ms, 2))
 
         return DiagnosticResult(
             check_name="DNS Resolution",
@@ -64,36 +65,35 @@ async def check_dns_resolution(host: str) -> DiagnosticResult:
             message=f"DNS resolved successfully for {host}",
             details={
                 "resolved_ips": resolved_ips,
-                "ip_types": ip_types,
                 "address_count": len(resolved_ips),
                 "duration_ms": round(duration_ms, 2),
             },
         )
 
     except socket.gaierror as e:
-        duration_ms = (asyncio.get_running_loop().time() - start_time) * 1000
+        duration_ms = (loop.time() - start_time) * 1000
         error_msg = str(e)
-
         log.error("DNS resolution failed", host=host, error=error_msg)
-
-        severity = CheckSeverity.CRITICAL
-        recommendations = _get_dns_recommendation(error_msg)
 
         return DiagnosticResult(
             check_name="DNS Resolution",
             status=CheckStatus.FAIL,
-            severity=severity,
+            severity=CheckSeverity.CRITICAL,
             message=f"DNS resolution failed for {host}: {error_msg}",
             details={
                 "error_code": e.errno,
                 "error_str": error_msg,
                 "duration_ms": round(duration_ms, 2),
             },
-            recommendations=recommendations,
+            recommendations=[
+                "Проверьте правильность написания доменного имени",
+                "Проверьте настройки DNS-сервера в /etc/resolv.conf",
+                "Попробуйте использовать публичные DNS (8.8.8.8, 1.1.1.1)",
+            ],
         )
 
     except TimeoutError:
-        duration_ms = (asyncio.get_running_loop().time() - start_time) * 1000
+        duration_ms = (loop.time() - start_time) * 1000
         log.error("DNS resolution timed out", host=host)
 
         return DiagnosticResult(
@@ -124,17 +124,24 @@ async def check_dns_with_checkhost(host: str) -> DiagnosticResult:
     - Init: GET /check-dns?host=<HOST>&max_nodes=3
     - Result: GET /check-result/<REQUEST_ID>
     """
-    start_time = asyncio.get_running_loop().time()
+    loop = asyncio.get_running_loop()
+    start_time = loop.time()
     log.debug("Checking DNS resolution with Check-Host.net comparison", host=host)
 
     # Run local DNS and Check-Host concurrently
     local_task = asyncio.create_task(_local_dns_resolve(host))
     checkhost_task = asyncio.create_task(_checkhost_dns_resolve(host))
 
-    local_result = await local_task
-    checkhost_result = await checkhost_task
+    try:
+        local_result, checkhost_result = await asyncio.gather(
+            local_task, checkhost_task, return_exceptions=False
+        )
+    except Exception:
+        local_task.cancel()
+        checkhost_task.cancel()
+        raise
 
-    duration_ms = (asyncio.get_running_loop().time() - start_time) * 1000
+    duration_ms = (loop.time() - start_time) * 1000
 
     # Build details
     details: dict[str, Any] = {
@@ -146,6 +153,26 @@ async def check_dns_with_checkhost(host: str) -> DiagnosticResult:
 
     local_success = local_result.get("success", False)
     checkhost_success = checkhost_result.get("success", False)
+
+    # FakeDNS detection: local resolver returns virtual IPs from Xray FakeDNS pool.
+    # These IPs are never real internet addresses, so the mismatch with Check-Host
+    # is expected and harmless — Xray intercepts traffic by the fake IP anyway.
+    local_ips_raw = local_result.get("ips", [])
+    fakedns_ips = [ip for ip in local_ips_raw if _is_fakedns_ip(ip)]
+    if fakedns_ips:
+        details["fakedns_ips"] = fakedns_ips
+        details["checkhost_ips"] = checkhost_result.get("ips", [])
+        log.info("FakeDNS virtual IPs detected", host=host, fakedns_ips=fakedns_ips)
+        return DiagnosticResult(
+            check_name="DNS Resolution (Check-Host)",
+            status=CheckStatus.PASS,
+            severity=CheckSeverity.INFO,
+            message=(
+                f"DNS для {host}: обнаружен Xray FakeDNS "
+                f"(виртуальные IP: {', '.join(fakedns_ips)}) — расхождение с Check-Host ожидаемо"
+            ),
+            details=details,
+        )
 
     # If Check-Host failed, report based on local result only
     if not checkhost_success:
@@ -167,10 +194,14 @@ async def check_dns_with_checkhost(host: str) -> DiagnosticResult:
                 severity=CheckSeverity.CRITICAL,
                 message=f"DNS resolution failed for {host}: {local_result.get('error', 'unknown')}",
                 details=details,
+                recommendations=[
+                    "Проверьте настройки DNS-сервера в /etc/resolv.conf",
+                    "Попробуйте использовать публичные DNS (8.8.8.8, 1.1.1.1)",
+                ],
             )
 
     # Compare IPs
-    local_ips = set(local_result.get("ips", []))
+    local_ips = set(local_ips_raw)
     checkhost_ips = set(checkhost_result.get("ips", []))
 
     common_ips = local_ips & checkhost_ips
@@ -242,7 +273,7 @@ async def check_dns_with_checkhost(host: str) -> DiagnosticResult:
 async def _local_dns_resolve(host: str) -> dict[str, Any]:
     """Resolve host using local DNS."""
     try:
-        loop = asyncio.get_event_loop()
+        loop = asyncio.get_running_loop()
         addr_infos = await asyncio.wait_for(
             loop.getaddrinfo(host, None, family=socket.AF_UNSPEC, type=socket.SOCK_STREAM),
             timeout=settings.dns_timeout,
@@ -329,7 +360,6 @@ async def _checkhost_dns_resolve(host: str) -> dict[str, Any]:
 
                         all_done = True
                         # DNS result format: [{"A": [...], "AAAA": [...], "TTL": ...}]
-                        # The result is a list with a single dict inside
                         if isinstance(node_result, list) and len(node_result) > 0:
                             dns_data = node_result[0]
                             if isinstance(dns_data, dict):
@@ -340,7 +370,7 @@ async def _checkhost_dns_resolve(host: str) -> dict[str, Any]:
 
                     if all_done and all_ips:
                         # Deduplicate preserving order
-                        seen = set()
+                        seen: set[str] = set()
                         unique_ips = []
                         for ip in all_ips:
                             if ip not in seen:
@@ -352,7 +382,7 @@ async def _checkhost_dns_resolve(host: str) -> dict[str, Any]:
                         # All nodes returned empty results - domain doesn't resolve
                         return {"success": False, "error": "Domain does not resolve on Check-Host nodes"}
 
-                    # Still polling if some nodes are pending but we have at least one result
+                    # Return early if we have any IPs even with some nodes still pending
                     if all_ips:
                         seen = set()
                         unique_ips = []
@@ -362,42 +392,16 @@ async def _checkhost_dns_resolve(host: str) -> dict[str, Any]:
                                 unique_ips.append(ip)
                         return {"success": True, "ips": unique_ips}
 
-            except aiohttp.ClientError, TimeoutError:
+            except (aiohttp.ClientError, TimeoutError):
                 continue
 
         return {"success": False, "error": "Check-Host result polling timed out"}
 
 
-def _get_dns_recommendation(error_msg: str) -> list[str]:
-    """Get recommendations based on the DNS error type."""
-    recommendations = []
-
-    error_lower = error_msg.lower()
-
-    if "nodename" in error_lower or "name" in error_lower:
-        recommendations.extend(
-            [
-                "Проверьте правильность написания доменного имени",
-                "Убедитесь, что домен зарегистрирован и активен",
-                "Проверьте настройки DNS-сервера (/etc/resolv.conf)",
-                "Попробуйте: dig <домен> или nslookup <домен>",
-            ]
-        )
-    elif "servfail" in error_lower:
-        recommendations.extend(
-            [
-                "DNS-сервер вернул ошибку SERFAIL — проблема на стороне DNS-сервера",
-                "Попробуйте использовать другой DNS-сервер",
-                "Проверьте: dig @8.8.8.8 <домен>",
-            ]
-        )
-    else:
-        recommendations.extend(
-            [
-                "Проверьте настройки DNS-сервера",
-                "Убедитесь, что сетевое подключение активно",
-                "Попробуйте: ping <домен> для проверки доступности",
-            ]
-        )
-
-    return recommendations
+def _is_ip_address(host: str) -> bool:
+    """Check if a string is an IPv4 or IPv6 address."""
+    try:
+        ip_address(host)
+        return True
+    except ValueError:
+        return False

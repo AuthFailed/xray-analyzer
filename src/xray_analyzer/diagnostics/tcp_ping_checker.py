@@ -83,10 +83,10 @@ async def check_tcp_ping(host: str, port: int = 443, count: int = 3) -> Diagnost
         # All successful
         avg_latency = sum(latencies) / len(latencies)
         severity = CheckSeverity.INFO
-        if avg_latency > 500:
-            severity = CheckSeverity.WARNING
-        elif avg_latency > 1000:
+        if avg_latency > 1000:
             severity = CheckSeverity.ERROR
+        elif avg_latency > 500:
+            severity = CheckSeverity.WARNING
 
         return DiagnosticResult(
             check_name="TCP Ping",
