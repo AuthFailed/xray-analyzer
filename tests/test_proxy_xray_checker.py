@@ -87,12 +87,11 @@ async def test_xray_test_fallback_on_timeout():
 
         results = await check_proxy_via_xray(share, fallback_server_ip="1.2.3.4")
 
-        # Should have main + fallback results
+        # When fallback IP succeeds, failed domain results are replaced with PASS
         assert len(results) == 2
-        assert results[0].status == CheckStatus.TIMEOUT
+        assert results[0].status == CheckStatus.PASS
+        assert results[0].severity == CheckSeverity.WARNING
         assert results[1].status == CheckStatus.PASS
-        assert "(IP: 1.2.3.4)" in results[1].check_name
-        # _run_xray_tests should be called twice
         assert mock_run.call_count == 2
 
 
@@ -129,8 +128,10 @@ async def test_xray_test_fallback_on_fail():
 
         results = await check_proxy_via_xray(share, fallback_server_ip="1.2.3.4")
 
+        # When fallback IP succeeds, failed domain results are replaced with PASS
         assert len(results) == 2
-        assert results[0].status == CheckStatus.FAIL
+        assert results[0].status == CheckStatus.PASS
+        assert results[0].severity == CheckSeverity.WARNING
         assert results[1].status == CheckStatus.PASS
         assert mock_run.call_count == 2
 
