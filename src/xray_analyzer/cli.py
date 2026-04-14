@@ -27,7 +27,7 @@ from xray_analyzer.core.analyzer import XrayAnalyzer
 from xray_analyzer.core.config import settings
 from xray_analyzer.core.logger import get_logger, setup_logging
 from xray_analyzer.core.models import CheckSeverity, CheckStatus, DiagnosticResult, HostDiagnostic
-from xray_analyzer.core.standalone_analyzer import analyze_subscription_proxies
+from xray_analyzer.core.standalone_analyzer import _is_valid_server_address, analyze_subscription_proxies
 from xray_analyzer.core.xray_client import XrayCheckerClient
 from xray_analyzer.diagnostics.censor_checker import (
     ALLOW_DOMAINS_LISTS,
@@ -52,7 +52,7 @@ _XRAY_SHARE_SCHEMES = {"vless", "trojan", "ss"}
 
 
 @asynccontextmanager
-async def _xray_proxy_context(proxy_url: str | None) -> AsyncIterator[str | None]:
+async def _xray_proxy_context(proxy_url: str | None, silent: bool = False) -> AsyncIterator[str | None]:
     """
     If proxy_url is a VLESS/Trojan/SS share link, start an Xray instance and yield
     the local socks5:// URL. Otherwise yield proxy_url unchanged.
@@ -72,10 +72,11 @@ async def _xray_proxy_context(proxy_url: str | None) -> AsyncIterator[str | None
             xray = XrayInstance(share)
             try:
                 socks_port = await xray.start()
-                label = share.name or f"{share.server}:{share.port}"
-                console.print(
-                    f"[green]✓[/green] Xray started: [bold]{label}[/bold] → [dim]socks5://127.0.0.1:{socks_port}[/dim]"
-                )
+                if not silent:
+                    label = share.name or f"{share.server}:{share.port}"
+                    console.print(
+                        f"[green]✓[/green] Xray started: [bold]{label}[/bold] → [dim]socks5://127.0.0.1:{socks_port}[/dim]"
+                    )
                 yield f"socks5://{xray.socks_user}:{xray.socks_password}@127.0.0.1:{socks_port}"
             finally:
                 await xray.stop()
@@ -234,6 +235,11 @@ def create_parser() -> argparse.ArgumentParser:
         "--timeout",
         type=int,
         help="Timeout per check in seconds (default: from config)",
+    )
+    check_parser.add_argument(
+        "--subscription",
+        metavar="URL",
+        help="Test domain through all proxies from this subscription URL",
     )
 
     # scan command — bulk censorship scan across many domains
@@ -447,8 +453,13 @@ async def cmd_check(args: argparse.Namespace) -> int:
     """Single domain step-by-step diagnosis."""
     domain: str = args.domain
     port: int = args.port
-    raw_proxy: str | None = args.proxy or settings.censor_check_proxy_url
     timeout: int = args.timeout or settings.censor_check_timeout
+    subscription_url: str | None = getattr(args, "subscription", None)
+
+    if subscription_url:
+        return await _cmd_check_via_subscription(domain, port, timeout, subscription_url)
+
+    raw_proxy: str | None = args.proxy or settings.censor_check_proxy_url
 
     try:
         async with _xray_proxy_context(raw_proxy) as proxy_url:
@@ -523,6 +534,112 @@ async def cmd_check(args: argparse.Namespace) -> int:
     except Exception as e:
         error_console.print(f"[bold red]Error: {e}[/bold red]")
         return 1
+
+
+async def _cmd_check_via_subscription(domain: str, port: int, timeout: int, subscription_url: str) -> int:
+    """Check a domain through all proxies from a subscription URL."""
+    try:
+        # Ensure Xray binary is available
+        with console.status("[dim]Checking Xray binary...[/dim]", spinner="dots"):
+            xray_path = await ensure_xray(settings.xray_binary_path)
+        if xray_path:
+            settings.xray_binary_path = xray_path
+        else:
+            error_console.print("[bold red]✗ Xray binary not found — required for subscription proxy testing[/bold red]")  # noqa: E501
+            return 1
+
+        # Fetch subscription proxies
+        with console.status("[dim]Fetching subscription...[/dim]", spinner="dots"):
+            shares = await fetch_subscription(subscription_url)
+
+        if not shares:
+            error_console.print("[bold red]✗ No proxies found in subscription[/bold red]")
+            return 1
+
+        # Filter out virtual/invalid hosts
+        valid_shares = [s for s in shares if _is_valid_server_address(s.server)]
+        skipped = len(shares) - len(valid_shares)
+
+        console.print(
+            f"[green]✓[/green] Loaded [bold]{len(valid_shares)}[/bold] proxies from subscription"
+            + (f" [dim]({skipped} skipped)[/dim]" if skipped else "")
+        )
+        console.print()
+        console.print(
+            Panel(
+                f"[bold cyan]Checking: {domain}[/bold cyan]\n"
+                f"[dim]Testing through {len(valid_shares)} subscription proxies[/dim]",
+                border_style="blue",
+                padding=(0, 2),
+            )
+        )
+        console.print()
+
+    except Exception as e:
+        error_console.print(f"[bold red]Error fetching subscription: {e}[/bold red]")
+        return 1
+
+    # Run checks in parallel (max 8 concurrent xray instances)
+    results: list[tuple[str, CheckStatus]] = [("", CheckStatus.FAIL)] * len(valid_shares)
+    semaphore = asyncio.Semaphore(8)
+
+    async def _check_one(idx: int, share) -> None:
+        label = share.name or f"{share.server}:{share.port}"
+        async with semaphore:
+            try:
+                async with _xray_proxy_context(share.raw_url, silent=True) as proxy_url:
+                    diagnostic = await check_domain_verbose(
+                        domain,
+                        port=port,
+                        proxy_url=proxy_url,
+                        timeout=timeout,
+                    )
+                    status = diagnostic.overall_status
+            except Exception as e:
+                log.debug(f"Error testing via {label}: {e}")
+                status = CheckStatus.FAIL
+
+        results[idx] = (label, status)
+        icon, color = _status_icon_and_color(status)
+        progress.console.print(f"  [{color}]{icon}[/{color}] [bold]{label}[/bold]")
+        progress.advance(task_id)
+
+    with Progress(
+        SpinnerColumn(spinner_name="dots"),
+        TextColumn("[progress.description]{task.description}"),
+        BarColumn(bar_width=28),
+        MofNCompleteColumn(),
+        TaskProgressColumn(),
+        TimeElapsedColumn(),
+        console=console,
+        transient=False,
+    ) as progress:
+        task_id = progress.add_task(
+            f"[cyan]Checking via {len(valid_shares)} proxies[/cyan]",
+            total=len(valid_shares),
+        )
+        await asyncio.gather(*[_check_one(i, s) for i, s in enumerate(valid_shares)])
+
+    # Summary table
+    console.print()
+    pass_count = sum(1 for _, s in results if s in (CheckStatus.PASS, CheckStatus.WARN))
+    fail_count = len(results) - pass_count
+
+    table = Table(show_header=True, header_style="bold", box=None, pad_edge=False)
+    table.add_column("Proxy", style="cyan", no_wrap=False)
+    table.add_column("", justify="left", width=10)
+
+    for label, status in results:
+        icon, color = _status_icon_and_color(status)
+        table.add_row(label, f"[{color}]{icon} {status.value}[/{color}]")
+
+    console.print(table)
+    console.print(
+        f"\n[bold green]{pass_count} passed[/bold green], [bold red]{fail_count} failed[/bold red]"
+        f" out of [bold]{len(results)}[/bold] proxies"
+    )
+
+    return 0 if pass_count > 0 else 1
 
 
 async def cmd_scan(args: argparse.Namespace) -> int:

@@ -28,9 +28,6 @@ services:
 
   xray-analyzer:
     image: ghcr.io/authfailed/xray-analyzer:latest
-    build:
-      context: .
-      dockerfile: Dockerfile
     env_file:
       - .env
     environment:
