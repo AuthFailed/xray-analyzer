@@ -139,7 +139,7 @@ class CheckStatus(StrEnum):
     """Status of a diagnostic check."""
 
     PASS = "pass"
-    WARN = "warn"     # non-critical issue worth noting, but not a blocker
+    WARN = "warn"  # non-critical issue worth noting, but not a blocker
     FAIL = "fail"
     SKIP = "skip"
     TIMEOUT = "timeout"
@@ -189,15 +189,3 @@ class HostDiagnostic(BaseModel):
     def add_recommendation(self, recommendation: str) -> None:
         """Add a recommendation for fixing issues."""
         self.recommendations.append(recommendation)
-
-
-# --- RKN Check Models ---
-
-
-class RKNCheckResponse(BaseModel):
-    """Response from RKN API."""
-
-    domain: str
-    is_blocked: bool
-    status: str = ""
-    details: dict[str, Any] = Field(default_factory=dict)

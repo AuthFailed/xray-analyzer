@@ -18,6 +18,7 @@ from xray_analyzer.core.recommendation_engine import RecommendationEngine
 from xray_analyzer.core.throttle_checker_runner import ThrottleCheckRunner
 from xray_analyzer.core.xray_client import XrayCheckerClient
 from xray_analyzer.diagnostics.dns_checker import check_dns_with_checkhost
+from xray_analyzer.diagnostics.proxy_cross_checker import check_via_proxy
 from xray_analyzer.diagnostics.proxy_ip_checker import check_proxy_exit_ip
 from xray_analyzer.diagnostics.proxy_sni_checker import check_proxy_sni_connection
 from xray_analyzer.diagnostics.proxy_tcp_checker import check_proxy_tcp_tunnel
@@ -25,7 +26,6 @@ from xray_analyzer.diagnostics.proxy_xray_checker import (
     XRAY_PROTOCOLS,
     check_proxy_via_xray,
 )
-from xray_analyzer.diagnostics.rkn_checker import check_rkn_blocking, extract_domain_from_url
 from xray_analyzer.diagnostics.subscription_parser import (
     ProxyShareURL,
     fetch_subscription,
@@ -114,9 +114,7 @@ class XrayAnalyzer:
 
         return diagnostics
 
-    async def run_single_host_analysis(
-        self, host: str, port: int = 443, proxy_url: str = ""
-    ) -> HostDiagnostic:
+    async def run_single_host_analysis(self, host: str, port: int = 443, proxy_url: str = "") -> HostDiagnostic:
         """Run diagnostic analysis on a single host."""
         log.info(f"Starting analysis for {host}:{port}")
         diagnostic = HostDiagnostic(host=f"{host}:{port}")
@@ -275,18 +273,6 @@ class XrayAnalyzer:
         # 3. TCP Ping check
         tcp_ping_result = await check_tcp_ping(host, port)
         diagnostic.add_result(tcp_ping_result)
-
-        # 4. RKN Block Check (extract domain from host)
-        domain = extract_domain_from_url(host) if "://" in host else host
-        rkn_result = await check_rkn_blocking(domain)
-        diagnostic.add_result(rkn_result)
-
-        # Also check resolved IPs for RKN blocking
-        if dns_result.status == CheckStatus.PASS:
-            resolved_ips = dns_result.details.get("resolved_ips", [])
-            for ip_addr in resolved_ips[:2]:
-                ip_rkn_result = await check_rkn_blocking(ip_addr)
-                diagnostic.add_result(ip_rkn_result)
 
         # Proxy-specific checks — either from API proxy object or direct --proxy URL
         if not proxy and direct_proxy_url:

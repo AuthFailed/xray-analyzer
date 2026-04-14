@@ -22,7 +22,9 @@ from xray_analyzer.core.models import CheckSeverity, CheckStatus, DiagnosticResu
 log = get_logger("censor_checker")
 
 # URL for Russia mobile internet whitelist
-WHITELIST_URL = "https://raw.githubusercontent.com/hxehex/russia-mobile-internet-whitelist/refs/heads/main/whitelist.txt"
+WHITELIST_URL = (
+    "https://raw.githubusercontent.com/hxehex/russia-mobile-internet-whitelist/refs/heads/main/whitelist.txt"
+)
 
 # Default list of domains to check (from bash script)
 DEFAULT_CENSOR_DOMAINS: list[str] = [
@@ -109,9 +111,7 @@ CLOUDFLARE_CHALLENGE_KEYWORDS: list[re.Pattern] = [
 
 # User agents (from bash script)
 USER_AGENT = (
-    "Mozilla/5.0 (Macintosh; Intel Mac OS X 14_0) "
-    "AppleWebKit/605.1.15 (KHTML, like Gecko) "
-    "Version/17.0 Safari/605.1.15"
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 14_0) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15"
 )
 
 SNI_DUMMY_IP = "192.0.2.1"  # Dummy IP for SNI test (from bash script)
@@ -207,9 +207,7 @@ async def _fetch_http_code(
     if resolve_to_ip:
         # We can't use aiohttp's built-in resolution for this
         # We'll use subprocess curl instead for this specific case
-        return await _fetch_with_curl(
-            url, proxy_url, timeout, retries, user_agent, extra_headers, resolve_to_ip
-        )
+        return await _fetch_with_curl(url, proxy_url, timeout, retries, user_agent, extra_headers, resolve_to_ip)
 
     for attempt in range(retries):
         async with aiohttp.ClientSession() as session:
@@ -251,13 +249,19 @@ async def _fetch_with_curl(
     curl_cmd = [
         "curl",
         "-s",
-        "-o", "/dev/null",
-        "--retry", str(retries),
-        "--connect-timeout", str(timeout),
-        "--max-time", str(timeout),
+        "-o",
+        "/dev/null",
+        "--retry",
+        str(retries),
+        "--connect-timeout",
+        str(timeout),
+        "--max-time",
+        str(timeout),
         "-4",  # IPv4 only
-        "-A", user_agent,
-        "-w", "%{http_code}",
+        "-A",
+        user_agent,
+        "-w",
+        "%{http_code}",
     ]
 
     if proxy_url:
@@ -309,12 +313,18 @@ async def _check_certificate(domain: str, timeout: int = 4, verbose: bool = Fals
     """
     try:
         proc = await asyncio.create_subprocess_exec(
-            "timeout", str(timeout),
-            "openssl", "s_client",
-            "-connect", f"{domain}:443",
-            "-servername", domain,
-            "-CApath", "/etc/ssl/certs",
-            "-verify", "5",
+            "timeout",
+            str(timeout),
+            "openssl",
+            "s_client",
+            "-connect",
+            f"{domain}:443",
+            "-servername",
+            domain,
+            "-CApath",
+            "/etc/ssl/certs",
+            "-verify",
+            "5",
             stdin=asyncio.subprocess.PIPE,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
@@ -336,7 +346,10 @@ async def _check_certificate(domain: str, timeout: int = 4, verbose: bool = Fals
             try:
                 # Use date command to parse
                 date_proc = await asyncio.create_subprocess_exec(
-                    "date", "-d", not_after_str, "+%s",
+                    "date",
+                    "-d",
+                    not_after_str,
+                    "+%s",
                     stdout=asyncio.subprocess.PIPE,
                     stderr=asyncio.subprocess.PIPE,
                 )
@@ -348,7 +361,7 @@ async def _check_certificate(domain: str, timeout: int = 4, verbose: bool = Fals
                     if verbose:
                         log.info("Certificate expired", domain=domain)
                     return False
-            except (ValueError, Exception):
+            except ValueError, Exception:
                 pass
 
         return True
@@ -387,12 +400,15 @@ async def _check_dpi_blocking(domain: str, timeout: int = 4) -> bool:
     # Method 1: Check response body for blocking keywords
     try:
         headers = {"User-Agent": "Suspicious-Agent TLS/1.3"}
-        async with aiohttp.ClientSession() as session, session.get(
-            test_url,
-            timeout=ClientTimeout(connect=timeout, total=timeout),
-            headers=headers,
-            ssl=True,
-        ) as response:
+        async with (
+            aiohttp.ClientSession() as session,
+            session.get(
+                test_url,
+                timeout=ClientTimeout(connect=timeout, total=timeout),
+                headers=headers,
+                ssl=True,
+            ) as response,
+        ):
             text = await response.text()
             if any(pattern.search(text) for pattern in DPI_BLOCKING_KEYWORDS):
                 return True
@@ -429,17 +445,27 @@ async def _check_ai_regional_blocking(domain: str, timeout: int = 4) -> bool:
         curl_cmd = [
             "curl",
             "-s",
-            "-A", USER_AGENT,
-            "-H", "Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
-            "-H", "Accept-Language: en-US,en;q=0.5",
-            "-H", "Upgrade-Insecure-Requests: 1",
-            "-H", "Sec-Fetch-Dest: document",
-            "-H", "Sec-Fetch-Mode: navigate",
-            "-H", "Sec-Fetch-Site: none",
-            "-H", "Sec-Fetch-User: ?1",
-            "-H", "Connection: keep-alive",
+            "-A",
+            USER_AGENT,
+            "-H",
+            "Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
+            "-H",
+            "Accept-Language: en-US,en;q=0.5",
+            "-H",
+            "Upgrade-Insecure-Requests: 1",
+            "-H",
+            "Sec-Fetch-Dest: document",
+            "-H",
+            "Sec-Fetch-Mode: navigate",
+            "-H",
+            "Sec-Fetch-Site: none",
+            "-H",
+            "Sec-Fetch-User: ?1",
+            "-H",
+            "Connection: keep-alive",
             "--compressed",
-            "--connect-timeout", str(timeout),
+            "--connect-timeout",
+            str(timeout),
             f"https://{domain}",
         ]
 
@@ -625,10 +651,7 @@ async def _tcp_ping(host: str, port: int, count: int = 3, timeout: int = 4) -> D
             check_name="TCP Ping",
             status=CheckStatus.WARN,
             severity=CheckSeverity.WARNING,
-            message=(
-                f"{host}:{port} — avg {details['latency_avg_ms']}ms, "
-                f"loss {loss_pct}%"
-            ),
+            message=(f"{host}:{port} — avg {details['latency_avg_ms']}ms, loss {loss_pct}%"),
             details=details,
             duration_ms=duration_ms,
         )
@@ -679,37 +702,43 @@ async def check_domain_verbose(
             break
 
     if not ips:
-        _emit(DiagnosticResult(
-            check_name="DNS",
-            status=CheckStatus.FAIL,
-            severity=CheckSeverity.CRITICAL,
-            message=f"DNS resolution failed for {domain} — domain may be DNS-blocked",
-            details={"domain": domain},
-            recommendations=["DNS is being blocked — try a different DNS resolver (8.8.8.8, 1.1.1.1)"],
-            duration_ms=dns_ms,
-        ))
+        _emit(
+            DiagnosticResult(
+                check_name="DNS",
+                status=CheckStatus.FAIL,
+                severity=CheckSeverity.CRITICAL,
+                message=f"DNS resolution failed for {domain} — domain may be DNS-blocked",
+                details={"domain": domain},
+                recommendations=["DNS is being blocked — try a different DNS resolver (8.8.8.8, 1.1.1.1)"],
+                duration_ms=dns_ms,
+            )
+        )
         return diag
 
     if spoof_ip:
-        _emit(DiagnosticResult(
-            check_name="DNS",
-            status=CheckStatus.FAIL,
-            severity=CheckSeverity.CRITICAL,
-            message=f"RKN DNS spoof detected — {domain} resolves to known stub IP {spoof_ip}",
-            details={"ips": ips, "rkn_stub_ip": spoof_ip},
-            recommendations=["Use an encrypted DNS resolver (DoH/DoT) to bypass DNS spoofing"],
-            duration_ms=dns_ms,
-        ))
+        _emit(
+            DiagnosticResult(
+                check_name="DNS",
+                status=CheckStatus.FAIL,
+                severity=CheckSeverity.CRITICAL,
+                message=f"RKN DNS spoof detected — {domain} resolves to known stub IP {spoof_ip}",
+                details={"ips": ips, "rkn_stub_ip": spoof_ip},
+                recommendations=["Use an encrypted DNS resolver (DoH/DoT) to bypass DNS spoofing"],
+                duration_ms=dns_ms,
+            )
+        )
         return diag
 
-    _emit(DiagnosticResult(
-        check_name="DNS",
-        status=CheckStatus.PASS,
-        severity=CheckSeverity.INFO,
-        message=f"Resolved to: {', '.join(ips[:3])}",
-        details={"ips": ips},
-        duration_ms=dns_ms,
-    ))
+    _emit(
+        DiagnosticResult(
+            check_name="DNS",
+            status=CheckStatus.PASS,
+            severity=CheckSeverity.INFO,
+            message=f"Resolved to: {', '.join(ips[:3])}",
+            details={"ips": ips},
+            duration_ms=dns_ms,
+        )
+    )
 
     # --- 2. TCP connectivity ---
     if on_step_start:
@@ -727,27 +756,31 @@ async def check_domain_verbose(
     tcp_ms = (time.monotonic() - t0) * 1000
 
     if tcp_ok:
-        _emit(DiagnosticResult(
-            check_name="TCP",
-            status=CheckStatus.PASS,
-            severity=CheckSeverity.INFO,
-            message=f"Port {tcp_port_used} reachable on {ips[0]}",
-            details={"ip": ips[0], "port": tcp_port_used},
-            duration_ms=tcp_ms,
-        ))
+        _emit(
+            DiagnosticResult(
+                check_name="TCP",
+                status=CheckStatus.PASS,
+                severity=CheckSeverity.INFO,
+                message=f"Port {tcp_port_used} reachable on {ips[0]}",
+                details={"ip": ips[0], "port": tcp_port_used},
+                duration_ms=tcp_ms,
+            )
+        )
     else:
-        _emit(DiagnosticResult(
-            check_name="TCP",
-            status=CheckStatus.FAIL,
-            severity=CheckSeverity.CRITICAL,
-            message=f"Port {port} (and 80) unreachable on {ips[0]} — IP/TCP blocked",
-            details={"ip": ips[0], "port": port},
-            recommendations=[
-                f"TCP connection to {domain} is blocked at the IP level",
-                "Try connecting through a proxy or VPN",
-            ],
-            duration_ms=tcp_ms,
-        ))
+        _emit(
+            DiagnosticResult(
+                check_name="TCP",
+                status=CheckStatus.FAIL,
+                severity=CheckSeverity.CRITICAL,
+                message=f"Port {port} (and 80) unreachable on {ips[0]} — IP/TCP blocked",
+                details={"ip": ips[0], "port": port},
+                recommendations=[
+                    f"TCP connection to {domain} is blocked at the IP level",
+                    "Try connecting through a proxy or VPN",
+                ],
+                duration_ms=tcp_ms,
+            )
+        )
 
     # --- 3. TCP Ping ---
     if on_step_start:
@@ -757,20 +790,24 @@ async def check_domain_verbose(
 
     if not tcp_ok:
         # TLS/HTTP/DPI still worth running (DPI can intercept at connection layer)
-        _emit(DiagnosticResult(
-            check_name="TLS",
-            status=CheckStatus.SKIP,
-            severity=CheckSeverity.INFO,
-            message="Skipped — TCP unreachable",
-            duration_ms=0,
-        ))
-        _emit(DiagnosticResult(
-            check_name="HTTP/HTTPS",
-            status=CheckStatus.SKIP,
-            severity=CheckSeverity.INFO,
-            message="Skipped — TCP unreachable",
-            duration_ms=0,
-        ))
+        _emit(
+            DiagnosticResult(
+                check_name="TLS",
+                status=CheckStatus.SKIP,
+                severity=CheckSeverity.INFO,
+                message="Skipped — TCP unreachable",
+                duration_ms=0,
+            )
+        )
+        _emit(
+            DiagnosticResult(
+                check_name="HTTP/HTTPS",
+                status=CheckStatus.SKIP,
+                severity=CheckSeverity.INFO,
+                message="Skipped — TCP unreachable",
+                duration_ms=0,
+            )
+        )
     else:
         # --- 4. TLS ---
         if on_step_start:
@@ -780,24 +817,28 @@ async def check_domain_verbose(
         tls_ms = (time.monotonic() - t0) * 1000
 
         if tls_valid:
-            _emit(DiagnosticResult(
-                check_name="TLS",
-                status=CheckStatus.PASS,
-                severity=CheckSeverity.INFO,
-                message=f"Certificate valid for {domain}",
-                details={"domain": domain},
-                duration_ms=tls_ms,
-            ))
+            _emit(
+                DiagnosticResult(
+                    check_name="TLS",
+                    status=CheckStatus.PASS,
+                    severity=CheckSeverity.INFO,
+                    message=f"Certificate valid for {domain}",
+                    details={"domain": domain},
+                    duration_ms=tls_ms,
+                )
+            )
         else:
-            _emit(DiagnosticResult(
-                check_name="TLS",
-                status=CheckStatus.FAIL,
-                severity=CheckSeverity.WARNING,
-                message=f"Certificate invalid or expired for {domain}",
-                details={"domain": domain},
-                recommendations=["TLS certificate is invalid — possible MITM interception or expired cert"],
-                duration_ms=tls_ms,
-            ))
+            _emit(
+                DiagnosticResult(
+                    check_name="TLS",
+                    status=CheckStatus.FAIL,
+                    severity=CheckSeverity.WARNING,
+                    message=f"Certificate invalid or expired for {domain}",
+                    details={"domain": domain},
+                    recommendations=["TLS certificate is invalid — possible MITM interception or expired cert"],
+                    duration_ms=tls_ms,
+                )
+            )
 
         # --- 5. HTTP / HTTPS status ---
         if on_step_start:
@@ -817,33 +858,39 @@ async def check_domain_verbose(
             codes_str = f"HTTP {http_code}" if http_code else ""
             if https_code:
                 codes_str += f"{'  ' if codes_str else ''}HTTPS {https_code}"
-            _emit(DiagnosticResult(
-                check_name="HTTP/HTTPS",
-                status=CheckStatus.PASS,
-                severity=CheckSeverity.INFO,
-                message=f"{domain} is reachable — {codes_str}",
-                details={"http_code": http_code, "https_code": https_code},
-                duration_ms=http_ms,
-            ))
+            _emit(
+                DiagnosticResult(
+                    check_name="HTTP/HTTPS",
+                    status=CheckStatus.PASS,
+                    severity=CheckSeverity.INFO,
+                    message=f"{domain} is reachable — {codes_str}",
+                    details={"http_code": http_code, "https_code": https_code},
+                    duration_ms=http_ms,
+                )
+            )
         elif http_code == 0 and https_code == 0:
-            _emit(DiagnosticResult(
-                check_name="HTTP/HTTPS",
-                status=CheckStatus.FAIL,
-                severity=CheckSeverity.ERROR,
-                message=f"No HTTP or HTTPS response from {domain}",
-                details={"http_code": http_code, "https_code": https_code},
-                recommendations=["HTTP/HTTPS traffic is blocked — try a proxy"],
-                duration_ms=http_ms,
-            ))
+            _emit(
+                DiagnosticResult(
+                    check_name="HTTP/HTTPS",
+                    status=CheckStatus.FAIL,
+                    severity=CheckSeverity.ERROR,
+                    message=f"No HTTP or HTTPS response from {domain}",
+                    details={"http_code": http_code, "https_code": https_code},
+                    recommendations=["HTTP/HTTPS traffic is blocked — try a proxy"],
+                    duration_ms=http_ms,
+                )
+            )
         else:
-            _emit(DiagnosticResult(
-                check_name="HTTP/HTTPS",
-                status=CheckStatus.WARN,
-                severity=CheckSeverity.WARNING,
-                message=f"Unexpected response — HTTP {http_code}, HTTPS {https_code}",
-                details={"http_code": http_code, "https_code": https_code},
-                duration_ms=http_ms,
-            ))
+            _emit(
+                DiagnosticResult(
+                    check_name="HTTP/HTTPS",
+                    status=CheckStatus.WARN,
+                    severity=CheckSeverity.WARNING,
+                    message=f"Unexpected response — HTTP {http_code}, HTTPS {https_code}",
+                    details={"http_code": http_code, "https_code": https_code},
+                    duration_ms=http_ms,
+                )
+            )
 
     # --- 6. DPI ---
     if on_step_start:
@@ -862,24 +909,28 @@ async def check_domain_verbose(
             if http_accessible
             else f"DPI actively blocking {domain} (keyword match or SNI intercept)"
         )
-        _emit(DiagnosticResult(
-            check_name="DPI",
-            status=dpi_status,
-            severity=dpi_severity,
-            message=dpi_msg,
-            details={"domain": domain, "method": "keyword+SNI"},
-            recommendations=["Deep Packet Inspection (DPI) is active — use a VPN or VLESS/Trojan proxy"],
-            duration_ms=dpi_ms,
-        ))
+        _emit(
+            DiagnosticResult(
+                check_name="DPI",
+                status=dpi_status,
+                severity=dpi_severity,
+                message=dpi_msg,
+                details={"domain": domain, "method": "keyword+SNI"},
+                recommendations=["Deep Packet Inspection (DPI) is active — use a VPN or VLESS/Trojan proxy"],
+                duration_ms=dpi_ms,
+            )
+        )
     else:
-        _emit(DiagnosticResult(
-            check_name="DPI",
-            status=CheckStatus.PASS,
-            severity=CheckSeverity.INFO,
-            message="No DPI blocking detected",
-            details={"domain": domain},
-            duration_ms=dpi_ms,
-        ))
+        _emit(
+            DiagnosticResult(
+                check_name="DPI",
+                status=CheckStatus.PASS,
+                severity=CheckSeverity.INFO,
+                message="No DPI blocking detected",
+                details={"domain": domain},
+                duration_ms=dpi_ms,
+            )
+        )
 
     # --- 7. AI/regional blocking (selected domains only) ---
     if domain in AI_REGIONAL_DOMAINS:
@@ -890,23 +941,27 @@ async def check_domain_verbose(
         reg_ms = (time.monotonic() - t0) * 1000
 
         if regional:
-            _emit(DiagnosticResult(
-                check_name="Regional Block",
-                status=CheckStatus.FAIL,
-                severity=CheckSeverity.ERROR,
-                message=f"{domain} shows regional blocking message",
-                details={"domain": domain},
-                recommendations=["Regional access restriction detected — use a non-Russian exit node"],
-                duration_ms=reg_ms,
-            ))
+            _emit(
+                DiagnosticResult(
+                    check_name="Regional Block",
+                    status=CheckStatus.FAIL,
+                    severity=CheckSeverity.ERROR,
+                    message=f"{domain} shows regional blocking message",
+                    details={"domain": domain},
+                    recommendations=["Regional access restriction detected — use a non-Russian exit node"],
+                    duration_ms=reg_ms,
+                )
+            )
         else:
-            _emit(DiagnosticResult(
-                check_name="Regional Block",
-                status=CheckStatus.PASS,
-                severity=CheckSeverity.INFO,
-                message="No regional blocking detected",
-                duration_ms=reg_ms,
-            ))
+            _emit(
+                DiagnosticResult(
+                    check_name="Regional Block",
+                    status=CheckStatus.PASS,
+                    severity=CheckSeverity.INFO,
+                    message="No regional blocking detected",
+                    duration_ms=reg_ms,
+                )
+            )
 
     return diag
 
@@ -915,15 +970,14 @@ async def fetch_whitelist_domains() -> list[str]:
     """Fetch domain list from russia-mobile-internet-whitelist GitHub repo."""
     log.info("Fetching whitelist", url=WHITELIST_URL)
     try:
-        async with aiohttp.ClientSession() as session:
-            async with session.get(
-                WHITELIST_URL,
-                timeout=ClientTimeout(total=30),
-            ) as response:
-                if response.status != 200:
-                    log.error("Failed to fetch whitelist", http_status=response.status)
-                    return []
-                text = await response.text()
+        async with aiohttp.ClientSession() as session, session.get(
+            WHITELIST_URL,
+            timeout=ClientTimeout(total=30),
+        ) as response:
+            if response.status != 200:
+                log.error("Failed to fetch whitelist", http_status=response.status)
+                return []
+            text = await response.text()
 
         domains = []
         for line in text.splitlines():

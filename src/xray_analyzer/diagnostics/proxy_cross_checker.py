@@ -1,7 +1,6 @@
 """Cross-proxy diagnostic: test connectivity to a target through another proxy."""
 
 import asyncio
-import errno as errno_mod
 
 import aiohttp
 
@@ -158,12 +157,9 @@ async def check_xray_cross_connectivity(
     )
 
     xray = XrayInstance(working_proxy_share)
-    socks_port = 0
-    xray_started = False
 
     try:
         socks_port = await xray.start()
-        xray_started = True
     except RuntimeError as e:
         log.error(f"Failed to start working Xray proxy for cross-test: {e}")
         return DiagnosticResult(

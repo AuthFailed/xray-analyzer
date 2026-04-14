@@ -201,25 +201,19 @@ def _add_standalone_recommendations(diagnostic: HostDiagnostic, share: ProxyShar
         None,
     )
     if dns_warning:
-        diagnostic.add_recommendation(
-            f"⚠️ DNS for {server_domain} doesn't match Check-Host (geo-blocking)"
-        )
-        diagnostic.add_recommendation(
-            "Local DNS returns different IPs than external Check-Host.net nodes"
-        )
+        diagnostic.add_recommendation(f"⚠️ DNS for {server_domain} doesn't match Check-Host (geo-blocking)")
+        diagnostic.add_recommendation("Local DNS returns different IPs than external Check-Host.net nodes")
 
     # Check if Xray connectivity passed but Exit IP/SNI failed
     xray_connectivity_passed = any(
-        r.check_name.startswith("Proxy Xray Connectivity") and r.status == CheckStatus.PASS
-        for r in results
+        r.check_name.startswith("Proxy Xray Connectivity") and r.status == CheckStatus.PASS for r in results
     )
     exit_ip_failed = any(
         r.check_name.startswith("Proxy Exit IP") and r.status in (CheckStatus.FAIL, CheckStatus.TIMEOUT)
         for r in results
     )
     sni_failed = any(
-        r.check_name.startswith("Proxy SNI") and r.status in (CheckStatus.FAIL, CheckStatus.TIMEOUT)
-        for r in results
+        r.check_name.startswith("Proxy SNI") and r.status in (CheckStatus.FAIL, CheckStatus.TIMEOUT) for r in results
     )
 
     if xray_connectivity_passed and (exit_ip_failed or sni_failed):
@@ -228,9 +222,7 @@ def _add_standalone_recommendations(diagnostic: HostDiagnostic, share: ProxyShar
             failed_services.append("Exit IP check")
         if sni_failed:
             failed_services.append("SNI check")
-        diagnostic.add_recommendation(
-            f"⚠️ Server {server_domain} connects but cannot reach external services"
-        )
+        diagnostic.add_recommendation(f"⚠️ Server {server_domain} connects but cannot reach external services")
         diagnostic.add_recommendation(
             f"Reason: Xray connected (HTTP 204) but {', '.join(failed_services)} failed — "
             f"server cannot reach external hosts"
@@ -250,18 +242,14 @@ def _add_standalone_recommendations(diagnostic: HostDiagnostic, share: ProxyShar
         for r in results
     )
     xray_ip_passed = any(
-        r.check_name.startswith("Proxy Xray Connectivity")
-        and "IP:" in r.check_name
-        and r.status == CheckStatus.PASS
+        r.check_name.startswith("Proxy Xray Connectivity") and "IP:" in r.check_name and r.status == CheckStatus.PASS
         for r in results
     )
 
     if xray_domain_failed and xray_ip_passed:
         ip_str = server_ip or "IP"
         diagnostic.add_recommendation(f"🔒 Domain {server_domain} is blocked (DNS/SNI)")
-        diagnostic.add_recommendation(
-            f"Reason: cannot connect by domain, but works by IP ({ip_str})"
-        )
+        diagnostic.add_recommendation(f"Reason: cannot connect by domain, but works by IP ({ip_str})")
         diagnostic.add_recommendation(
             "Solutions:\n"
             "  1) Replace the domain with a new one in server configuration\n"
@@ -286,13 +274,9 @@ def _add_standalone_recommendations(diagnostic: HostDiagnostic, share: ProxyShar
     if xray_domain_failed and xray_ip_failed:
         ip_str = f"IP {server_ip}" if server_ip else server_domain
         diagnostic.add_recommendation(f"🚫 {ip_str} not responding — connection timeout")
+        diagnostic.add_recommendation("Reason: server not responding by domain or IP — may be down or blocked")
         diagnostic.add_recommendation(
-            "Reason: server not responding by domain or IP — may be down or blocked"
-        )
-        diagnostic.add_recommendation(
-            "Solutions:\n"
-            "  1) Check server availability and restart\n"
-            "  2) Check Xray config (UUID, ports, certificates)"
+            "Solutions:\n  1) Check server availability and restart\n  2) Check Xray config (UUID, ports, certificates)"
         )
 
 
@@ -408,17 +392,12 @@ async def _run_standalone_cross_tests(
                             f"⚠ {target_host}:{target_port} → HTTP {status_code} via {working_share.name}"
                         )
             except TimeoutError:
+                diag.add_recommendation(f"✗ {target_host}:{target_port} unreachable via {working_share.name}: timeout")
                 diag.add_recommendation(
-                    f"✗ {target_host}:{target_port} unreachable via {working_share.name}: timeout"
-                )
-                diag.add_recommendation(
-                    "Server not responding even through a working proxy — "
-                    "may be down or globally blocked"
+                    "Server not responding even through a working proxy — may be down or globally blocked"
                 )
             except aiohttp.ClientError as e:
-                diag.add_recommendation(
-                    f"✗ {target_host}:{target_port} unreachable via {working_share.name}: {e}"
-                )
+                diag.add_recommendation(f"✗ {target_host}:{target_port} unreachable via {working_share.name}: {e}")
     except Exception as e:
         log.error(f"Failed to start working proxy for cross-tests: {e}")
     finally:

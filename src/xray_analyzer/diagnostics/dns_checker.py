@@ -19,8 +19,8 @@ CHECK_HOST_BASE_URL = "https://check-host.net"
 # These never exist on the real internet, so comparing them against Check-Host is meaningless.
 # https://xtls.github.io/ru/config/fakedns.html
 _FAKEDNS_NETWORKS = [
-    ip_network("198.18.0.0/15"),   # default IPv4 FakeDNS pool
-    ip_network("fc00::/18"),        # default IPv6 FakeDNS pool
+    ip_network("198.18.0.0/15"),  # default IPv4 FakeDNS pool
+    ip_network("fc00::/18"),  # default IPv6 FakeDNS pool
 ]
 
 
@@ -133,9 +133,7 @@ async def check_dns_with_checkhost(host: str) -> DiagnosticResult:
     checkhost_task = asyncio.create_task(_checkhost_dns_resolve(host))
 
     try:
-        local_result, checkhost_result = await asyncio.gather(
-            local_task, checkhost_task, return_exceptions=False
-        )
+        local_result, checkhost_result = await asyncio.gather(local_task, checkhost_task, return_exceptions=False)
     except Exception:
         local_task.cancel()
         checkhost_task.cancel()
@@ -235,9 +233,7 @@ async def check_dns_with_checkhost(host: str) -> DiagnosticResult:
                 check_name="DNS Resolution (Check-Host)",
                 status=CheckStatus.PASS,
                 severity=CheckSeverity.WARNING,
-                message=(
-                    f"DNS for {host}: local IPs don't match Check-Host (possible DNS poisoning or geo-blocking)"
-                ),
+                message=(f"DNS for {host}: local IPs don't match Check-Host (possible DNS poisoning or geo-blocking)"),
                 details=details,
             )
     elif not local_success and checkhost_success:
@@ -392,7 +388,7 @@ async def _checkhost_dns_resolve(host: str) -> dict[str, Any]:
                                 unique_ips.append(ip)
                         return {"success": True, "ips": unique_ips}
 
-            except (aiohttp.ClientError, TimeoutError):
+            except aiohttp.ClientError, TimeoutError:
                 continue
 
         return {"success": False, "error": "Check-Host result polling timed out"}

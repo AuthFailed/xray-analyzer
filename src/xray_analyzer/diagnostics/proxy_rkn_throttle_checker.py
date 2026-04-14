@@ -277,8 +277,7 @@ async def _perform_throttle_check(
             status=CheckStatus.FAIL,
             severity=CheckSeverity.CRITICAL,
             message=(
-                f"IP fully blocked: failed to establish connection "
-                f"in {RKN_THROTTLE_TIMEOUT}s — server not responding"
+                f"IP fully blocked: failed to establish connection in {RKN_THROTTLE_TIMEOUT}s — server not responding"
             ),
             details={
                 "target": target,

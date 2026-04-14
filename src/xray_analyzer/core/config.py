@@ -32,10 +32,6 @@ class Settings(BaseSettings):
     proxy_status_check_url: str = "http://cp.cloudflare.com/generate_204"
     proxy_ip_check_url: str = "https://api.ipify.org?format=text"
 
-    # RKN Check
-    rkn_api_url: str = Field(default="https://rknweb.ru/api")
-    rkn_check_enabled: bool = False  # Disabled by default — rknweb.ru API often unavailable
-
     # Proxy SNI Check
     proxy_sni_test_enabled: bool = True
     proxy_sni_domain: str = "max.ru"

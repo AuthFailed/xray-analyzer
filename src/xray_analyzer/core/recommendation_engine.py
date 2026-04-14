@@ -20,8 +20,12 @@ class RecommendationEngine:
         """
         # Prevent duplicate recommendations
         if diag.recommendations and any(
-            "blocked" in r.lower() or "unreachable" in r.lower() or "throttling" in r.lower()
-            or "заблокирован" in r or "недоступен" in r or "троттлинг" in r.lower()
+            "blocked" in r.lower()
+            or "unreachable" in r.lower()
+            or "throttling" in r.lower()
+            or "заблокирован" in r
+            or "недоступен" in r
+            or "троттлинг" in r.lower()
             for r in diag.recommendations
         ):
             return
@@ -245,8 +249,7 @@ class RecommendationEngine:
             ip_str = f"IP {server_ip}" if server_ip else server_domain
             diag.add_recommendation(f"🚫 {ip_str} is blocked or server is unreachable")
             diag.add_recommendation(
-                f"Reason: not working directly or via {cross_proxy_name} — "
-                f"server is down or globally blocked"
+                f"Reason: not working directly or via {cross_proxy_name} — server is down or globally blocked"
             )
             diag.add_recommendation(
                 "Solutions:\n"

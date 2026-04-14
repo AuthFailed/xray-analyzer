@@ -132,9 +132,7 @@ class TestRunCensorCheck:
         """Test running censor check with specific domains."""
         test_domains = ["google.com", "youtube.com"]
 
-        with patch(
-            "xray_analyzer.diagnostics.censor_checker.check_domain"
-        ) as mock_check:
+        with patch("xray_analyzer.diagnostics.censor_checker.check_domain") as mock_check:
             mock_check.return_value = DomainCheckResult(
                 domain="google.com",
                 status=DomainStatus.OK,
@@ -152,9 +150,7 @@ class TestRunCensorCheck:
     @pytest.mark.asyncio
     async def test_run_censor_check_default_domains(self):
         """Test running censor check with default domains."""
-        with patch(
-            "xray_analyzer.diagnostics.censor_checker.check_domain"
-        ) as mock_check:
+        with patch("xray_analyzer.diagnostics.censor_checker.check_domain") as mock_check:
             mock_check.return_value = DomainCheckResult(
                 domain="test.com",
                 status=DomainStatus.OK,
@@ -171,9 +167,7 @@ class TestRunCensorCheck:
         """Test running censor check through proxy."""
         proxy_url = "socks5://127.0.0.1:1080"
 
-        with patch(
-            "xray_analyzer.diagnostics.censor_checker.check_domain"
-        ) as mock_check:
+        with patch("xray_analyzer.diagnostics.censor_checker.check_domain") as mock_check:
             mock_check.return_value = DomainCheckResult(
                 domain="test.com",
                 status=DomainStatus.OK,

@@ -68,8 +68,7 @@ async def _xray_proxy_context(proxy_url: str | None) -> AsyncIterator[str | None
                 socks_port = await xray.start()
                 label = share.name or f"{share.server}:{share.port}"
                 console.print(
-                    f"[green]✓[/green] Xray started: [bold]{label}[/bold] "
-                    f"→ [dim]socks5://127.0.0.1:{socks_port}[/dim]"
+                    f"[green]✓[/green] Xray started: [bold]{label}[/bold] → [dim]socks5://127.0.0.1:{socks_port}[/dim]"
                 )
                 yield f"socks5://{xray.socks_user}:{xray.socks_password}@127.0.0.1:{socks_port}"
             finally:
@@ -142,11 +141,6 @@ def create_parser() -> argparse.ArgumentParser:
         help="Disable SNI connection test (overrides PROXY_SNI_TEST_ENABLED)",
     )
     analyze_parser.add_argument(
-        "--rkn-check",
-        action="store_true",
-        help="Enable RKN blocking checks (overrides RKN_CHECK_ENABLED)",
-    )
-    analyze_parser.add_argument(
         "--check-host-api-key",
         type=str,
         help="API key for Check-Host.net (overrides CHECK_HOST_API_KEY)",
@@ -204,7 +198,7 @@ def create_parser() -> argparse.ArgumentParser:
         choices=["default", "whitelist"],
         default="default",
         help="Predefined list: 'default' (built-in) or 'whitelist' "
-             "(Russia mobile internet whitelist from github.com/hxehex/russia-mobile-internet-whitelist)",
+        "(Russia mobile internet whitelist from github.com/hxehex/russia-mobile-internet-whitelist)",
     )
     scan_parser.add_argument(
         "--proxy",
@@ -230,7 +224,30 @@ def create_parser() -> argparse.ArgumentParser:
 async def cmd_analyze(args: argparse.Namespace) -> int:
     """Run full analysis command."""
     # Apply CLI overrides to settings
-    _apply_cli_overrides(args)
+    if getattr(args, "no_xray", False):
+        settings.xray_test_enabled = False
+    if getattr(args, "no_rkn_throttle", False):
+        settings.rkn_throttle_check_enabled = False
+    if getattr(args, "no_sni", False):
+        settings.proxy_sni_test_enabled = False
+    if getattr(args, "check_host_api_key", None):
+        settings.check_host_api_key = args.check_host_api_key
+    if getattr(args, "proxy_status_url", None):
+        settings.proxy_status_check_url = args.proxy_status_url
+    if getattr(args, "proxy_ip_url", None):
+        settings.proxy_ip_check_url = args.proxy_ip_url
+    if getattr(args, "sni_domain", None):
+        settings.proxy_sni_domain = args.sni_domain
+    if getattr(args, "interval", None):
+        settings.check_interval_seconds = args.interval
+    if getattr(args, "analyze_online", False):
+        settings.analyze_online_proxies = True
+    if getattr(args, "checker_api_url", None):
+        settings.checker_api_url = args.checker_api_url
+    if getattr(args, "checker_api_username", None):
+        settings.checker_api_username = args.checker_api_username
+    if getattr(args, "checker_api_password", None):
+        settings.checker_api_password = args.checker_api_password
 
     # Determine if we're running in standalone mode (subscription URL only, no checker API)
     is_standalone = (
@@ -321,12 +338,14 @@ async def cmd_check(args: argparse.Namespace) -> int:
     try:
         async with _xray_proxy_context(raw_proxy) as proxy_url:
             console.print()
-            console.print(Panel(
-                f"[bold cyan]Diagnosing: {domain}[/bold cyan]\n"
-                f"[dim]{'Via proxy: ' + proxy_url if proxy_url else 'Direct connection (no proxy)'}[/dim]",
-                border_style="blue",
-                padding=(0, 2),
-            ))
+            console.print(
+                Panel(
+                    f"[bold cyan]Diagnosing: {domain}[/bold cyan]\n"
+                    f"[dim]{'Via proxy: ' + proxy_url if proxy_url else 'Direct connection (no proxy)'}[/dim]",
+                    border_style="blue",
+                    padding=(0, 2),
+                )
+            )
             console.print()
 
             with Progress(
@@ -346,13 +365,10 @@ async def cmd_check(args: argparse.Namespace) -> int:
                     dur = f"  [dim]{result.duration_ms:.0f}ms[/dim]" if result.duration_ms else ""
                     msg = result.message
                     if result.status == CheckStatus.SKIP:
-                        progress.console.print(
-                            f"  [dim]○ {result.check_name:<14}  {msg}[/dim]"
-                        )
+                        progress.console.print(f"  [dim]○ {result.check_name:<14}  {msg}[/dim]")
                     else:
                         progress.console.print(
-                            f"  [{color}]{icon}[/{color}] [bold]{result.check_name:<14}[/bold]"
-                            f"  {msg}{dur}"
+                            f"  [{color}]{icon}[/{color}] [bold]{result.check_name:<14}[/bold]  {msg}{dur}"
                         )
 
                 diagnostic = await check_domain_verbose(
@@ -373,12 +389,14 @@ async def cmd_check(args: argparse.Namespace) -> int:
                 status_text, border = "[bold red]✗  FAIL[/bold red]", "red"
 
             console.print()
-            console.print(Panel(
-                status_text,
-                title=f"[bold]{domain}[/bold]",
-                border_style=border,
-                padding=(0, 2),
-            ))
+            console.print(
+                Panel(
+                    status_text,
+                    title=f"[bold]{domain}[/bold]",
+                    border_style=border,
+                    padding=(0, 2),
+                )
+            )
 
             if diagnostic.recommendations:
                 console.print()
@@ -420,12 +438,14 @@ async def cmd_scan(args: argparse.Namespace) -> int:
     try:
         async with _xray_proxy_context(raw_proxy) as proxy_url:
             console.print()
-            console.print(Panel(
-                f"[bold cyan]🌐  Censorship Scan[/bold cyan]\n"
-                f"[dim]{'Via proxy: ' + proxy_url if proxy_url else 'Direct connection (no proxy)'}[/dim]",
-                border_style="blue",
-                padding=(0, 2),
-            ))
+            console.print(
+                Panel(
+                    f"[bold cyan]🌐  Censorship Scan[/bold cyan]\n"
+                    f"[dim]{'Via proxy: ' + proxy_url if proxy_url else 'Direct connection (no proxy)'}[/dim]",
+                    border_style="blue",
+                    padding=(0, 2),
+                )
+            )
             console.print()
 
             with Progress(
@@ -533,7 +553,6 @@ async def cmd_status() -> int:
         await client.close()
 
 
-
 def _print_analysis_results(diagnostics: list[HostDiagnostic]) -> None:
     """Print full analysis results with detailed check-by-check breakdown."""
     if not diagnostics:
@@ -630,7 +649,6 @@ def _print_analysis_results(diagnostics: list[HostDiagnostic]) -> None:
         table.add_column("DNS", justify="center")
         table.add_column("TCP", justify="center")
         table.add_column("Ping", justify="center")
-        table.add_column("RKN", justify="center")
         table.add_column("RKN Thr", justify="center")
         table.add_column("Proxy", justify="center")
 
@@ -638,7 +656,6 @@ def _print_analysis_results(diagnostics: list[HostDiagnostic]) -> None:
             dns = _check_status_icon(diag, "DNS")
             tcp = _check_status_icon(diag, "TCP Connection")
             ping = _check_status_icon(diag, "TCP Ping")
-            rkn = _check_status_icon(diag, "RKN")
             rkn_thr = _check_status_icon(diag, "RKN Throttle")
             proxy = _check_status_icon(diag, "Xray Connectivity") or _check_status_icon(diag, "Tunnel")
 
@@ -647,7 +664,6 @@ def _print_analysis_results(diagnostics: list[HostDiagnostic]) -> None:
                 dns,
                 tcp,
                 ping,
-                rkn,
                 rkn_thr,
                 proxy,
             )
@@ -786,12 +802,14 @@ def _print_censor_check_results(summary) -> None:
         summary_lines.append("[dim]direct connection[/dim]")
 
     console.print()
-    console.print(Panel(
-        "\n".join(summary_lines),
-        title="[bold]Censor-Check — Summary[/bold]",
-        border_style=border,
-        padding=(0, 2),
-    ))
+    console.print(
+        Panel(
+            "\n".join(summary_lines),
+            title="[bold]Censor-Check — Summary[/bold]",
+            border_style=border,
+            padding=(0, 2),
+        )
+    )
     console.print()
 
     if not summary.results:
