@@ -2,10 +2,12 @@
 
 import argparse
 import asyncio
+import re
 import sys
 import time
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from rich.console import Console
 from rich.panel import Panel
@@ -80,6 +82,53 @@ async def _xray_proxy_context(proxy_url: str | None) -> AsyncIterator[str | None
             return
 
     yield proxy_url
+
+
+_DOMAIN_RE = re.compile(
+    r"^(?:[a-zA-Z0-9](?:[a-zA-Z0-9\-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z]{2,}$"
+)
+
+
+def load_domains_file(path: str) -> list[str]:
+    """
+    Read a file with one domain per line, validate each entry, and return valid domains.
+
+    Prints a warning table for invalid lines. Raises SystemExit if the file cannot be read.
+    """
+    file = Path(path)
+    try:
+        raw_lines = file.read_text(encoding="utf-8").splitlines()
+    except OSError as exc:
+        error_console.print(f"[bold red]✗[/bold red] Cannot read file '{path}': {exc}")
+        sys.exit(1)
+
+    valid: list[str] = []
+    invalid: list[tuple[int, str]] = []
+
+    for lineno, line in enumerate(raw_lines, start=1):
+        stripped = line.strip()
+        if not stripped or stripped.startswith("#"):
+            continue  # skip blank lines and comments
+        if _DOMAIN_RE.match(stripped):
+            valid.append(stripped)
+        else:
+            invalid.append((lineno, stripped))
+
+    if invalid:
+        console.print(f"\n[bold yellow]⚠  {len(invalid)} invalid line(s) in '{path}':[/bold yellow]")
+        for lineno, raw in invalid:
+            console.print(f"  [dim]line {lineno:>4}:[/dim] [red]{raw}[/red]")
+        console.print()
+
+    if not valid:
+        error_console.print(f"[bold red]✗[/bold red] No valid domains found in '{path}'")
+        sys.exit(1)
+
+    console.print(
+        f"[green]✓[/green] Loaded [bold]{len(valid)}[/bold] valid domain(s) from [cyan]{path}[/cyan]"
+        + (f"  [dim]({len(invalid)} skipped)[/dim]" if invalid else "")
+    )
+    return valid
 
 
 def create_parser() -> argparse.ArgumentParser:
@@ -211,6 +260,11 @@ def create_parser() -> argparse.ArgumentParser:
         ),
     )
     scan_parser.add_argument(
+        "--file",
+        metavar="PATH",
+        help="Path to a text file with one domain per line (validated before scanning)",
+    )
+    scan_parser.add_argument(
         "--proxy",
         help="Route HTTP checks through this proxy (e.g., socks5://127.0.0.1:1080)",
     )
@@ -255,6 +309,11 @@ def create_parser() -> argparse.ArgumentParser:
         choices=["default", "whitelist", *_allow_domains_choices],
         default="default",
         help="Predefined domain list to scan (same choices as the scan command)",
+    )
+    serve_parser.add_argument(
+        "--file",
+        metavar="PATH",
+        help="Path to a text file with one domain per line (validated before scanning)",
     )
     serve_parser.add_argument(
         "--proxy",
@@ -474,6 +533,11 @@ async def cmd_scan(args: argparse.Namespace) -> int:
     timeout: int = args.timeout or settings.censor_check_timeout
     max_parallel: int = args.max_parallel or settings.censor_check_max_parallel
 
+    # --file takes priority over positional domains and --list
+    if getattr(args, "file", None):
+        domains = load_domains_file(args.file)
+        console.print()
+
     # Fall back to config domains if nothing given
     if not domains and settings.censor_check_domains:
         domains = [d.strip() for d in settings.censor_check_domains.split(",") if d.strip()]
@@ -579,6 +643,11 @@ async def cmd_serve(args: argparse.Namespace) -> int:
     raw_proxy: str | None = args.proxy or settings.censor_check_proxy_url
     timeout: int = args.timeout or settings.censor_check_timeout
     max_parallel: int = args.max_parallel or settings.censor_check_max_parallel
+
+    # --file takes priority over positional domains and --list
+    if getattr(args, "file", None):
+        domains_list = load_domains_file(args.file)
+        console.print()
 
     # Resolve domains (mirrors cmd_scan logic)
     if not domains_list and settings.censor_check_domains:
