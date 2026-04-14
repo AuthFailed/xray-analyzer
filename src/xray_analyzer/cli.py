@@ -3,6 +3,8 @@
 import argparse
 import asyncio
 import sys
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 
 from rich.console import Console
 from rich.panel import Panel
@@ -21,20 +23,60 @@ from rich.text import Text
 from xray_analyzer.core.analyzer import XrayAnalyzer
 from xray_analyzer.core.config import settings
 from xray_analyzer.core.logger import get_logger, setup_logging
-from xray_analyzer.core.models import CheckSeverity, CheckStatus, HostDiagnostic
+from xray_analyzer.core.models import CheckSeverity, CheckStatus, DiagnosticResult, HostDiagnostic
 from xray_analyzer.core.standalone_analyzer import analyze_subscription_proxies
 from xray_analyzer.core.xray_client import XrayCheckerClient
 from xray_analyzer.diagnostics.censor_checker import (
     DEFAULT_CENSOR_DOMAINS,
     DomainCheckResult,
     DomainStatus,
+    check_domain_verbose,
     fetch_whitelist_domains,
     run_censor_check,
 )
+from xray_analyzer.diagnostics.subscription_parser import fetch_subscription, parse_share_url
+from xray_analyzer.diagnostics.xray_downloader import ensure_xray
+from xray_analyzer.diagnostics.xray_manager import XrayInstance
 
 log = get_logger("cli")
 console = Console()
 error_console = Console(stderr=True)
+
+_XRAY_SHARE_SCHEMES = {"vless", "trojan", "ss"}
+
+
+@asynccontextmanager
+async def _xray_proxy_context(proxy_url: str | None) -> AsyncIterator[str | None]:
+    """
+    If proxy_url is a VLESS/Trojan/SS share link, start an Xray instance and yield
+    the local socks5:// URL. Otherwise yield proxy_url unchanged.
+    """
+    if proxy_url:
+        scheme = proxy_url.split("://", 1)[0].lower()
+        if scheme in _XRAY_SHARE_SCHEMES:
+            share = parse_share_url(proxy_url)
+            if share is None:
+                raise ValueError(f"Cannot parse proxy share URL: {proxy_url}")
+
+            xray_path = await ensure_xray(settings.xray_binary_path)
+            if not xray_path:
+                raise RuntimeError("Xray binary not found — cannot use VLESS/Trojan/SS proxy")
+            settings.xray_binary_path = xray_path
+
+            xray = XrayInstance(share)
+            try:
+                socks_port = await xray.start()
+                label = share.name or f"{share.server}:{share.port}"
+                console.print(
+                    f"[green]✓[/green] Xray started: [bold]{label}[/bold] "
+                    f"→ [dim]socks5://127.0.0.1:{socks_port}[/dim]"
+                )
+                yield f"socks5://{xray.socks_user}:{xray.socks_password}@127.0.0.1:{socks_port}"
+            finally:
+                await xray.stop()
+            return
+
+    yield proxy_url
 
 
 def create_parser() -> argparse.ArgumentParser:
@@ -130,49 +172,57 @@ def create_parser() -> argparse.ArgumentParser:
         help="Check interval in seconds for --watch mode (overrides CHECK_INTERVAL_SECONDS)",
     )
 
-    # check command
-    check_parser = subparsers.add_parser("check", help="Check a single host")
-    check_parser.add_argument("host", help="Host to check")
+    # check command — single domain step-by-step diagnosis
+    check_parser = subparsers.add_parser(
+        "check",
+        help="Diagnose a single domain: DNS, TCP, ping, TLS, HTTP, DPI — step by step",
+    )
+    check_parser.add_argument("domain", help="Domain or IP to diagnose (e.g. meduza.io, 1.2.3.4)")
     check_parser.add_argument("--port", type=int, default=443, help="Port to check (default: 443)")
     check_parser.add_argument(
         "--proxy",
-        help="Proxy URL to route checks through (e.g., socks5://127.0.0.1:1080, http://user:pass@host:port)",
+        help="Route checks through this proxy (e.g., socks5://127.0.0.1:1080)",
+    )
+    check_parser.add_argument(
+        "--timeout",
+        type=int,
+        help="Timeout per check in seconds (default: from config)",
     )
 
-    # status command
-    subparsers.add_parser("status", help="Show checker API status")
-
-    # censor-check command
-    censor_parser = subparsers.add_parser(
-        "censor-check",
-        help="Test web resources for censorship/blocking through proxy",
+    # scan command — bulk censorship scan across many domains
+    scan_parser = subparsers.add_parser(
+        "scan",
+        help="Scan domains for censorship/blocking (bulk, parallel, with progress bar)",
     )
-    censor_parser.add_argument(
-        "--domains",
+    scan_parser.add_argument(
+        "domains",
         nargs="*",
-        help="List of domains to check (overrides --list)",
+        help="Domains to scan (default: built-in list of commonly blocked sites)",
     )
-    censor_parser.add_argument(
+    scan_parser.add_argument(
         "--list",
         choices=["default", "whitelist"],
         default="default",
-        help="Predefined domain list to use: 'default' (built-in list) or 'whitelist' "
+        help="Predefined list: 'default' (built-in) or 'whitelist' "
              "(Russia mobile internet whitelist from github.com/hxehex/russia-mobile-internet-whitelist)",
     )
-    censor_parser.add_argument(
+    scan_parser.add_argument(
         "--proxy",
-        help="Proxy URL to use for checking (e.g., socks5://127.0.0.1:1080)",
+        help="Route HTTP checks through this proxy (e.g., socks5://127.0.0.1:1080)",
     )
-    censor_parser.add_argument(
+    scan_parser.add_argument(
         "--timeout",
         type=int,
         help="Timeout per domain in seconds (default: from config)",
     )
-    censor_parser.add_argument(
+    scan_parser.add_argument(
         "--max-parallel",
         type=int,
         help="Maximum parallel checks (default: from config)",
     )
+
+    # status command
+    subparsers.add_parser("status", help="Show xray-checker API status")
 
     return parser
 
@@ -261,22 +311,177 @@ async def _run_full_analysis_with_checker(watch: bool = False) -> int:
         await analyzer.close()
 
 
-async def cmd_check(host: str, port: int, proxy_url: str = "") -> int:
-    """Run single host check command."""
-    console.print(f"[bold blue]Checking {host}:{port}...[/bold blue]\n")
-    if proxy_url:
-        console.print(f"[dim]Via proxy: {proxy_url}[/dim]\n")
+async def cmd_check(args: argparse.Namespace) -> int:
+    """Single domain step-by-step diagnosis."""
+    domain: str = args.domain
+    port: int = args.port
+    raw_proxy: str | None = args.proxy or settings.censor_check_proxy_url
+    timeout: int = args.timeout or settings.censor_check_timeout
 
-    analyzer = XrayAnalyzer()
     try:
-        diagnostic = await analyzer.run_single_host_analysis(host, port, proxy_url=proxy_url)
-        _print_single_diagnostic(diagnostic)
-        return 0 if diagnostic.overall_status in (CheckStatus.PASS, CheckStatus.WARN) else 1
+        async with _xray_proxy_context(raw_proxy) as proxy_url:
+            console.print()
+            console.print(Panel(
+                f"[bold cyan]Diagnosing: {domain}[/bold cyan]\n"
+                f"[dim]{'Via proxy: ' + proxy_url if proxy_url else 'Direct connection (no proxy)'}[/dim]",
+                border_style="blue",
+                padding=(0, 2),
+            ))
+            console.print()
+
+            with Progress(
+                SpinnerColumn(spinner_name="dots"),
+                TextColumn("[progress.description]{task.description}"),
+                TimeElapsedColumn(),
+                console=console,
+                transient=True,
+            ) as progress:
+                task_id = progress.add_task("[dim]Starting...[/dim]", total=None)
+
+                def on_step_start(step_name: str) -> None:
+                    progress.update(task_id, description=f"[dim]{step_name}...[/dim]")
+
+                def on_step_complete(result: DiagnosticResult) -> None:
+                    icon, color = _status_icon_and_color(result.status)
+                    dur = f"  [dim]{result.duration_ms:.0f}ms[/dim]" if result.duration_ms else ""
+                    msg = result.message
+                    if result.status == CheckStatus.SKIP:
+                        progress.console.print(
+                            f"  [dim]○ {result.check_name:<14}  {msg}[/dim]"
+                        )
+                    else:
+                        progress.console.print(
+                            f"  [{color}]{icon}[/{color}] [bold]{result.check_name:<14}[/bold]"
+                            f"  {msg}{dur}"
+                        )
+
+                diagnostic = await check_domain_verbose(
+                    domain,
+                    port=port,
+                    proxy_url=proxy_url,
+                    timeout=timeout,
+                    on_step_complete=on_step_complete,
+                    on_step_start=on_step_start,
+                )
+
+            # Summary panel
+            if diagnostic.overall_status == CheckStatus.PASS:
+                status_text, border = "[bold green]✓  PASS[/bold green]", "green"
+            elif diagnostic.overall_status == CheckStatus.WARN:
+                status_text, border = "[bold yellow]⚠  WARN[/bold yellow]", "yellow"
+            else:
+                status_text, border = "[bold red]✗  FAIL[/bold red]", "red"
+
+            console.print()
+            console.print(Panel(
+                status_text,
+                title=f"[bold]{domain}[/bold]",
+                border_style=border,
+                padding=(0, 2),
+            ))
+
+            if diagnostic.recommendations:
+                console.print()
+                console.print("[bold yellow]Recommendations:[/bold yellow]")
+                for rec in diagnostic.recommendations:
+                    console.print(f"  → {rec}")
+
+            return 0 if diagnostic.overall_status in (CheckStatus.PASS, CheckStatus.WARN) else 1
     except Exception as e:
         error_console.print(f"[bold red]Error: {e}[/bold red]")
         return 1
-    finally:
-        await analyzer.close()
+
+
+async def cmd_scan(args: argparse.Namespace) -> int:
+    """Bulk domain censorship scan."""
+    domains: list[str] = args.domains or []
+    domain_list: str = args.list
+    raw_proxy: str | None = args.proxy or settings.censor_check_proxy_url
+    timeout: int = args.timeout or settings.censor_check_timeout
+    max_parallel: int = args.max_parallel or settings.censor_check_max_parallel
+
+    # Fall back to config domains if nothing given
+    if not domains and settings.censor_check_domains:
+        domains = [d.strip() for d in settings.censor_check_domains.split(",") if d.strip()]
+
+    # Resolve domain list (None = use DEFAULT_CENSOR_DOMAINS inside run_censor_check)
+    resolved: list[str] | None = domains or None
+    if resolved is None and domain_list == "whitelist":
+        with console.status("[dim]Fetching Russia mobile internet whitelist...[/dim]", spinner="dots"):
+            resolved = await fetch_whitelist_domains()
+        if not resolved:
+            error_console.print("[bold red]✗[/bold red] Failed to fetch whitelist — using built-in list")
+        else:
+            console.print(f"[green]✓[/green] Loaded [bold]{len(resolved)}[/bold] domains from whitelist")
+            console.print()
+
+    domain_count = len(resolved) if resolved else len(DEFAULT_CENSOR_DOMAINS)
+
+    try:
+        async with _xray_proxy_context(raw_proxy) as proxy_url:
+            console.print()
+            console.print(Panel(
+                f"[bold cyan]🌐  Censorship Scan[/bold cyan]\n"
+                f"[dim]{'Via proxy: ' + proxy_url if proxy_url else 'Direct connection (no proxy)'}[/dim]",
+                border_style="blue",
+                padding=(0, 2),
+            ))
+            console.print()
+
+            with Progress(
+                SpinnerColumn(spinner_name="dots"),
+                TextColumn("[progress.description]{task.description}"),
+                BarColumn(bar_width=28),
+                MofNCompleteColumn(),
+                TaskProgressColumn(),
+                TimeElapsedColumn(),
+                console=console,
+                transient=False,
+            ) as progress:
+                task_id = progress.add_task(f"[cyan]Scanning {domain_count} domains[/cyan]", total=domain_count)
+
+                def on_domain_complete(result: DomainCheckResult) -> None:
+                    if result.status == DomainStatus.OK:
+                        icon, label = "[green]✓[/green]", "[green]OK[/green]     "
+                    elif result.status == DomainStatus.BLOCKED:
+                        icon = "[red]✗[/red]"
+                        bt = f" [dim]({result.block_type})[/dim]" if result.block_type else ""
+                        label = f"[red]BLOCKED[/red]{bt}"
+                    else:
+                        icon = "[yellow]⚠[/yellow]"
+                        bt = f" [dim]({result.block_type})[/dim]" if result.block_type else ""
+                        label = f"[yellow]PARTIAL[/yellow]{bt}"
+
+                    extras = []
+                    if result.tls_valid:
+                        extras.append("[dim]TLS✓[/dim]")
+                    elif result.status != DomainStatus.BLOCKED:
+                        extras.append("[dim]TLS✗[/dim]")
+                    if result.https_code:
+                        extras.append(f"[dim]HTTPS {result.https_code}[/dim]")
+                    elif result.http_code:
+                        extras.append(f"[dim]HTTP {result.http_code}[/dim]")
+                    if result.details.get("rkn_stub_ip"):
+                        extras.append(f"[dim]stub:{result.details['rkn_stub_ip']}[/dim]")
+
+                    extras_str = "  " + "  ".join(extras) if extras else ""
+                    progress.console.print(f"  {icon} [bold]{result.domain:<26}[/bold]{label}{extras_str}")
+                    progress.advance(task_id)
+
+                summary = await run_censor_check(
+                    domains=resolved,
+                    proxy_url=proxy_url,
+                    timeout=timeout,
+                    max_parallel=max_parallel,
+                    on_domain_complete=on_domain_complete,
+                )
+
+            _print_censor_check_results(summary)
+            return 1 if summary.blocked > 0 else 0
+    except Exception as e:
+        error_console.print(f"[bold red]Error: {e}[/bold red]")
+        log.error("Scan failed", error=str(e))
+        return 1
 
 
 async def cmd_status() -> int:
@@ -327,123 +532,6 @@ async def cmd_status() -> int:
     finally:
         await client.close()
 
-
-async def cmd_censor_check(
-    domains: list[str] | None = None,
-    domain_list: str = "default",
-    proxy_url: str = "",
-    timeout: int | None = None,
-    max_parallel: int | None = None,
-) -> int:
-    """Run censor-check command."""
-    # Use config values if not provided via CLI
-    if timeout is None:
-        timeout = settings.censor_check_timeout
-    if max_parallel is None:
-        max_parallel = settings.censor_check_max_parallel
-
-    # Parse domains from CLI or config
-    if domains is None:
-        if settings.censor_check_domains:
-            domains = [d.strip() for d in settings.censor_check_domains.split(",") if d.strip()]
-        else:
-            domains = []  # Will use defaults / list selection below
-    elif len(domains) == 1 and "," in domains[0]:
-        # Handle comma-separated domains passed as single argument
-        domains = [d.strip() for d in domains[0].split(",") if d.strip()]
-
-    # Use proxy from config if not provided via CLI
-    if not proxy_url:
-        proxy_url = settings.censor_check_proxy_url
-
-    console.print()
-    console.print(Panel(
-        f"[bold cyan]🌐  Censor Check[/bold cyan]\n"
-        f"[dim]{'Via proxy: ' + proxy_url if proxy_url else 'Direct connection (no proxy)'}[/dim]",
-        border_style="blue",
-        padding=(0, 2),
-    ))
-    console.print()
-
-    # If no explicit domains given, apply the selected list
-    if not domains:
-        if domain_list == "whitelist":
-            with console.status("[dim]Fetching Russia mobile internet whitelist...[/dim]", spinner="dots"):
-                domains = await fetch_whitelist_domains()
-            if not domains:
-                error_console.print("[bold red]✗[/bold red] Failed to fetch whitelist — falling back to default list")
-                domains = None  # run_censor_check will use DEFAULT_CENSOR_DOMAINS
-            else:
-                console.print(f"[green]✓[/green] Loaded [bold]{len(domains)}[/bold] domains from whitelist")
-                console.print()
-        else:
-            domains = None  # run_censor_check will use DEFAULT_CENSOR_DOMAINS
-
-    domain_count = len(domains) if domains else len(DEFAULT_CENSOR_DOMAINS)
-
-    try:
-        with Progress(
-            SpinnerColumn(spinner_name="dots"),
-            TextColumn("[progress.description]{task.description}"),
-            BarColumn(bar_width=28),
-            MofNCompleteColumn(),
-            TaskProgressColumn(),
-            TimeElapsedColumn(),
-            console=console,
-            transient=False,
-        ) as progress:
-            task_id = progress.add_task(
-                f"[cyan]Checking {domain_count} domains[/cyan]",
-                total=domain_count,
-            )
-
-            def on_domain_complete(result: DomainCheckResult) -> None:
-                if result.status == DomainStatus.OK:
-                    icon = "[green]✓[/green]"
-                    label = "[green]OK[/green]     "
-                elif result.status == DomainStatus.BLOCKED:
-                    icon = "[red]✗[/red]"
-                    bt = f" [dim]({result.block_type})[/dim]" if result.block_type else ""
-                    label = f"[red]BLOCKED[/red]{bt}"
-                else:
-                    icon = "[yellow]⚠[/yellow]"
-                    bt = f" [dim]({result.block_type})[/dim]" if result.block_type else ""
-                    label = f"[yellow]PARTIAL[/yellow]{bt}"
-
-                extras = []
-                if result.tls_valid:
-                    extras.append("[dim]TLS✓[/dim]")
-                elif result.status != DomainStatus.BLOCKED:
-                    extras.append("[dim]TLS✗[/dim]")
-                if result.https_code:
-                    extras.append(f"[dim]HTTPS {result.https_code}[/dim]")
-                elif result.http_code:
-                    extras.append(f"[dim]HTTP {result.http_code}[/dim]")
-                if result.details.get("rkn_stub_ip"):
-                    extras.append(f"[dim]stub:{result.details['rkn_stub_ip']}[/dim]")
-
-                extras_str = "  " + "  ".join(extras) if extras else ""
-                progress.console.print(
-                    f"  {icon} [bold]{result.domain:<26}[/bold]{label}{extras_str}"
-                )
-                progress.advance(task_id)
-
-            summary = await run_censor_check(
-                domains=domains,
-                proxy_url=proxy_url,
-                timeout=timeout,
-                max_parallel=max_parallel,
-                on_domain_complete=on_domain_complete,
-            )
-
-        _print_censor_check_results(summary)
-
-        # Return non-zero if there are blocked domains
-        return 1 if summary.blocked > 0 else 0
-    except Exception as e:
-        error_console.print(f"[bold red]Error: {e}[/bold red]")
-        log.error("Censor-check failed", error=str(e))
-        return 1
 
 
 def _print_analysis_results(diagnostics: list[HostDiagnostic]) -> None:
@@ -820,21 +908,13 @@ def main() -> None:
         exit_code = asyncio.run(cmd_analyze(args))
         sys.exit(exit_code)
     elif args.command == "check":
-        exit_code = asyncio.run(cmd_check(args.host, args.port, proxy_url=args.proxy or ""))
+        exit_code = asyncio.run(cmd_check(args))
+        sys.exit(exit_code)
+    elif args.command == "scan":
+        exit_code = asyncio.run(cmd_scan(args))
         sys.exit(exit_code)
     elif args.command == "status":
         exit_code = asyncio.run(cmd_status())
-        sys.exit(exit_code)
-    elif args.command == "censor-check":
-        exit_code = asyncio.run(
-            cmd_censor_check(
-                domains=args.domains,
-                domain_list=args.list,
-                proxy_url=args.proxy,
-                timeout=args.timeout,
-                max_parallel=args.max_parallel,
-            )
-        )
         sys.exit(exit_code)
     else:
         parser.print_help()

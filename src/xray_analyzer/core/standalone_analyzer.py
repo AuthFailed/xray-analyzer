@@ -346,7 +346,7 @@ async def _run_standalone_cross_tests(
     try:
         socks_port = await xray.start()
         xray_started = True
-        socks_url = f"socks5://127.0.0.1:{socks_port}"
+        socks_url = f"socks5://{xray.socks_user}:{xray.socks_password}@127.0.0.1:{socks_port}"
 
         test_url = settings.proxy_status_check_url
 

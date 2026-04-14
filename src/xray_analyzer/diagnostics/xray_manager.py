@@ -4,6 +4,7 @@ import asyncio
 import itertools
 import json
 import os
+import secrets
 import tempfile
 from contextlib import suppress
 from pathlib import Path
@@ -28,6 +29,8 @@ def _next_socks_port() -> int:
 def _generate_xray_config(
     share: ProxyShareURL,
     socks_port: int,
+    socks_user: str,
+    socks_password: str,
 ) -> dict[str, Any]:
     """
     Generate Xray JSON config from a share URL.
@@ -162,7 +165,8 @@ def _generate_xray_config(
                 "listen": "127.0.0.1",
                 "protocol": "socks",
                 "settings": {
-                    "auth": "noauth",
+                    "auth": "password",
+                    "accounts": [{"user": socks_user, "pass": socks_password}],
                     "udp": True,
                 },
                 "sniffing": {
@@ -183,6 +187,8 @@ class XrayInstance:
     def __init__(self, share: ProxyShareURL) -> None:
         self.share = share
         self.socks_port = 0
+        self.socks_user = secrets.token_hex(8)
+        self.socks_password = secrets.token_hex(16)
         self._process: asyncio.subprocess.Process | None = None
         self._config_fd: int | None = None
         self._config_path: str | None = None
@@ -195,7 +201,7 @@ class XrayInstance:
         """
         self.socks_port = _next_socks_port()
 
-        config = _generate_xray_config(self.share, self.socks_port)
+        config = _generate_xray_config(self.share, self.socks_port, self.socks_user, self.socks_password)
         log.debug(f"Xray config for {self.share.name}: {json.dumps(config, indent=2)}")
 
         # Use mkstemp to safely create a temp file (avoids TOCTOU race)

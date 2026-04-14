@@ -180,7 +180,7 @@ async def check_xray_cross_connectivity(
             },
         )
 
-    socks_url = f"socks5://127.0.0.1:{socks_port}"
+    socks_url = f"socks5://{xray.socks_user}:{xray.socks_password}@127.0.0.1:{socks_port}"
 
     # Use http:// to test raw TCP connectivity to the target through the Xray tunnel.
     # Xray routing is configured to route all traffic through the proxy outbound,

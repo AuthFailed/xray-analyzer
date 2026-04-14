@@ -26,10 +26,17 @@ uv run ruff format src/ tests/
 # Run the CLI
 uv run xray-analyzer analyze
 uv run xray-analyzer analyze --watch
-uv run xray-analyzer check example.com --port 443
 uv run xray-analyzer status
-uv run xray-analyzer censor-check
-uv run xray-analyzer censor-check --domains google.com youtube.com --proxy socks5://127.0.0.1:1080
+
+# check: single domain step-by-step diagnosis (DNS → TCP → ping → TLS → HTTP → DPI)
+uv run xray-analyzer check meduza.io
+uv run xray-analyzer check meduza.io --proxy socks5://127.0.0.1:1080
+
+# scan: bulk censorship scan across many domains (parallel, progress bar)
+uv run xray-analyzer scan                                 # built-in default list
+uv run xray-analyzer scan google.com youtube.com          # specific domains
+uv run xray-analyzer scan --list whitelist                # Russia mobile whitelist
+uv run xray-analyzer scan --proxy socks5://127.0.0.1:1080
 ```
 
 ## Architecture

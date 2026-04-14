@@ -129,7 +129,7 @@ async def _run_xray_tests(
         )
         return results
 
-    socks_url = f"socks5://127.0.0.1:{socks_port}"
+    socks_url = f"socks5://{xray.socks_user}:{xray.socks_password}@127.0.0.1:{socks_port}"
 
     try:
         # 1. Status check
