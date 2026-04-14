@@ -26,6 +26,23 @@ WHITELIST_URL = (
     "https://raw.githubusercontent.com/hxehex/russia-mobile-internet-whitelist/refs/heads/main/whitelist.txt"
 )
 
+# URLs for itdoginfo/allow-domains lists (raw plain-domain format)
+ALLOW_DOMAINS_BASE = "https://raw.githubusercontent.com/itdoginfo/allow-domains/main"
+ALLOW_DOMAINS_LISTS: dict[str, tuple[str, str]] = {
+    "russia-inside": (
+        f"{ALLOW_DOMAINS_BASE}/Russia/inside-raw.lst",
+        "Russia inside (domains blocked in Russia — foreign sites restricted by RKN)",
+    ),
+    "russia-outside": (
+        f"{ALLOW_DOMAINS_BASE}/Russia/outside-raw.lst",
+        "Russia outside (Russian domains for users abroad)",
+    ),
+    "ukraine-inside": (
+        f"{ALLOW_DOMAINS_BASE}/Ukraine/inside-raw.lst",
+        "Ukraine inside (domains blocked in Ukraine)",
+    ),
+}
+
 # Default list of domains to check (from bash script)
 DEFAULT_CENSOR_DOMAINS: list[str] = [
     "youtube.com",
@@ -966,30 +983,54 @@ async def check_domain_verbose(
     return diag
 
 
-async def fetch_whitelist_domains() -> list[str]:
-    """Fetch domain list from russia-mobile-internet-whitelist GitHub repo."""
-    log.info("Fetching whitelist", url=WHITELIST_URL)
+async def _fetch_raw_domain_list(url: str, label: str) -> list[str]:
+    """Download a plain-text domain list (one domain per line, # comments stripped)."""
+    log.info("Fetching domain list", label=label, url=url)
     try:
-        async with aiohttp.ClientSession() as session, session.get(
-            WHITELIST_URL,
-            timeout=ClientTimeout(total=30),
-        ) as response:
+        async with (
+            aiohttp.ClientSession() as session,
+            session.get(
+                url,
+                timeout=ClientTimeout(total=30),
+            ) as response,
+        ):
             if response.status != 200:
-                log.error("Failed to fetch whitelist", http_status=response.status)
+                log.error("Failed to fetch domain list", label=label, http_status=response.status)
                 return []
             text = await response.text()
 
         domains = []
-        for line in text.splitlines():
-            line = line.strip()
-            if line and not line.startswith("#"):
-                domains.append(line)
+        for raw_line in text.splitlines():
+            domain = raw_line.strip().lstrip(".")
+            if domain and not domain.startswith("#"):
+                domains.append(domain)
 
-        log.info("Fetched whitelist", domain_count=len(domains))
+        log.info("Fetched domain list", label=label, domain_count=len(domains))
         return domains
     except Exception as e:
-        log.error("Error fetching whitelist", error=str(e))
+        log.error("Error fetching domain list", label=label, error=str(e))
         return []
+
+
+async def fetch_whitelist_domains() -> list[str]:
+    """Fetch domain list from russia-mobile-internet-whitelist GitHub repo."""
+    return await _fetch_raw_domain_list(WHITELIST_URL, "whitelist")
+
+
+async def fetch_allow_domains_list(list_name: str) -> list[str]:
+    """Fetch a named list from itdoginfo/allow-domains on GitHub.
+
+    Args:
+        list_name: One of the keys in ALLOW_DOMAINS_LISTS
+                   ('russia-inside', 'russia-outside', 'ukraine-inside').
+
+    Returns:
+        List of domain strings, or empty list on failure.
+    """
+    if list_name not in ALLOW_DOMAINS_LISTS:
+        raise ValueError(f"Unknown list '{list_name}'. Available: {', '.join(ALLOW_DOMAINS_LISTS)}")
+    url, label = ALLOW_DOMAINS_LISTS[list_name]
+    return await _fetch_raw_domain_list(url, label)
 
 
 async def run_censor_check(

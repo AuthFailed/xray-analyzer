@@ -27,10 +27,12 @@ from xray_analyzer.core.models import CheckSeverity, CheckStatus, DiagnosticResu
 from xray_analyzer.core.standalone_analyzer import analyze_subscription_proxies
 from xray_analyzer.core.xray_client import XrayCheckerClient
 from xray_analyzer.diagnostics.censor_checker import (
+    ALLOW_DOMAINS_LISTS,
     DEFAULT_CENSOR_DOMAINS,
     DomainCheckResult,
     DomainStatus,
     check_domain_verbose,
+    fetch_allow_domains_list,
     fetch_whitelist_domains,
     run_censor_check,
 )
@@ -193,12 +195,18 @@ def create_parser() -> argparse.ArgumentParser:
         nargs="*",
         help="Domains to scan (default: built-in list of commonly blocked sites)",
     )
+    _allow_domains_choices = list(ALLOW_DOMAINS_LISTS.keys())
     scan_parser.add_argument(
         "--list",
-        choices=["default", "whitelist"],
+        choices=["default", "whitelist", *_allow_domains_choices],
         default="default",
-        help="Predefined list: 'default' (built-in) or 'whitelist' "
-        "(Russia mobile internet whitelist from github.com/hxehex/russia-mobile-internet-whitelist)",
+        help=(
+            "Predefined domain list to scan. Options:\n"
+            "  default        — built-in list of commonly blocked sites\n"
+            "  whitelist      — Russia mobile internet whitelist (hxehex/russia-mobile-internet-whitelist)\n"
+            + "".join(f"  {name:<14} — {desc}\n" for name, (_, desc) in ALLOW_DOMAINS_LISTS.items())
+            + "(itdoginfo/allow-domains lists are downloaded on demand)"
+        ),
     )
     scan_parser.add_argument(
         "--proxy",
@@ -424,13 +432,22 @@ async def cmd_scan(args: argparse.Namespace) -> int:
 
     # Resolve domain list (None = use DEFAULT_CENSOR_DOMAINS inside run_censor_check)
     resolved: list[str] | None = domains or None
-    if resolved is None and domain_list == "whitelist":
-        with console.status("[dim]Fetching Russia mobile internet whitelist...[/dim]", spinner="dots"):
-            resolved = await fetch_whitelist_domains()
-        if not resolved:
-            error_console.print("[bold red]✗[/bold red] Failed to fetch whitelist — using built-in list")
+    if resolved is None and domain_list != "default":
+        if domain_list == "whitelist":
+            list_label = "Russia mobile internet whitelist"
+            fetch_coro = fetch_whitelist_domains()
         else:
-            console.print(f"[green]✓[/green] Loaded [bold]{len(resolved)}[/bold] domains from whitelist")
+            _, list_label = ALLOW_DOMAINS_LISTS[domain_list]
+            fetch_coro = fetch_allow_domains_list(domain_list)
+
+        with console.status(f"[dim]Fetching {list_label}...[/dim]", spinner="dots"):
+            resolved = await fetch_coro
+        if not resolved:
+            error_console.print(f"[bold red]✗[/bold red] Failed to fetch '{domain_list}' — using built-in list")
+        else:
+            console.print(
+                f"[green]✓[/green] Loaded [bold]{len(resolved)}[/bold] domains from [cyan]{list_label}[/cyan]"
+            )
             console.print()
 
     domain_count = len(resolved) if resolved else len(DEFAULT_CENSOR_DOMAINS)
