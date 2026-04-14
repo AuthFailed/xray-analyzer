@@ -66,6 +66,10 @@ class Settings(BaseSettings):
     censor_check_max_parallel: int = Field(default=10, ge=1, le=50)
     censor_check_proxy_url: str = ""  # Proxy URL for censor-check (empty = direct)
 
+    # Metrics server (serve command)
+    metrics_host: str = "0.0.0.0"
+    metrics_port: int = Field(default=9090, ge=1, le=65535)
+
     @property
     def is_api_protected(self) -> bool:
         """Check if the API requires authentication."""

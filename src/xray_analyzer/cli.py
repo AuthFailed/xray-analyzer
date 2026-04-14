@@ -3,6 +3,7 @@
 import argparse
 import asyncio
 import sys
+import time
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
@@ -39,6 +40,7 @@ from xray_analyzer.diagnostics.censor_checker import (
 from xray_analyzer.diagnostics.subscription_parser import fetch_subscription, parse_share_url
 from xray_analyzer.diagnostics.xray_downloader import ensure_xray
 from xray_analyzer.diagnostics.xray_manager import XrayInstance
+from xray_analyzer.metrics.server import MetricsState, run_metrics_server
 
 log = get_logger("cli")
 console = Console()
@@ -221,6 +223,52 @@ def create_parser() -> argparse.ArgumentParser:
         "--max-parallel",
         type=int,
         help="Maximum parallel checks (default: from config)",
+    )
+
+    # serve command — metrics daemon
+    serve_parser = subparsers.add_parser(
+        "serve",
+        help="Run periodic censorship scans and expose results as Prometheus /metrics",
+    )
+    serve_parser.add_argument(
+        "--port",
+        type=int,
+        help=f"Metrics server port (default: {settings.metrics_port}, env: METRICS_PORT)",
+    )
+    serve_parser.add_argument(
+        "--host",
+        type=str,
+        help=f"Metrics server bind host (default: {settings.metrics_host}, env: METRICS_HOST)",
+    )
+    serve_parser.add_argument(
+        "--interval",
+        type=int,
+        help="Seconds between scans (default: CHECK_INTERVAL_SECONDS from config)",
+    )
+    serve_parser.add_argument(
+        "domains",
+        nargs="*",
+        help="Domains to scan (default: built-in list of commonly blocked sites)",
+    )
+    serve_parser.add_argument(
+        "--list",
+        choices=["default", "whitelist", *_allow_domains_choices],
+        default="default",
+        help="Predefined domain list to scan (same choices as the scan command)",
+    )
+    serve_parser.add_argument(
+        "--proxy",
+        help="Route checks through this proxy (e.g., socks5://127.0.0.1:1080)",
+    )
+    serve_parser.add_argument(
+        "--timeout",
+        type=int,
+        help="Timeout per domain in seconds (default: CENSOR_CHECK_TIMEOUT from config)",
+    )
+    serve_parser.add_argument(
+        "--max-parallel",
+        type=int,
+        help="Maximum parallel domain checks (default: CENSOR_CHECK_MAX_PARALLEL from config)",
     )
 
     # status command
@@ -518,6 +566,98 @@ async def cmd_scan(args: argparse.Namespace) -> int:
     except Exception as e:
         error_console.print(f"[bold red]Error: {e}[/bold red]")
         log.error("Scan failed", error=str(e))
+        return 1
+
+
+async def cmd_serve(args: argparse.Namespace) -> int:
+    """Start Prometheus metrics server with periodic censorship scans."""
+    port: int = args.port or settings.metrics_port
+    host: str = args.host or settings.metrics_host
+    interval: int = args.interval or settings.check_interval_seconds
+    domains_list: list[str] = args.domains or []
+    domain_list_name: str = args.list
+    raw_proxy: str | None = args.proxy or settings.censor_check_proxy_url
+    timeout: int = args.timeout or settings.censor_check_timeout
+    max_parallel: int = args.max_parallel or settings.censor_check_max_parallel
+
+    # Resolve domains (mirrors cmd_scan logic)
+    if not domains_list and settings.censor_check_domains:
+        domains_list = [d.strip() for d in settings.censor_check_domains.split(",") if d.strip()]
+
+    resolved: list[str] | None = domains_list or None
+    if resolved is None and domain_list_name != "default":
+        if domain_list_name == "whitelist":
+            list_label = "Russia mobile internet whitelist"
+            fetch_coro = fetch_whitelist_domains()
+        else:
+            _, list_label = ALLOW_DOMAINS_LISTS[domain_list_name]
+            fetch_coro = fetch_allow_domains_list(domain_list_name)
+
+        with console.status(f"[dim]Fetching {list_label}...[/dim]", spinner="dots"):
+            resolved = await fetch_coro
+        if not resolved:
+            console.print(f"[yellow]⚠[/yellow] Failed to fetch '{domain_list_name}' — using built-in list")
+
+    domain_count = len(resolved) if resolved else len(DEFAULT_CENSOR_DOMAINS)
+
+    try:
+        async with _xray_proxy_context(raw_proxy) as proxy_url:
+            state = MetricsState()
+            state.domain_count = domain_count
+            state.proxy_label = proxy_url or "direct"
+
+            console.print()
+            console.print(
+                Panel(
+                    f"[bold cyan]Metrics server[/bold cyan]\n"
+                    f"[green]http://{host}:{port}/metrics[/green]\n"
+                    f"[dim]{domain_count} domains · scan every {interval}s · "
+                    f"{'via ' + proxy_url if proxy_url else 'direct connection'}[/dim]",
+                    border_style="blue",
+                    padding=(0, 2),
+                )
+            )
+            console.print()
+
+            runner = await run_metrics_server(host, port, state)
+            console.print(
+                f"[green]✓[/green] Listening on [bold]http://{host}:{port}/metrics[/bold]  (Ctrl+C to stop)\n"
+            )
+
+            try:
+                while True:
+                    t0 = time.monotonic()
+                    try:
+                        summary = await run_censor_check(
+                            domains=resolved,
+                            proxy_url=proxy_url or "",
+                            timeout=timeout,
+                            max_parallel=max_parallel,
+                        )
+                        duration = time.monotonic() - t0
+                        state.update(summary, duration)
+                        ts = time.strftime("%H:%M:%S")
+                        console.print(
+                            f"[dim]{ts}[/dim]  scan done  "
+                            f"[green]{summary.ok} OK[/green] · "
+                            f"[red]{summary.blocked} blocked[/red] · "
+                            f"[yellow]{summary.partial} partial[/yellow]  "
+                            f"[dim]{duration:.1f}s · next in {interval}s[/dim]"
+                        )
+                    except Exception as e:
+                        state.mark_error(str(e))
+                        log.error("Scan failed", error=str(e))
+                        console.print(f"[red]✗[/red] Scan error: {e}")
+
+                    await asyncio.sleep(interval)
+            except asyncio.CancelledError, KeyboardInterrupt:
+                console.print("\n[dim]Shutting down...[/dim]")
+            finally:
+                await runner.cleanup()
+
+        return 0
+    except Exception as e:
+        error_console.print(f"[bold red]Error: {e}[/bold red]")
         return 1
 
 
@@ -947,6 +1087,9 @@ def main() -> None:
         sys.exit(exit_code)
     elif args.command == "scan":
         exit_code = asyncio.run(cmd_scan(args))
+        sys.exit(exit_code)
+    elif args.command == "serve":
+        exit_code = asyncio.run(cmd_serve(args))
         sys.exit(exit_code)
     elif args.command == "status":
         exit_code = asyncio.run(cmd_status())

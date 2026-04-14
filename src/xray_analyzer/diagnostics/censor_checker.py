@@ -598,11 +598,16 @@ async def check_domain(
         result.status = DomainStatus.PARTIAL
 
     # 6. DPI check (like bash: check_keyword_blocking)
-    if await _check_dpi_blocking(domain, timeout=timeout):
-        if result.block_type:
-            result.block_type = f"{result.block_type}/DPI"
-        else:
-            result.block_type = "DPI/KEYWORD"
+    dpi_detected = await _check_dpi_blocking(domain, timeout=timeout)
+    if dpi_detected:
+        result.details["dpi_detected"] = True
+        # Only incorporate DPI into block_type when the domain is actually blocked/partial.
+        # If HTTP is still working the DPI signal is noise — record it in details only.
+        if result.status != DomainStatus.OK or (http_code == 0 and https_code == 0):
+            if result.block_type:
+                result.block_type = f"{result.block_type}/DPI"
+            else:
+                result.block_type = "DPI/KEYWORD"
 
     # 7. AI/Social regional blocking check (like bash: if [[ " ${AI_DOMAINS[*]} " =~ " ${domain} " ]])
     if domain in AI_REGIONAL_DOMAINS and await _check_ai_regional_blocking(domain, timeout=timeout):
@@ -619,6 +624,12 @@ async def check_domain(
             result.status = DomainStatus.OK
         else:
             result.status = DomainStatus.PARTIAL
+
+    # block_type describes *why* a domain is blocked/partial.
+    # If the domain is accessible, clear any leftover block_type (e.g. TLS/SSL on an
+    # HTTP-only site, or DPI signals that didn't prevent access).
+    if result.status == DomainStatus.OK:
+        result.block_type = ""
 
     return result
 

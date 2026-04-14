@@ -25,5 +25,6 @@ RUN mkdir -p /app/logs /app/xray-bin
 RUN useradd -m -u 1000 appuser && chown -R appuser:appuser /app
 USER appuser
 
-# Default: run analysis
-CMD ["uv", "run", "xray-analyzer", "analyze", "--watch"]
+# Default: run metrics server with periodic censorship scans
+# Override CMD to use "analyze --watch" if you want proxy analysis instead
+CMD ["uv", "run", "xray-analyzer", "serve"]

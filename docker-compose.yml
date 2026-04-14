@@ -16,11 +16,12 @@ services:
     restart: unless-stopped
     container_name: xray-checker
     healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:2112/health')"]
+      # kutovoys/xray-checker is Go/Alpine — use wget against /metrics
+      test: ["CMD-SHELL", "wget -qO /dev/null http://localhost:2112/metrics"]
       interval: 30s
       timeout: 10s
-      retries: 3
-      start_period: 40s
+      retries: 5
+      start_period: 60s
     networks:
       - xray-net
 
@@ -31,7 +32,11 @@ services:
     env_file:
       - .env
     environment:
+      # Always use internal Docker hostname — overrides whatever is in .env
+      - CHECKER_API_URL=http://xray-checker:2112
       - XRAY_BINARY_PATH=/app/xray-bin/xray
+    ports:
+      - "${METRICS_EXTERNAL_PORT:-9090}:9090"
     volumes:
       - ./logs:/app/logs
       - xray-data:/app/xray-bin
