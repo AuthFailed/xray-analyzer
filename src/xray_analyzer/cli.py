@@ -868,6 +868,25 @@ async def cmd_serve(args: argparse.Namespace) -> int:
                             async with _sem:
                                 t0 = time.monotonic()
                                 try:
+                                    # Pre-check: verify proxy host is reachable before starting Xray.
+                                    # If the host is down, Xray starts fine (local listener only) but all
+                                    # domain checks will fail — making every domain appear blocked.
+                                    try:
+                                        _r, _w = await asyncio.wait_for(
+                                            asyncio.open_connection(share.server, share.port),
+                                            timeout=settings.tcp_timeout,
+                                        )
+                                        _w.close()
+                                        await _w.wait_closed()
+                                    except Exception as tcp_err:
+                                        err_msg = f"host unreachable ({share.server}:{share.port}): {tcp_err}"
+                                        state.mark_error(err_msg, proxy_label=label)
+                                        log.warning("Proxy host unreachable, skipping scan", proxy=label, error=str(tcp_err))
+                                        _prog.console.print(
+                                            f"  [yellow]⚠[/yellow] [bold]{label}[/bold]  [dim]host unreachable — scan skipped[/dim]"
+                                        )
+                                        return
+
                                     async with _xray_proxy_context(share.raw_url, silent=True) as proxy_url:
                                         summary = await run_censor_check(
                                             domains=resolved,
