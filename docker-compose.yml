@@ -16,7 +16,6 @@ services:
     restart: unless-stopped
     container_name: xray-checker
     healthcheck:
-      # kutovoys/xray-checker is Go/Alpine — use wget against /metrics
       test: ["CMD-SHELL", "wget -qO /dev/null http://localhost:2112/metrics"]
       interval: 30s
       timeout: 10s
@@ -24,27 +23,35 @@ services:
       start_period: 60s
     networks:
       - xray-net
+    profiles:
+      - checker
 
   xray-analyzer:
+    image: ghcr.io/authfailed/xray-analyzer:latest
     build:
       context: .
       dockerfile: Dockerfile
     env_file:
       - .env
     environment:
-      # Always use internal Docker hostname — overrides whatever is in .env
-      - CHECKER_API_URL=http://xray-checker:2112
       - XRAY_BINARY_PATH=/app/xray-bin/xray
+      # Set CHECKER_API_URL only when running with the checker profile
+      - CHECKER_API_URL=${CHECKER_API_URL:-}
+    command:
+      - uv
+      - run
+      - xray-analyzer
+      - serve
+      - --file
+      - /app/domains.txt
     ports:
       - "${METRICS_EXTERNAL_PORT:-9090}:9090"
     volumes:
       - ./logs:/app/logs
+      - ./domains.txt:/app/domains.txt:ro
       - xray-data:/app/xray-bin
     restart: unless-stopped
     container_name: xray-analyzer
-    depends_on:
-      xray-checker:
-        condition: service_healthy
     networks:
       - xray-net
 
