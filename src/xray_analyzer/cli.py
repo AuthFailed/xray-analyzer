@@ -326,6 +326,11 @@ def create_parser() -> argparse.ArgumentParser:
         help="Route checks through this proxy (e.g., socks5://127.0.0.1:1080)",
     )
     serve_parser.add_argument(
+        "--subscription",
+        metavar="URL",
+        help="Check domains through every proxy in this subscription URL (VLESS/Trojan/SS); exposes per-proxy metrics",
+    )
+    serve_parser.add_argument(
         "--timeout",
         type=int,
         help="Timeout per domain in seconds (default: CENSOR_CHECK_TIMEOUT from config)",
@@ -761,6 +766,25 @@ async def cmd_serve(args: argparse.Namespace) -> int:
     timeout: int = args.timeout or settings.censor_check_timeout
     max_parallel: int = args.max_parallel or settings.censor_check_max_parallel
 
+    # --subscription: fetch all valid proxies and scan through each of them
+    subscription_url: str | None = getattr(args, "subscription", None)
+    sub_shares: list = []
+    if subscription_url:
+        xray_path = await ensure_xray(settings.xray_binary_path)
+        if not xray_path:
+            error_console.print("[bold red]✗ Xray binary not found — required for subscription proxy[/bold red]")
+            return 1
+        settings.xray_binary_path = xray_path
+        with console.status("[dim]Fetching subscription...[/dim]", spinner="dots"):
+            shares = await fetch_subscription(subscription_url)
+        sub_shares = [s for s in shares if _is_valid_server_address(s.server)]
+        if not sub_shares:
+            error_console.print("[bold red]✗ No valid proxies found in subscription[/bold red]")
+            return 1
+        console.print(
+            f"[green]✓[/green] Loaded [bold]{len(sub_shares)}[/bold] proxies from subscription"
+        )
+
     # --file takes priority over positional domains and --list
     if getattr(args, "file", None):
         domains_list = load_domains_file(args.file)
@@ -786,60 +810,127 @@ async def cmd_serve(args: argparse.Namespace) -> int:
 
     domain_count = len(resolved) if resolved else len(DEFAULT_CENSOR_DOMAINS)
 
+    state = MetricsState()
+    state.domain_count = domain_count
+
+    if sub_shares:
+        proxy_summary = f"{len(sub_shares)} proxies from subscription"
+        for share in sub_shares:
+            label = share.name or f"{share.server}:{share.port}"
+            state.register_proxy(label)
+    else:
+        proxy_summary = raw_proxy or "direct connection"
+
     try:
-        async with _xray_proxy_context(raw_proxy) as proxy_url:
-            state = MetricsState()
-            state.domain_count = domain_count
-            state.proxy_label = proxy_url or "direct"
-
-            console.print()
-            console.print(
-                Panel(
-                    f"[bold cyan]Metrics server[/bold cyan]\n"
-                    f"[green]http://{host}:{port}/metrics[/green]\n"
-                    f"[dim]{domain_count} domains · scan every {interval}s · "
-                    f"{'via ' + proxy_url if proxy_url else 'direct connection'}[/dim]",
-                    border_style="blue",
-                    padding=(0, 2),
-                )
+        console.print()
+        console.print(
+            Panel(
+                f"[bold cyan]Metrics server[/bold cyan]\n"
+                f"[green]http://{host}:{port}/metrics[/green]\n"
+                f"[dim]{domain_count} domains · scan every {interval}s · {proxy_summary}[/dim]",
+                border_style="blue",
+                padding=(0, 2),
             )
-            console.print()
+        )
+        console.print()
 
-            runner = await run_metrics_server(host, port, state)
-            console.print(
-                f"[green]✓[/green] Listening on [bold]http://{host}:{port}/metrics[/bold]  (Ctrl+C to stop)\n"
-            )
+        runner = await run_metrics_server(host, port, state)
+        console.print(
+            f"[green]✓[/green] Listening on [bold]http://{host}:{port}/metrics[/bold]  (Ctrl+C to stop)\n"
+        )
 
-            try:
-                while True:
-                    t0 = time.monotonic()
-                    try:
-                        summary = await run_censor_check(
-                            domains=resolved,
-                            proxy_url=proxy_url or "",
-                            timeout=timeout,
-                            max_parallel=max_parallel,
+        try:
+            while True:
+                if sub_shares:
+                    # Scan through all proxies in parallel (max 8 concurrent Xray instances)
+                    cycle_t0 = time.monotonic()
+                    sem = asyncio.Semaphore(8)
+
+                    with Progress(
+                        SpinnerColumn(spinner_name="dots"),
+                        TextColumn("[progress.description]{task.description}"),
+                        BarColumn(bar_width=28),
+                        MofNCompleteColumn(),
+                        TaskProgressColumn(),
+                        TimeElapsedColumn(),
+                        console=console,
+                        transient=True,
+                    ) as progress:
+                        task_id = progress.add_task(
+                            f"[cyan]Scanning {len(sub_shares)} proxies[/cyan]",
+                            total=len(sub_shares),
                         )
-                        duration = time.monotonic() - t0
-                        state.update(summary, duration)
-                        ts = time.strftime("%H:%M:%S")
-                        console.print(
-                            f"[dim]{ts}[/dim]  scan done  "
-                            f"[green]{summary.ok} OK[/green] · "
-                            f"[red]{summary.blocked} blocked[/red] · "
-                            f"[yellow]{summary.partial} partial[/yellow]  "
-                            f"[dim]{duration:.1f}s · next in {interval}s[/dim]"
-                        )
-                    except Exception as e:
-                        state.mark_error(str(e))
-                        log.error("Scan failed", error=str(e))
-                        console.print(f"[red]✗[/red] Scan error: {e}")
 
-                    await asyncio.sleep(interval)
-            except asyncio.CancelledError, KeyboardInterrupt:
-                console.print("\n[dim]Shutting down...[/dim]")
-            finally:
-                await runner.cleanup()
+                        async def _scan_one_proxy(
+                            share, _sem=sem, _prog=progress, _tid=task_id
+                        ) -> None:
+                            label = share.name or f"{share.server}:{share.port}"
+                            async with _sem:
+                                t0 = time.monotonic()
+                                try:
+                                    async with _xray_proxy_context(share.raw_url, silent=True) as proxy_url:
+                                        summary = await run_censor_check(
+                                            domains=resolved,
+                                            proxy_url=proxy_url or "",
+                                            timeout=timeout,
+                                            max_parallel=max_parallel,
+                                        )
+                                    duration = time.monotonic() - t0
+                                    state.update(summary, duration, proxy_label=label)
+                                    _prog.console.print(
+                                        f"  [green]✓[/green] [bold]{label}[/bold]  "
+                                        f"[green]{summary.ok} OK[/green] · "
+                                        f"[red]{summary.blocked} blocked[/red] · "
+                                        f"[yellow]{summary.partial} partial[/yellow]  "
+                                        f"[dim]{duration:.1f}s[/dim]"
+                                    )
+                                except Exception as e:
+                                    state.mark_error(str(e), proxy_label=label)
+                                    log.error("Scan failed", proxy=label, error=str(e))
+                                    _prog.console.print(
+                                        f"  [red]✗[/red] [bold]{label}[/bold]  [dim]{e}[/dim]"
+                                    )
+                                finally:
+                                    _prog.advance(_tid)
+
+                        await asyncio.gather(*[_scan_one_proxy(s) for s in sub_shares])
+
+                    cycle_duration = time.monotonic() - cycle_t0
+                    ts = time.strftime("%H:%M:%S")
+                    console.print(
+                        f"[dim]{ts}[/dim]  cycle done  "
+                        f"[dim]{len(sub_shares)} proxies · {cycle_duration:.1f}s · next in {interval}s[/dim]"
+                    )
+                else:
+                    async with _xray_proxy_context(raw_proxy) as proxy_url:
+                        t0 = time.monotonic()
+                        try:
+                            summary = await run_censor_check(
+                                domains=resolved,
+                                proxy_url=proxy_url or "",
+                                timeout=timeout,
+                                max_parallel=max_parallel,
+                            )
+                            duration = time.monotonic() - t0
+                            state.update(summary, duration)
+                            ts = time.strftime("%H:%M:%S")
+                            console.print(
+                                f"[dim]{ts}[/dim]  scan done  "
+                                f"[green]{summary.ok} OK[/green] · "
+                                f"[red]{summary.blocked} blocked[/red] · "
+                                f"[yellow]{summary.partial} partial[/yellow]  "
+                                f"[dim]{duration:.1f}s · next in {interval}s[/dim]"
+                            )
+                        except Exception as e:
+                            state.mark_error(str(e))
+                            log.error("Scan failed", error=str(e))
+                            console.print(f"[red]✗[/red] Scan error: {e}")
+
+                await asyncio.sleep(interval)
+        except (asyncio.CancelledError, KeyboardInterrupt):
+            console.print("\n[dim]Shutting down...[/dim]")
+        finally:
+            await runner.cleanup()
 
         return 0
     except Exception as e:
