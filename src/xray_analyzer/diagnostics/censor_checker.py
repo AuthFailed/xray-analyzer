@@ -8,6 +8,7 @@ import asyncio
 import contextlib
 import re
 import time
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from enum import StrEnum
 from typing import Any
@@ -167,7 +168,7 @@ async def _resolve_dns(domain: str, _timeout: int = 5) -> list[str]:
         ips = list({info[4][0] for info in infos if info[4][0] not in ("::1", "127.0.0.1")})
         return ips
     except Exception as e:
-        log.debug(f"DNS resolution failed for {domain}: {e}")
+        log.debug("DNS resolution failed", domain=domain, error=str(e))
         return []
 
 
@@ -225,7 +226,7 @@ async def _fetch_http_code(
                 async with session.get(url, **kwargs) as response:
                     return response.status
             except Exception as e:
-                log.debug(f"HTTP fetch failed for {url} (attempt {attempt + 1}/{retries}): {e}")
+                log.debug("HTTP fetch failed", url=url, attempt=attempt + 1, retries=retries, error=str(e))
                 if attempt < retries - 1:
                     await asyncio.sleep(0.5)
                     continue
@@ -289,7 +290,7 @@ async def _fetch_with_curl(
             if http_code and http_code.isdigit():
                 return int(http_code)
         except Exception as e:
-            log.debug(f"Curl failed for {url} (attempt {attempt + 1}/{retries}): {e}")
+            log.debug("curl failed", url=url, attempt=attempt + 1, retries=retries, error=str(e))
             if attempt < retries - 1:
                 await asyncio.sleep(0.5)
                 continue
@@ -323,7 +324,7 @@ async def _check_certificate(domain: str, timeout: int = 4, verbose: bool = Fals
         # Check for verification errors
         if "Verification error:" in cert_info or "Verification: OK" not in cert_info:
             if verbose:
-                log.info(f"TLS verification failed for {domain}")
+                log.info("TLS verification failed", domain=domain)
             return False
 
         # Extract expiration date
@@ -344,14 +345,14 @@ async def _check_certificate(domain: str, timeout: int = 4, verbose: bool = Fals
 
                 if expire_epoch < current_epoch:
                     if verbose:
-                        log.info(f"Certificate expired for {domain}")
+                        log.info("Certificate expired", domain=domain)
                     return False
             except (ValueError, Exception):
                 pass
 
         return True
     except Exception as e:
-        log.debug(f"Certificate check failed for {domain}: {e}")
+        log.debug("Certificate check failed", domain=domain, error=str(e))
         return False
 
 
@@ -579,7 +580,7 @@ async def check_domain(
 
 async def fetch_whitelist_domains() -> list[str]:
     """Fetch domain list from russia-mobile-internet-whitelist GitHub repo."""
-    log.info(f"Fetching whitelist from {WHITELIST_URL}")
+    log.info("Fetching whitelist", url=WHITELIST_URL)
     try:
         async with aiohttp.ClientSession() as session:
             async with session.get(
@@ -587,7 +588,7 @@ async def fetch_whitelist_domains() -> list[str]:
                 timeout=ClientTimeout(total=30),
             ) as response:
                 if response.status != 200:
-                    log.error(f"Failed to fetch whitelist: HTTP {response.status}")
+                    log.error("Failed to fetch whitelist", http_status=response.status)
                     return []
                 text = await response.text()
 
@@ -597,10 +598,10 @@ async def fetch_whitelist_domains() -> list[str]:
             if line and not line.startswith("#"):
                 domains.append(line)
 
-        log.info(f"Fetched {len(domains)} domains from whitelist")
+        log.info("Fetched whitelist", domain_count=len(domains))
         return domains
     except Exception as e:
-        log.error(f"Error fetching whitelist: {e}")
+        log.error("Error fetching whitelist", error=str(e))
         return []
 
 
@@ -609,21 +610,34 @@ async def run_censor_check(
     proxy_url: str = "",
     timeout: int = 4,
     max_parallel: int = 10,
+    on_domain_complete: Callable[[DomainCheckResult], None] | None = None,
 ) -> CensorCheckSummary:
     """
     Run censor-check on a list of domains.
+
+    Args:
+        on_domain_complete: Optional callback invoked after each domain finishes.
+            Called synchronously from the async task, so keep it fast (no awaits).
     """
     if domains is None:
         domains = DEFAULT_CENSOR_DOMAINS
 
-    log.info(f"Starting censor-check for {len(domains)} domains (proxy: {proxy_url or 'direct'})")
+    log.info(
+        "Starting censor-check",
+        domain_count=len(domains),
+        proxy=proxy_url or "direct",
+        max_parallel=max_parallel,
+    )
 
     start_time = time.time()
     semaphore = asyncio.Semaphore(max_parallel)
 
     async def _check_with_semaphore(domain: str) -> DomainCheckResult:
         async with semaphore:
-            return await check_domain(domain, proxy_url=proxy_url, timeout=timeout)
+            result = await check_domain(domain, proxy_url=proxy_url, timeout=timeout)
+            if on_domain_complete is not None:
+                on_domain_complete(result)
+            return result
 
     # Run checks in parallel
     tasks = [_check_with_semaphore(domain) for domain in domains]
@@ -633,7 +647,7 @@ async def run_censor_check(
     valid_results: list[DomainCheckResult] = []
     for r in results:
         if isinstance(r, Exception):
-            log.error(f"Censor-check task failed: {r}")
+            log.error("Censor-check task failed", error=str(r))
             continue
         if isinstance(r, DomainCheckResult):
             valid_results.append(r)
@@ -656,8 +670,11 @@ async def run_censor_check(
     )
 
     log.info(
-        f"Censor-check complete: {ok_count} OK, {blocked_count} BLOCKED, "
-        f"{partial_count} PARTIAL in {duration:.1f}s"
+        "Censor-check complete",
+        ok=ok_count,
+        blocked=blocked_count,
+        partial=partial_count,
+        duration_s=round(duration, 1),
     )
 
     return summary

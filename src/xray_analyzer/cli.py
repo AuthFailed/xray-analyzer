@@ -6,6 +6,15 @@ import sys
 
 from rich.console import Console
 from rich.panel import Panel
+from rich.progress import (
+    BarColumn,
+    MofNCompleteColumn,
+    Progress,
+    SpinnerColumn,
+    TaskProgressColumn,
+    TextColumn,
+    TimeElapsedColumn,
+)
 from rich.table import Table
 from rich.text import Text
 
@@ -15,7 +24,13 @@ from xray_analyzer.core.logger import get_logger, setup_logging
 from xray_analyzer.core.models import CheckSeverity, CheckStatus, HostDiagnostic
 from xray_analyzer.core.standalone_analyzer import analyze_subscription_proxies
 from xray_analyzer.core.xray_client import XrayCheckerClient
-from xray_analyzer.diagnostics.censor_checker import DomainStatus, fetch_whitelist_domains, run_censor_check
+from xray_analyzer.diagnostics.censor_checker import (
+    DEFAULT_CENSOR_DOMAINS,
+    DomainCheckResult,
+    DomainStatus,
+    fetch_whitelist_domains,
+    run_censor_check,
+)
 
 log = get_logger("cli")
 console = Console()
@@ -185,22 +200,22 @@ async def _run_standalone_analysis() -> int:
     try:
         # Ensure Xray is available if testing VLESS/Trojan/SS
         if settings.xray_test_enabled:
-            console.print("[dim]Checking Xray binary...[/dim]")
-            xray_path = await ensure_xray(settings.xray_binary_path)
+            with console.status("[dim]Checking Xray binary...[/dim]", spinner="dots"):
+                xray_path = await ensure_xray(settings.xray_binary_path)
             if xray_path:
                 settings.xray_binary_path = xray_path
-                console.print(f"[green]✓ Xray available at: {xray_path}[/green]\n")
+                console.print(f"[green]✓[/green] Xray ready: [dim]{xray_path}[/dim]")
             else:
-                console.print("[yellow]⚠ Xray not found — VLESS/Trojan/SS tests will be skipped[/yellow]\n")
+                console.print("[yellow]⚠[/yellow] Xray not found — VLESS/Trojan/SS tests will be skipped")
                 settings.xray_test_enabled = False
 
         # Fetch subscription proxies
-        console.print("[dim]Fetching subscription...[/dim]")
-        shares = await fetch_subscription(
-            settings.subscription_url,
-            hwid=settings.subscription_hwid,
-        )
-        console.print(f"[green]✓ Loaded {len(shares)} proxies from subscription[/green]\n")
+        with console.status("[dim]Fetching subscription...[/dim]", spinner="dots"):
+            shares = await fetch_subscription(
+                settings.subscription_url,
+                hwid=settings.subscription_hwid,
+            )
+        console.print(f"[green]✓[/green] Loaded [bold]{len(shares)}[/bold] proxies from subscription\n")
 
         if not shares:
             console.print("[yellow]No proxies found in subscription[/yellow]")
@@ -208,7 +223,8 @@ async def _run_standalone_analysis() -> int:
 
         # Run diagnostics on all proxies
         console.print(f"[bold]Testing {len(shares)} proxies...[/bold]\n")
-        diagnostics = await analyze_subscription_proxies(shares)
+        with console.status(f"[dim]Running diagnostics on {len(shares)} proxies...[/dim]", spinner="dots"):
+            diagnostics = await analyze_subscription_proxies(shares)
         _print_analysis_results(diagnostics)
         return 0
 
@@ -224,14 +240,16 @@ async def _run_full_analysis_with_checker(watch: bool = False) -> int:
 
     try:
         if watch:
-            error_console.print("[yellow]Starting continuous monitoring... (Ctrl+C to stop)[/yellow]")
+            console.print("[yellow]Starting continuous monitoring... (Ctrl+C to stop)[/yellow]")
             while True:
-                diagnostics = await analyzer.run_full_analysis()
+                with console.status("[dim]Fetching proxies and running diagnostics...[/dim]", spinner="dots"):
+                    diagnostics = await analyzer.run_full_analysis()
                 _print_analysis_results(diagnostics)
-                error_console.print(f"\n[dim]Next check in {settings.check_interval_seconds}s...[/dim]")
+                console.print(f"\n[dim]Next check in {settings.check_interval_seconds}s...[/dim]")
                 await asyncio.sleep(settings.check_interval_seconds)
         else:
-            diagnostics = await analyzer.run_full_analysis()
+            with console.status("[dim]Fetching proxies and running diagnostics...[/dim]", spinner="dots"):
+                diagnostics = await analyzer.run_full_analysis()
             _print_analysis_results(diagnostics)
 
         return 0
@@ -338,34 +356,85 @@ async def cmd_censor_check(
     if not proxy_url:
         proxy_url = settings.censor_check_proxy_url
 
-    console.print("[bold blue]🌐 Censor-Check: Testing web resources for blocking[/bold blue]")
-    if proxy_url:
-        console.print(f"[dim]Proxy: {proxy_url}[/dim]")
-    else:
-        console.print("[dim]Mode: Direct connection[/dim]")
+    console.print()
+    console.print(Panel(
+        f"[bold cyan]🌐  Censor Check[/bold cyan]\n"
+        f"[dim]{'Via proxy: ' + proxy_url if proxy_url else 'Direct connection (no proxy)'}[/dim]",
+        border_style="blue",
+        padding=(0, 2),
+    ))
     console.print()
 
     # If no explicit domains given, apply the selected list
     if not domains:
         if domain_list == "whitelist":
-            console.print("[dim]Fetching Russia mobile internet whitelist...[/dim]")
-            domains = await fetch_whitelist_domains()
+            with console.status("[dim]Fetching Russia mobile internet whitelist...[/dim]", spinner="dots"):
+                domains = await fetch_whitelist_domains()
             if not domains:
-                error_console.print("[bold red]Failed to fetch whitelist — falling back to default list[/bold red]")
+                error_console.print("[bold red]✗[/bold red] Failed to fetch whitelist — falling back to default list")
                 domains = None  # run_censor_check will use DEFAULT_CENSOR_DOMAINS
             else:
-                console.print(f"[green]✓ Loaded {len(domains)} domains from whitelist[/green]")
-            console.print()
+                console.print(f"[green]✓[/green] Loaded [bold]{len(domains)}[/bold] domains from whitelist")
+                console.print()
         else:
             domains = None  # run_censor_check will use DEFAULT_CENSOR_DOMAINS
 
+    domain_count = len(domains) if domains else len(DEFAULT_CENSOR_DOMAINS)
+
     try:
-        summary = await run_censor_check(
-            domains=domains,
-            proxy_url=proxy_url,
-            timeout=timeout,
-            max_parallel=max_parallel,
-        )
+        with Progress(
+            SpinnerColumn(spinner_name="dots"),
+            TextColumn("[progress.description]{task.description}"),
+            BarColumn(bar_width=28),
+            MofNCompleteColumn(),
+            TaskProgressColumn(),
+            TimeElapsedColumn(),
+            console=console,
+            transient=False,
+        ) as progress:
+            task_id = progress.add_task(
+                f"[cyan]Checking {domain_count} domains[/cyan]",
+                total=domain_count,
+            )
+
+            def on_domain_complete(result: DomainCheckResult) -> None:
+                if result.status == DomainStatus.OK:
+                    icon = "[green]✓[/green]"
+                    label = "[green]OK[/green]     "
+                elif result.status == DomainStatus.BLOCKED:
+                    icon = "[red]✗[/red]"
+                    bt = f" [dim]({result.block_type})[/dim]" if result.block_type else ""
+                    label = f"[red]BLOCKED[/red]{bt}"
+                else:
+                    icon = "[yellow]⚠[/yellow]"
+                    bt = f" [dim]({result.block_type})[/dim]" if result.block_type else ""
+                    label = f"[yellow]PARTIAL[/yellow]{bt}"
+
+                extras = []
+                if result.tls_valid:
+                    extras.append("[dim]TLS✓[/dim]")
+                elif result.status != DomainStatus.BLOCKED:
+                    extras.append("[dim]TLS✗[/dim]")
+                if result.https_code:
+                    extras.append(f"[dim]HTTPS {result.https_code}[/dim]")
+                elif result.http_code:
+                    extras.append(f"[dim]HTTP {result.http_code}[/dim]")
+                if result.details.get("rkn_stub_ip"):
+                    extras.append(f"[dim]stub:{result.details['rkn_stub_ip']}[/dim]")
+
+                extras_str = "  " + "  ".join(extras) if extras else ""
+                progress.console.print(
+                    f"  {icon} [bold]{result.domain:<26}[/bold]{label}{extras_str}"
+                )
+                progress.advance(task_id)
+
+            summary = await run_censor_check(
+                domains=domains,
+                proxy_url=proxy_url,
+                timeout=timeout,
+                max_parallel=max_parallel,
+                on_domain_complete=on_domain_complete,
+            )
 
         _print_censor_check_results(summary)
 
@@ -609,93 +678,79 @@ def _status_icon_and_color(status: CheckStatus) -> tuple[str, str]:
 
 
 def _print_censor_check_results(summary) -> None:
-    """Print censor-check results with nice formatting."""
-    # Summary panel
+    """Print censor-check final summary panel and details for problematic domains."""
+    blocked = [r for r in summary.results if r.status == DomainStatus.BLOCKED]
+    partial = [r for r in summary.results if r.status == DomainStatus.PARTIAL]
+
+    border = "red" if summary.blocked else ("yellow" if summary.partial else "green")
+    status_icon = "✗" if summary.blocked else ("⚠" if summary.partial else "✓")
+
+    summary_lines = [
+        f"{status_icon}  [bold]{summary.total}[/bold] domains checked"
+        f"  ·  [green]{summary.ok} OK[/green]"
+        f"  ·  [red]{summary.blocked} blocked[/red]"
+        f"  ·  [yellow]{summary.partial} partial[/yellow]"
+        f"  ·  [dim]{summary.duration_seconds:.1f}s[/dim]",
+    ]
+    if summary.proxy_url:
+        summary_lines.append(f"[dim]via {summary.proxy_url}[/dim]")
+    else:
+        summary_lines.append("[dim]direct connection[/dim]")
+
     console.print()
-    console.print(
-        Panel(
-            f"[bold]Total domains:[/bold] {summary.total}  |  "
-            f"[green]✓ OK:[/green] {summary.ok}  |  "
-            f"[red]✗ BLOCKED:[/red] {summary.blocked}  |  "
-            f"[yellow]⚠ PARTIAL:[/yellow] {summary.partial}  |  "
-            f"[dim]Duration: {summary.duration_seconds:.1f}s[/dim]",
-            title="[bold blue]Censor-Check Result[/bold blue]",
-            border_style="green" if not summary.blocked else "red",
-        )
-    )
+    console.print(Panel(
+        "\n".join(summary_lines),
+        title="[bold]Censor-Check — Summary[/bold]",
+        border_style=border,
+        padding=(0, 2),
+    ))
     console.print()
 
     if not summary.results:
-        console.print("[yellow]No results[/yellow]")
         return
 
-    # Separate by status
-    blocked = [r for r in summary.results if r.status == DomainStatus.BLOCKED]
-    partial = [r for r in summary.results if r.status == DomainStatus.PARTIAL]
-    ok = [r for r in summary.results if r.status == DomainStatus.OK]
-
-    # BLOCKED domains (detailed)
+    # BLOCKED domains — show details (IPs, stub, block type)
     if blocked:
-        console.print("[bold red]✗ BLOCKED DOMAINS[/bold red]\n")
-
-        for result in blocked:
-            block_type_str = f" ({result.block_type})" if result.block_type else ""
-            console.print(f"  [bold red]{result.domain:<25}[/bold red][red] BLOCKED{block_type_str}[/red]")
-
-            if result.ips:
-                console.print(f"    [dim]IPs: {', '.join(result.ips[:3])}[/dim]")
-            if result.details.get("rkn_stub_ip"):
-                console.print(f"    [dim]RKN stub IP: {result.details['rkn_stub_ip']}[/dim]")
-            console.print()
-
-    # PARTIAL domains (detailed)
-    if partial:
-        console.print("[bold yellow]⚠ PARTIALLY ACCESSIBLE DOMAINS[/bold yellow]\n")
-
-        for result in partial:
-            block_type_str = f" ({result.block_type})" if result.block_type else ""
-            console.print(f"  [bold yellow]{result.domain:<25}[/bold yellow][yellow] PARTIAL{block_type_str}[/yellow]")
-
-            if result.http_code or result.https_code:
-                console.print(f"    [dim]HTTP: {result.http_code}, HTTPS: {result.https_code}[/dim]")
-            if not result.tls_valid:
-                console.print("    [dim]✗ TLS certificate invalid[/dim]")
-            console.print()
-
-    # OK domains (compact table)
-    if ok:
-        console.print("[bold green]✓ ACCESSIBLE DOMAINS[/bold green]\n")
-
-        table = Table(show_header=False, box=None, padding=(0, 2))
-        table.add_column("Domain", style="green")
-        table.add_column("Status", justify="center")
+        console.print(f"[bold red]✗  Blocked ({len(blocked)})[/bold red]\n")
+        table = Table(show_header=True, box=None, padding=(0, 2), header_style="dim")
+        table.add_column("Domain", style="bold red", min_width=26)
+        table.add_column("Reason", style="red")
         table.add_column("Details", style="dim")
 
-        for result in ok:
-            details = []
-            if result.tls_valid:
-                details.append("✓TLS")
-            if result.https_code:
-                details.append(f"HTTPS:{result.https_code}")
-            elif result.http_code:
-                details.append(f"HTTP:{result.http_code}")
-
+        for result in blocked:
+            details_parts = []
+            if result.ips:
+                details_parts.append(", ".join(result.ips[:2]))
+            if result.details.get("rkn_stub_ip"):
+                details_parts.append(f"stub:{result.details['rkn_stub_ip']}")
             table.add_row(
                 result.domain,
-                "[green]OK[/green]",
-                " | ".join(details) if details else "",
+                result.block_type or "BLOCKED",
+                "  ".join(details_parts),
             )
-
         console.print(table)
         console.print()
 
-    # Footer
-    console.print("[dim]" + "─" * 60 + "[/dim]")
-    if summary.proxy_url:
-        console.print(f"[dim]Checked via proxy: {summary.proxy_url}[/dim]")
-    else:
-        console.print("[dim]Direct check (no proxy)[/dim]")
-    console.print()
+    # PARTIAL domains — show HTTP/TLS details
+    if partial:
+        console.print(f"[bold yellow]⚠  Partial ({len(partial)})[/bold yellow]\n")
+        table = Table(show_header=True, box=None, padding=(0, 2), header_style="dim")
+        table.add_column("Domain", style="bold yellow", min_width=26)
+        table.add_column("Reason", style="yellow")
+        table.add_column("HTTP", justify="center", style="dim")
+        table.add_column("HTTPS", justify="center", style="dim")
+        table.add_column("TLS", justify="center", style="dim")
+
+        for result in partial:
+            table.add_row(
+                result.domain,
+                result.block_type or "PARTIAL",
+                str(result.http_code) if result.http_code else "–",
+                str(result.https_code) if result.https_code else "–",
+                "[green]✓[/green]" if result.tls_valid else "[red]✗[/red]",
+            )
+        console.print(table)
+        console.print()
 
 
 def _print_single_diagnostic(diagnostic: HostDiagnostic) -> None:

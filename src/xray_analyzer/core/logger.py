@@ -11,13 +11,17 @@ _PROJECT_LOGGER_NAME = "xray_analyzer"
 
 
 def setup_logging() -> None:
-    """Configure structured logging: human-readable console + JSON file."""
+    """Configure structured logging: stderr warnings + JSON file.
+
+    Console output goes to stderr at WARNING+ so it doesn't mix with Rich's
+    stdout panels/tables. Full DEBUG/INFO stream goes to the log file.
+    """
     log_level = getattr(logging, settings.log_level.upper(), logging.INFO)
 
     shared_processors = [
         structlog.contextvars.merge_contextvars,
         structlog.processors.add_log_level,
-        structlog.processors.TimeStamper(fmt="iso"),
+        structlog.processors.TimeStamper(fmt="%H:%M:%S"),
     ]
 
     structlog.configure(
@@ -29,24 +33,28 @@ def setup_logging() -> None:
         cache_logger_on_first_use=True,
     )
 
-    # Console handler — pretty human-readable output
-    console_handler = logging.StreamHandler(sys.stdout)
-    console_handler.setLevel(log_level)
+    # Console handler — WARNING+ only, goes to stderr so Rich stdout stays clean
+    console_handler = logging.StreamHandler(sys.stderr)
+    console_handler.setLevel(logging.WARNING)
     console_formatter = structlog.stdlib.ProcessorFormatter(
         processors=[
             structlog.stdlib.ProcessorFormatter.remove_processors_meta,
-            structlog.dev.ConsoleRenderer(colors=True),
+            structlog.dev.ConsoleRenderer(
+                colors=True,
+                exception_formatter=structlog.dev.plain_traceback,
+            ),
         ],
         foreign_pre_chain=shared_processors,
     )
     console_handler.setFormatter(console_formatter)
 
-    # File handler — JSON for machine parsing
+    # File handler — full log at configured level, JSON for machine parsing
     file_handler = logging.FileHandler(settings.log_file, encoding="utf-8")
     file_handler.setLevel(log_level)
     file_formatter = structlog.stdlib.ProcessorFormatter(
         processors=[
             structlog.stdlib.ProcessorFormatter.remove_processors_meta,
+            structlog.processors.dict_tracebacks,
             structlog.processors.JSONRenderer(),
         ],
         foreign_pre_chain=[
