@@ -259,20 +259,18 @@ class XrayAnalyzer:
         direct_proxy_url: str = "",
     ) -> None:
         """Run all diagnostic checks and add results to diagnostic."""
-        # 1. DNS Resolution with Check-Host.net comparison
-        dns_result = await check_dns_with_checkhost(host)
+        # 1-3. DNS, TCP connect, TCP ping — independent, run in parallel
+        dns_result, tcp_result, tcp_ping_result = await asyncio.gather(
+            check_dns_with_checkhost(host),
+            check_tcp_connection(host, port),
+            check_tcp_ping(host, port),
+        )
         diagnostic.add_result(dns_result)
+        diagnostic.add_result(tcp_result)
+        diagnostic.add_result(tcp_ping_result)
 
         if dns_result.status == CheckStatus.FAIL:
             diagnostic.add_recommendation("DNS cannot be resolved — check domain and DNS settings")
-
-        # 2. TCP Connection
-        tcp_result = await check_tcp_connection(host, port)
-        diagnostic.add_result(tcp_result)
-
-        # 3. TCP Ping check
-        tcp_ping_result = await check_tcp_ping(host, port)
-        diagnostic.add_result(tcp_ping_result)
 
         # Proxy-specific checks — either from API proxy object or direct --proxy URL
         if not proxy and direct_proxy_url:
@@ -281,19 +279,17 @@ class XrayAnalyzer:
             target_result = target_result.model_copy(update={"check_name": "Target via Proxy"})
             diagnostic.add_result(target_result)
 
-            tunnel_result = await check_proxy_tcp_tunnel(direct_proxy_url)
-            diagnostic.add_result(tunnel_result)
-
-            exit_ip_result = await check_proxy_exit_ip(direct_proxy_url)
-            diagnostic.add_result(exit_ip_result)
-
+            # Independent proxy probes — gather in parallel
+            tasks: list[Any] = [
+                check_proxy_tcp_tunnel(direct_proxy_url),
+                check_proxy_exit_ip(direct_proxy_url),
+            ]
             if settings.proxy_sni_test_enabled:
-                sni_result = await check_proxy_sni_connection(direct_proxy_url)
-                diagnostic.add_result(sni_result)
-
+                tasks.append(check_proxy_sni_connection(direct_proxy_url))
             if settings.tunnel_test_enabled:
-                legacy_tunnel_result = await check_proxy_tunnel(direct_proxy_url)
-                diagnostic.add_result(legacy_tunnel_result)
+                tasks.append(check_proxy_tunnel(direct_proxy_url))
+            for result in await asyncio.gather(*tasks):
+                diagnostic.add_result(result)
 
         if proxy:
             await self._run_proxy_specific_checks(diagnostic, host, port, proxy, dns_result)
@@ -375,23 +371,17 @@ class XrayAnalyzer:
         if not proxy_url:
             return
 
-        # 5. Proxy TCP Tunnel check
-        tunnel_result = await check_proxy_tcp_tunnel(proxy_url)
-        diagnostic.add_result(tunnel_result)
-
-        # 6. Proxy Exit IP check
-        exit_ip_result = await check_proxy_exit_ip(proxy_url)
-        diagnostic.add_result(exit_ip_result)
-
-        # 7. Proxy SNI check
+        # Independent proxy probes (tunnel/exit-IP/SNI/legacy) — gather in parallel
+        tasks: list[Any] = [
+            check_proxy_tcp_tunnel(proxy_url),
+            check_proxy_exit_ip(proxy_url),
+        ]
         if settings.proxy_sni_test_enabled:
-            sni_result = await check_proxy_sni_connection(proxy_url)
-            diagnostic.add_result(sni_result)
-
-        # 8. Legacy tunnel check (backward compatibility)
+            tasks.append(check_proxy_sni_connection(proxy_url))
         if settings.tunnel_test_enabled:
-            legacy_tunnel_result = await check_proxy_tunnel(proxy_url)
-            diagnostic.add_result(legacy_tunnel_result)
+            tasks.append(check_proxy_tunnel(proxy_url))
+        for result in await asyncio.gather(*tasks):
+            diagnostic.add_result(result)
 
     @staticmethod
     def _build_proxy_url(proxy: Any) -> str | None:
