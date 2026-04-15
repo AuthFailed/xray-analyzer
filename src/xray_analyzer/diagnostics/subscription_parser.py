@@ -1,6 +1,7 @@
 """Parse subscription URLs to extract VLESS/Trojan/Shadowsocks share URLs."""
 
 import base64
+import binascii
 import re
 from dataclasses import dataclass, field
 from typing import Any
@@ -56,7 +57,7 @@ def decode_subscription(text: str) -> str:
         # Check if decoded content has share URLs
         if any(decoded.startswith(p) for p in ("vless://", "trojan://", "ss://", "http://", "socks://")):
             return decoded
-    except Exception:
+    except (binascii.Error, UnicodeDecodeError, ValueError):
         pass
 
     # Return as-is if not base64

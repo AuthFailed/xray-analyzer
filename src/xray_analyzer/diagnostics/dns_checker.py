@@ -394,10 +394,3 @@ async def _checkhost_dns_resolve(host: str) -> dict[str, Any]:
         return {"success": False, "error": "Check-Host result polling timed out"}
 
 
-def _is_ip_address(host: str) -> bool:
-    """Check if a string is an IPv4 or IPv6 address."""
-    try:
-        ip_address(host)
-        return True
-    except ValueError:
-        return False
