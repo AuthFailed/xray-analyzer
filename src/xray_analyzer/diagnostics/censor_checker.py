@@ -6,10 +6,15 @@ This module replicates the behavior of the bash script by Nikola Tesla
 
 import asyncio
 import contextlib
+import ipaddress
+import os
 import re
+import socket
+import ssl
 import time
 from collections.abc import Callable
 from dataclasses import dataclass, field
+from datetime import UTC, datetime
 from enum import StrEnum
 from typing import Any
 
@@ -133,6 +138,48 @@ USER_AGENT = (
 
 SNI_DUMMY_IP = "192.0.2.1"  # Dummy IP for SNI test (from bash script)
 
+# Harmless SNI used for variance probing. Wikipedia is almost never censored
+# worldwide and its IPs are well-connected, so a failure with this SNI is highly
+# unlikely to be DPI-related and more likely a real network fault.
+SNI_HARMLESS = "en.wikipedia.org"
+
+# Public DoH resolvers used for cross-checking local DNS answers.
+DOH_RESOLVERS: list[str] = [
+    "https://cloudflare-dns.com/dns-query",
+    "https://dns.google/resolve",
+]
+
+# Fast-RST threshold: DPI middleboxes inject RST / block pages in well under 100 ms.
+# Real server timeouts or intercontinental round-trips take much longer.
+DPI_FAST_RST_MS = 150
+
+# Suspicious IP ranges. A DoH-vs-local DNS disagreement is only considered
+# tampering when the local answer falls here — plain CDN/anycast disagreement
+# (Cloudflare, Akamai, AWS) is normal and must not be flagged.
+# - 198.18.0.0/15: RFC 2544 benchmarking range, commonly abused by RU ISPs as a
+#   "bypass" destination for SNI-proxying transparent middleboxes.
+# - 0.0.0.0/8, 127.0.0.0/8, 240.0.0.0/4: bogons/loopback/reserved.
+# - Plus the explicit RKN stub IPs already defined above.
+_SUSPICIOUS_NETS: list[ipaddress.IPv4Network] = [
+    ipaddress.ip_network("198.18.0.0/15"),
+    ipaddress.ip_network("0.0.0.0/8"),
+    ipaddress.ip_network("127.0.0.0/8"),
+    ipaddress.ip_network("240.0.0.0/4"),
+]
+
+
+def _is_suspicious_ip(ip: str) -> bool:
+    """True if the IP is in a bogon/stub range or an explicit RKN stub."""
+    if ip in RKN_STUB_IPS:
+        return True
+    try:
+        addr = ipaddress.ip_address(ip)
+    except ValueError:
+        return False
+    if not isinstance(addr, ipaddress.IPv4Address):
+        return False
+    return any(addr in net for net in _SUSPICIOUS_NETS)
+
 
 class DomainStatus(StrEnum):
     """Status of domain check."""
@@ -140,6 +187,41 @@ class DomainStatus(StrEnum):
     OK = "OK"
     BLOCKED = "BLOCKED"
     PARTIAL = "PARTIAL"
+
+
+@dataclass
+class DpiSignals:
+    """
+    Structured DPI/censorship signals gathered for one domain.
+
+    Each field is either a raw observation (None/empty = not measured) or a
+    derived boolean flag. Aggregated in DomainCheckResult.details["dpi_signals"].
+    """
+
+    keyword_hit: bool = False
+    sni_dummy_hit: bool = False
+    sni_dummy_fail_ms: float = 0.0  # time until RST/timeout on the 192.0.2.1 probe
+    sni_dummy_fast_rst: bool = False  # sni_dummy_fail_ms < DPI_FAST_RST_MS → likely injected
+    sni_variance_suspect: bool = False
+    sni_variance: dict[str, str] = field(default_factory=dict)  # per-SNI outcome
+    fingerprint_variance_suspect: bool = False
+    fingerprint_variance: dict[str, str] = field(default_factory=dict)  # per-profile outcome
+    host_header_injection: bool = False
+    host_header_code: int = 0
+    http3_reachable: bool | None = None  # None = not probed
+    doh_mismatch: bool = False
+    doh_ips: list[str] = field(default_factory=list)
+
+    def any_hit(self) -> bool:
+        # DoH/DNS mismatch is *not* a DPI signal — kept as a separate DNS-layer
+        # diagnostic. Only actual DPI-layer probes count toward the DPI verdict.
+        return (
+            self.keyword_hit
+            or self.sni_dummy_hit
+            or self.sni_variance_suspect
+            or self.fingerprint_variance_suspect
+            or self.host_header_injection
+        )
 
 
 @dataclass
@@ -322,69 +404,52 @@ async def _fetch_with_curl(
 
 async def _check_certificate(domain: str, timeout: int = 4, verbose: bool = False) -> bool:
     """
-    Check TLS certificate using openssl s_client (exactly like bash script).
+    Verify TLS certificate via a native async handshake: chain validation + expiry.
 
-    Equivalent to:
-    timeout 4 openssl s_client -connect "$domain:443" -servername "$domain"
-      -CApath /etc/ssl/certs -verify 5
+    Equivalent in intent to `openssl s_client -verify 5` + notAfter check from the
+    bash script, but without spawning openssl/date subprocesses.
     """
-    try:
-        proc = await asyncio.create_subprocess_exec(
-            "timeout",
-            str(timeout),
-            "openssl",
-            "s_client",
-            "-connect",
-            f"{domain}:443",
-            "-servername",
-            domain,
-            "-CApath",
-            "/etc/ssl/certs",
-            "-verify",
-            "5",
-            stdin=asyncio.subprocess.PIPE,
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE,
-        )
-        stdout, stderr = await proc.communicate(input=b"")
-        cert_info = (stdout + stderr).decode()
+    ctx = ssl.create_default_context()
+    ctx.check_hostname = True
+    ctx.verify_mode = ssl.CERT_REQUIRED
 
-        # Check for verification errors
-        if "Verification error:" in cert_info or "Verification: OK" not in cert_info:
-            if verbose:
-                log.info("TLS verification failed", domain=domain)
+    writer: asyncio.StreamWriter | None = None
+    try:
+        _, writer = await asyncio.wait_for(
+            asyncio.open_connection(domain, 443, ssl=ctx, server_hostname=domain),
+            timeout=timeout,
+        )
+        ssl_obj: ssl.SSLObject | None = writer.get_extra_info("ssl_object")
+        if ssl_obj is None:
             return False
 
-        # Extract expiration date
-        not_after_match = re.search(r"notAfter=(.+)", cert_info)
-        if not_after_match:
-            not_after_str = not_after_match.group(1).strip()
-            # Check if certificate is expired
-            try:
-                # Use date command to parse
-                date_proc = await asyncio.create_subprocess_exec(
-                    "date",
-                    "-d",
-                    not_after_str,
-                    "+%s",
-                    stdout=asyncio.subprocess.PIPE,
-                    stderr=asyncio.subprocess.PIPE,
-                )
-                date_stdout, _ = await date_proc.communicate()
-                expire_epoch = int(date_stdout.decode().strip())
-                current_epoch = int(time.time())
+        cert = ssl_obj.getpeercert()
+        not_after = cert.get("notAfter") if cert else None
+        if not not_after:
+            return True  # chain verified; absence of notAfter is unusual but not a blocker
 
-                if expire_epoch < current_epoch:
-                    if verbose:
-                        log.info("Certificate expired", domain=domain)
-                    return False
-            except ValueError, Exception:
-                pass
-
+        # OpenSSL format: "Jun  1 12:00:00 2026 GMT"
+        expire_dt = datetime.strptime(not_after, "%b %d %H:%M:%S %Y %Z").replace(tzinfo=UTC)
+        if expire_dt < datetime.now(UTC):
+            if verbose:
+                log.info("Certificate expired", domain=domain, not_after=not_after)
+            return False
         return True
+    except (ssl.SSLCertVerificationError, ssl.SSLError) as e:
+        if verbose:
+            log.info("TLS verification failed", domain=domain, error=str(e))
+        return False
+    except (TimeoutError, OSError) as e:
+        log.debug("TLS connection failed", domain=domain, error=str(e))
+        return False
     except Exception as e:
         log.debug("Certificate check failed", domain=domain, error=str(e))
         return False
+    finally:
+        if writer is not None:
+            writer.close()
+            with contextlib.suppress(Exception):
+                await writer.wait_closed()
 
 
 async def _check_tcp_port(ip: str, port: int, timeout: int = 4) -> bool:
@@ -405,106 +470,432 @@ async def _check_tcp_port(ip: str, port: int, timeout: int = 4) -> bool:
         return False
 
 
-async def _check_dpi_blocking(domain: str, timeout: int = 4) -> bool:
-    """
-    Check if domain is blocked by DPI (exactly like bash script).
-
-    Method 1: Check response with suspicious User-Agent for blocking keywords
-    Method 2: SNI test - resolve domain to dummy IP 192.0.2.1, check if we get 4xx/5xx/000
-    """
-    test_url = f"https://{domain}"
-
-    # Method 1: Check response body for blocking keywords
+async def _dpi_keyword_probe(domain: str, timeout: int = 4) -> bool:
+    """Send a request with a suspicious UA and grep response for block-page keywords."""
     try:
         headers = {"User-Agent": "Suspicious-Agent TLS/1.3"}
         async with (
             aiohttp.ClientSession() as session,
             session.get(
-                test_url,
+                f"https://{domain}",
                 timeout=ClientTimeout(connect=timeout, total=timeout),
                 headers=headers,
                 ssl=True,
             ) as response,
         ):
             text = await response.text()
-            if any(pattern.search(text) for pattern in DPI_BLOCKING_KEYWORDS):
-                return True
+            return any(pattern.search(text) for pattern in DPI_BLOCKING_KEYWORDS)
     except Exception:
-        pass
+        return False
 
-    # Method 2: SNI test with dummy IP (like bash: curl --resolve "$domain:443:192.0.2.1")
+
+async def _dpi_sni_probe(domain: str, timeout: int = 4) -> tuple[bool, float, int]:
+    """
+    Native SNI-to-dummy-IP probe (replaces `curl --resolve domain:443:192.0.2.1`).
+
+    Opens a TLS connection to 192.0.2.1 (TEST-NET-1, unroutable) while sending the
+    target domain in SNI. A genuine connection cannot complete — but a DPI middlebox
+    that rewrites traffic based on SNI will synthesize a 4xx/5xx block page in response.
+
+    Returns (hit, elapsed_ms_until_outcome, http_code). elapsed_ms < DPI_FAST_RST_MS
+    when a hit also means the response was injected (not a real server reply) since
+    nothing downstream of us should be able to answer for 192.0.2.1 that quickly.
+    """
+    ctx = ssl.create_default_context()
+    ctx.check_hostname = False
+    ctx.verify_mode = ssl.CERT_NONE
+
+    writer: asyncio.StreamWriter | None = None
+    t0 = time.monotonic()
     try:
-        sni_code = await _fetch_with_curl(
-            test_url,
+        reader, writer = await asyncio.wait_for(
+            asyncio.open_connection(SNI_DUMMY_IP, 443, ssl=ctx, server_hostname=domain),
             timeout=timeout,
-            retries=1,
-            user_agent=USER_AGENT,
-            resolve_to_ip=SNI_DUMMY_IP,
+        )
+        writer.write(
+            b"GET / HTTP/1.1\r\n"
+            b"Host: " + domain.encode("ascii", "ignore") + b"\r\n"
+            b"User-Agent: " + USER_AGENT.encode("ascii") + b"\r\n"
+            b"Connection: close\r\n\r\n"
+        )
+        await writer.drain()
+        data = await asyncio.wait_for(reader.read(512), timeout=timeout)
+        elapsed_ms = (time.monotonic() - t0) * 1000
+        match = re.match(rb"HTTP/\d\.\d\s+(\d{3})", data)
+        if match:
+            code = int(match.group(1))
+            return (400 <= code < 600), elapsed_ms, code
+        return False, elapsed_ms, 0
+    except (TimeoutError, ssl.SSLError, OSError, socket.gaierror):
+        return False, (time.monotonic() - t0) * 1000, 0
+    except Exception as e:
+        log.debug("SNI probe failed", domain=domain, error=str(e))
+        return False, (time.monotonic() - t0) * 1000, 0
+    finally:
+        if writer is not None:
+            writer.close()
+            with contextlib.suppress(Exception):
+                await writer.wait_closed()
+
+
+async def _sni_variance_probe(
+    domain: str, target_ip: str, timeout: int = 4
+) -> tuple[bool, dict[str, str]]:
+    """
+    To the *real* target IP, run three TLS handshakes: no-SNI, wrong-SNI, target-SNI.
+
+    DPI that blocks based on SNI matches your target domain will RST only the
+    target-SNI handshake while letting the others through. When the outcomes
+    diverge (target fails, others succeed), SNI-based DPI is confirmed — a
+    stronger signal than the 192.0.2.1 probe, which also fires on captive portals.
+    """
+    outcomes: dict[str, str] = {}
+
+    async def _one(sni: str | None, label: str) -> str:
+        ctx = ssl.create_default_context()
+        ctx.check_hostname = False
+        ctx.verify_mode = ssl.CERT_NONE
+        writer: asyncio.StreamWriter | None = None
+        try:
+            # server_hostname=None disables SNI entirely; empty string is invalid.
+            _, writer = await asyncio.wait_for(
+                asyncio.open_connection(target_ip, 443, ssl=ctx, server_hostname=sni),
+                timeout=timeout,
+            )
+            return "ok"
+        except (TimeoutError, ssl.SSLError, OSError):
+            return "fail"
+        except Exception as e:
+            log.debug("SNI variance leg failed", domain=domain, label=label, error=str(e))
+            return "fail"
+        finally:
+            if writer is not None:
+                writer.close()
+                with contextlib.suppress(Exception):
+                    await writer.wait_closed()
+
+    results = await asyncio.gather(
+        _one(None, "no_sni"),
+        _one(SNI_HARMLESS, "harmless_sni"),
+        _one(domain, "target_sni"),
+    )
+    outcomes["no_sni"], outcomes["harmless_sni"], outcomes["target_sni"] = results
+
+    # Suspect SNI-based DPI when target fails while at least one of the benign
+    # handshakes succeeds on the same IP.
+    suspect = outcomes["target_sni"] == "fail" and (
+        outcomes["no_sni"] == "ok" or outcomes["harmless_sni"] == "ok"
+    )
+    return suspect, outcomes
+
+
+async def _tls_fingerprint_probe(
+    domain: str, target_ip: str, timeout: int = 4
+) -> tuple[bool, dict[str, str]]:
+    """
+    Two handshakes with differently shaped SSLContexts. Pure stdlib, so this is a
+    weaker approximation of `curl-impersonate` — it catches the coarsest
+    fingerprint-based DPI (e.g., blocking anything that isn't a browser-shaped
+    ClientHello with modern ALPN) but won't fool sophisticated middleboxes.
+    """
+
+    async def _handshake(ctx: ssl.SSLContext, label: str) -> str:
+        writer: asyncio.StreamWriter | None = None
+        try:
+            _, writer = await asyncio.wait_for(
+                asyncio.open_connection(target_ip, 443, ssl=ctx, server_hostname=domain),
+                timeout=timeout,
+            )
+            return "ok"
+        except (TimeoutError, ssl.SSLError, OSError):
+            return "fail"
+        except Exception as e:
+            log.debug("Fingerprint leg failed", domain=domain, label=label, error=str(e))
+            return "fail"
+        finally:
+            if writer is not None:
+                writer.close()
+                with contextlib.suppress(Exception):
+                    await writer.wait_closed()
+
+    default_ctx = ssl.create_default_context()
+    default_ctx.check_hostname = False
+    default_ctx.verify_mode = ssl.CERT_NONE
+
+    browser_ctx = ssl.create_default_context()
+    browser_ctx.check_hostname = False
+    browser_ctx.verify_mode = ssl.CERT_NONE
+    # Chrome-ish: TLS 1.2+, ALPN h2/http1.1, modern cipher ordering.
+    browser_ctx.minimum_version = ssl.TLSVersion.TLSv1_2
+    browser_ctx.set_alpn_protocols(["h2", "http/1.1"])
+    with contextlib.suppress(ssl.SSLError):
+        browser_ctx.set_ciphers(
+            "ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:"
+            "ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305:"
+            "ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384"
         )
 
-        # DPI interception returns a 4xx/5xx block page via the forged SNI response.
-        # Code 0 means the connection to 192.0.2.1 simply failed (expected for an
-        # unroutable documentation IP) — NOT a sign of DPI.
-        if 400 <= sni_code < 600:
-            return True
-    except Exception:
-        pass
-
-    return False
+    default_result, browser_result = await asyncio.gather(
+        _handshake(default_ctx, "python_default"),
+        _handshake(browser_ctx, "chrome_like"),
+    )
+    outcomes = {"python_default": default_result, "chrome_like": browser_result}
+    suspect = default_result != browser_result
+    return suspect, outcomes
 
 
-async def _check_ai_regional_blocking(domain: str, timeout: int = 4) -> bool:
+async def _plain_http_host_probe(domain: str, timeout: int = 4) -> tuple[bool, int]:
     """
-    Check if AI/social domain has regional blocking (exactly like bash script).
+    Raw HTTP to 192.0.2.1:80 with `Host: <target>`. Like the SNI probe but for
+    plaintext HTTP — catches Host-header-based DPI that TLS probes miss.
     """
+    writer: asyncio.StreamWriter | None = None
     try:
-        # Use curl to get response (supports --compressed like bash)
-        curl_cmd = [
-            "curl",
-            "-s",
-            "-A",
-            USER_AGENT,
-            "-H",
-            "Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
-            "-H",
-            "Accept-Language: en-US,en;q=0.5",
-            "-H",
-            "Upgrade-Insecure-Requests: 1",
-            "-H",
-            "Sec-Fetch-Dest: document",
-            "-H",
-            "Sec-Fetch-Mode: navigate",
-            "-H",
-            "Sec-Fetch-Site: none",
-            "-H",
-            "Sec-Fetch-User: ?1",
-            "-H",
-            "Connection: keep-alive",
-            "--compressed",
-            "--connect-timeout",
-            str(timeout),
-            f"https://{domain}",
-        ]
-
-        proc = await asyncio.create_subprocess_exec(
-            *curl_cmd,
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE,
+        reader, writer = await asyncio.wait_for(
+            asyncio.open_connection(SNI_DUMMY_IP, 80),
+            timeout=timeout,
         )
-        stdout, _ = await proc.communicate()
-        response_text = stdout.decode()
+        writer.write(
+            b"GET / HTTP/1.1\r\n"
+            b"Host: " + domain.encode("ascii", "ignore") + b"\r\n"
+            b"User-Agent: " + USER_AGENT.encode("ascii") + b"\r\n"
+            b"Connection: close\r\n\r\n"
+        )
+        await writer.drain()
+        data = await asyncio.wait_for(reader.read(512), timeout=timeout)
+        match = re.match(rb"HTTP/\d\.\d\s+(\d{3})", data)
+        if match:
+            code = int(match.group(1))
+            return (400 <= code < 600), code
+        return False, 0
+    except (TimeoutError, OSError):
+        return False, 0
+    except Exception as e:
+        log.debug("Host-header probe failed", domain=domain, error=str(e))
+        return False, 0
+    finally:
+        if writer is not None:
+            writer.close()
+            with contextlib.suppress(Exception):
+                await writer.wait_closed()
 
-        # Check for regional blocking
-        if any(pattern.search(response_text) for pattern in AI_BLOCKING_KEYWORDS):
+
+class _QuicProbeProtocol(asyncio.DatagramProtocol):
+    """Receives any UDP reply; we don't parse QUIC, presence is the signal."""
+
+    def __init__(self, fut: asyncio.Future[bytes]) -> None:
+        self._fut = fut
+
+    def datagram_received(self, data: bytes, _addr: Any) -> None:
+        if not self._fut.done():
+            self._fut.set_result(data)
+
+    def error_received(self, exc: Exception) -> None:
+        if not self._fut.done():
+            self._fut.set_exception(exc)
+
+
+async def _http3_probe(target_ip: str, timeout: int = 4) -> bool | None:
+    """
+    QUIC reachability probe. Sends a 1-RTT Initial with an *unsupported* version
+    (0xbabababa). Per RFC 9000 §17.2.1 the server MUST reply with a Version
+    Negotiation packet. Any UDP response at all = UDP/443 + QUIC speaker present
+    = HTTP/3 reachable. Timeout = filtered (or server doesn't run H3).
+
+    Returns None on socket error so the caller can distinguish "didn't measure"
+    from "definitely blocked".
+    """
+    # 15-byte packet: long header (0xc0) + unknown version + DCID(8 bytes random) + SCID(0).
+    packet = b"\xc0" + b"\xba\xba\xba\xba" + b"\x08" + os.urandom(8) + b"\x00"
+
+    loop = asyncio.get_running_loop()
+    fut: asyncio.Future[bytes] = loop.create_future()
+    transport: asyncio.DatagramTransport | None = None
+    try:
+        transport, _ = await loop.create_datagram_endpoint(
+            lambda: _QuicProbeProtocol(fut),
+            remote_addr=(target_ip, 443),
+        )
+        transport.sendto(packet)
+        try:
+            await asyncio.wait_for(fut, timeout=timeout)
             return True
-
-        # Check for Cloudflare challenge (not blocking)
-        if any(pattern.search(response_text) for pattern in CLOUDFLARE_CHALLENGE_KEYWORDS):
+        except TimeoutError:
             return False
+    except OSError:
+        return None
+    finally:
+        if transport is not None:
+            transport.close()
 
-        return False
+
+async def _doh_resolve(domain: str, timeout: int = 4) -> list[str]:
+    """Resolve via Cloudflare DoH and return the A records."""
+    ips: list[str] = []
+    url = "https://cloudflare-dns.com/dns-query"
+    headers = {"Accept": "application/dns-json"}
+    params = {"name": domain, "type": "A"}
+    try:
+        async with (
+            aiohttp.ClientSession() as session,
+            session.get(
+                url,
+                params=params,
+                headers=headers,
+                timeout=ClientTimeout(total=timeout),
+            ) as response,
+        ):
+            if response.status != 200:
+                return ips
+            payload = await response.json(content_type=None)
+            for ans in payload.get("Answer", []) or []:
+                if ans.get("type") == 1 and isinstance(ans.get("data"), str):
+                    ips.append(ans["data"])
+    except Exception as e:
+        log.debug("DoH resolve failed", domain=domain, error=str(e))
+    return ips
+
+
+async def _collect_dpi_signals(
+    domain: str,
+    local_ips: list[str],
+    timeout: int = 4,
+) -> DpiSignals:
+    """
+    Run every DPI/censorship signal concurrently and aggregate.
+
+    Uses the first resolved IP as the target for SNI-variance, fingerprint and
+    HTTP/3 probes (all need a real endpoint). Probes that don't need an IP
+    (keyword, SNI-dummy, host-header, DoH) run in parallel regardless.
+    """
+    target_ip = local_ips[0] if local_ips else ""
+
+    # Assemble tasks; every coroutine always runs — we branch on target_ip below
+    # by short-circuiting specific probes to trivial awaitables.
+    async def _skip_variance() -> tuple[bool, dict[str, str]]:
+        return False, {}
+
+    async def _skip_fingerprint() -> tuple[bool, dict[str, str]]:
+        return False, {}
+
+    async def _skip_h3() -> bool | None:
+        return None
+
+    results = await asyncio.gather(
+        _dpi_keyword_probe(domain, timeout=timeout),
+        _dpi_sni_probe(domain, timeout=timeout),
+        (_sni_variance_probe(domain, target_ip, timeout=timeout) if target_ip else _skip_variance()),
+        (_tls_fingerprint_probe(domain, target_ip, timeout=timeout) if target_ip else _skip_fingerprint()),
+        _plain_http_host_probe(domain, timeout=timeout),
+        (_http3_probe(target_ip, timeout=timeout) if target_ip else _skip_h3()),
+        _doh_resolve(domain, timeout=timeout),
+        return_exceptions=False,
+    )
+    (
+        keyword_hit,
+        (sni_hit, sni_fail_ms, _sni_code),
+        (sni_var_suspect, sni_var_outcomes),
+        (fp_suspect, fp_outcomes),
+        (host_hit, host_code),
+        h3_reachable,
+        doh_ips,
+    ) = results
+
+    # DoH mismatch: we only flag as *tampering* when the local answer is in a
+    # known-suspicious range (RKN stubs, 198.18/15, bogons). A plain set
+    # difference would fire on every Cloudflare/Akamai/AWS site — most DNS
+    # "mismatches" are just anycast/CDN variance between resolvers.
+    doh_mismatch = (
+        bool(doh_ips)
+        and bool(local_ips)
+        and not (set(doh_ips) & set(local_ips))
+        and any(_is_suspicious_ip(ip) for ip in local_ips)
+    )
+
+    return DpiSignals(
+        keyword_hit=keyword_hit,
+        sni_dummy_hit=sni_hit,
+        sni_dummy_fail_ms=round(sni_fail_ms, 1),
+        sni_dummy_fast_rst=sni_hit and sni_fail_ms < DPI_FAST_RST_MS,
+        sni_variance_suspect=sni_var_suspect,
+        sni_variance=sni_var_outcomes,
+        fingerprint_variance_suspect=fp_suspect,
+        fingerprint_variance=fp_outcomes,
+        host_header_injection=host_hit,
+        host_header_code=host_code,
+        http3_reachable=h3_reachable,
+        doh_mismatch=doh_mismatch,
+        doh_ips=doh_ips,
+    )
+
+
+def _dpi_label(sig: DpiSignals) -> str:
+    """Pick the most informative single label for a set of DPI signals."""
+    if sig.sni_variance_suspect:
+        return "DPI/SNI"
+    if sig.fingerprint_variance_suspect:
+        return "DPI/FINGERPRINT"
+    if sig.host_header_injection:
+        return "DPI/HOST"
+    if sig.sni_dummy_fast_rst:
+        return "DPI/RST"
+    if sig.sni_dummy_hit:
+        return "DPI/SNI-DUMMY"
+    if sig.keyword_hit:
+        return "DPI/KEYWORD"
+    return "DPI"
+
+
+async def _check_dpi_blocking(domain: str, timeout: int = 4) -> bool:
+    """
+    Thin bool wrapper kept for callers that only need a yes/no verdict.
+
+    Prefer `_collect_dpi_signals()` directly when you want structured output.
+    """
+    keyword_hit, sni_tuple = await asyncio.gather(
+        _dpi_keyword_probe(domain, timeout=timeout),
+        _dpi_sni_probe(domain, timeout=timeout),
+    )
+    return keyword_hit or sni_tuple[0]
+
+
+async def _check_ai_regional_blocking(domain: str, timeout: int = 4, proxy_url: str = "") -> bool:
+    """
+    Check if AI/social domain shows a regional-block page (ChatGPT/Grok/Netflix style).
+
+    Sends a Chrome-shaped request; matches known "not available in your region"
+    phrases. A Cloudflare "just a moment" challenge is explicitly treated as NOT
+    blocked. aiohttp handles gzip/deflate/br transparently (replaces `curl --compressed`).
+    """
+    headers = {
+        "User-Agent": USER_AGENT,
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
+        "Accept-Language": "en-US,en;q=0.5",
+        "Upgrade-Insecure-Requests": "1",
+        "Sec-Fetch-Dest": "document",
+        "Sec-Fetch-Mode": "navigate",
+        "Sec-Fetch-Site": "none",
+        "Sec-Fetch-User": "?1",
+        "Connection": "keep-alive",
+    }
+    try:
+        async with aiohttp.ClientSession(max_line_size=65536, max_field_size=65536) as session:
+            kwargs: dict[str, Any] = {
+                "timeout": ClientTimeout(connect=timeout, total=timeout),
+                "headers": headers,
+                "allow_redirects": True,
+                "ssl": True,
+            }
+            if proxy_url:
+                kwargs["proxy"] = proxy_url
+            async with session.get(f"https://{domain}", **kwargs) as response:
+                text = await response.text(errors="ignore")
     except Exception:
         return False
+
+    if any(pattern.search(text) for pattern in CLOUDFLARE_CHALLENGE_KEYWORDS):
+        return False
+    return any(pattern.search(text) for pattern in AI_BLOCKING_KEYWORDS)
 
 
 async def check_domain(
@@ -557,29 +948,28 @@ async def check_domain(
         result.block_type = "IP/TCP"
         return result
 
-    # 4. TLS certificate check (like bash: openssl s_client)
-    tls_valid = await _check_certificate(domain, timeout=timeout)
+    # 4-6. TLS + HTTP/HTTPS + full DPI signal suite in parallel — all network-bound.
+    tls_valid, http_code, https_code, dpi_signals = await asyncio.gather(
+        _check_certificate(domain, timeout=timeout),
+        _fetch_http_code(f"http://{domain}", proxy_url=proxy_url, timeout=timeout, retries=2),
+        _fetch_http_code(f"https://{domain}", proxy_url=proxy_url, timeout=timeout, retries=2),
+        _collect_dpi_signals(domain, ips, timeout=timeout),
+    )
     result.tls_valid = tls_valid
-
     if not tls_valid:
         result.block_type = "TLS/SSL"
 
-    # 5. HTTP/HTTPS connectivity check (like bash: fetch_code)
-    http_code = await _fetch_http_code(
-        f"http://{domain}",
-        proxy_url=proxy_url,
-        timeout=timeout,
-        retries=2,
-    )
-    https_code = await _fetch_http_code(
-        f"https://{domain}",
-        proxy_url=proxy_url,
-        timeout=timeout,
-        retries=2,
-    )
-
     result.http_code = http_code
     result.https_code = https_code
+
+    # Suppress doh_mismatch if the site is actually reachable: a synthetic IP
+    # (e.g. 198.18/15 from Xray FakeDNS) that still routes successfully is local
+    # split-tunneling, not tampering.
+    http_accessible = (200 <= http_code < 400) or (200 <= https_code < 400)
+    if dpi_signals.doh_mismatch and http_accessible:
+        dpi_signals.doh_mismatch = False
+
+    result.details["dpi_signals"] = dpi_signals
 
     # Handle HTTP redirects (like bash: if [[ "$http_code" =~ 3[0-9][0-9] ]])
     if 300 <= http_code < 400:
@@ -597,20 +987,30 @@ async def check_domain(
         result.block_type = "HTTP-RESPONSE"
         result.status = DomainStatus.PARTIAL
 
-    # 6. DPI check (like bash: check_keyword_blocking)
-    dpi_detected = await _check_dpi_blocking(domain, timeout=timeout)
-    if dpi_detected:
+    # DPI verdict: annotate block_type only when a probe provides evidence strong
+    # enough to change the story. "Strong" = SNI-variance confirmed (target-SNI
+    # fails, benign SNI succeeds), host-header injection, fast-RST on the
+    # 192.0.2.1 probe, or DoH mismatch. The bare keyword probe stays a soft signal.
+    if dpi_signals.any_hit():
         result.details["dpi_detected"] = True
-        # Only incorporate DPI into block_type when the domain is actually blocked/partial.
-        # If HTTP is still working the DPI signal is noise — record it in details only.
-        if result.status != DomainStatus.OK or (http_code == 0 and https_code == 0):
+        strong = (
+            dpi_signals.sni_variance_suspect
+            or dpi_signals.host_header_injection
+            or dpi_signals.sni_dummy_fast_rst
+            or dpi_signals.fingerprint_variance_suspect
+        )
+        blocked_or_partial = result.status != DomainStatus.OK or (http_code == 0 and https_code == 0)
+        if strong or blocked_or_partial:
+            label = _dpi_label(dpi_signals)
             if result.block_type:
-                result.block_type = f"{result.block_type}/DPI"
+                result.block_type = f"{result.block_type}/{label}"
             else:
-                result.block_type = "DPI/KEYWORD"
+                result.block_type = label
 
     # 7. AI/Social regional blocking check (like bash: if [[ " ${AI_DOMAINS[*]} " =~ " ${domain} " ]])
-    if domain in AI_REGIONAL_DOMAINS and await _check_ai_regional_blocking(domain, timeout=timeout):
+    if domain in AI_REGIONAL_DOMAINS and await _check_ai_regional_blocking(
+        domain, timeout=timeout, proxy_url=proxy_url
+    ):
         result.block_type = "REGIONAL"
         result.http_code = 0
         result.https_code = 0
@@ -920,22 +1320,22 @@ async def check_domain_verbose(
                 )
             )
 
-    # --- 6. DPI ---
+    # --- 6. DPI (full signal suite) ---
     if on_step_start:
         on_step_start("DPI")
     t0 = time.monotonic()
-    dpi_blocked = await _check_dpi_blocking(domain, timeout=timeout)
+    sig = await _collect_dpi_signals(domain, ips, timeout=timeout)
     dpi_ms = (time.monotonic() - t0) * 1000
 
-    if dpi_blocked:
-        # If HTTP is still accessible despite DPI signals, it's a warning (not a hard block).
-        # If HTTP is also failing, DPI is actively blocking → FAIL.
+    # Main DPI verdict (aggregate)
+    if sig.any_hit():
         dpi_status = CheckStatus.WARN if http_accessible else CheckStatus.FAIL
         dpi_severity = CheckSeverity.WARNING if http_accessible else CheckSeverity.ERROR
+        label = _dpi_label(sig)
         dpi_msg = (
-            f"DPI signatures detected for {domain} — site still reachable"
+            f"{label}: signatures detected for {domain} — site still reachable"
             if http_accessible
-            else f"DPI actively blocking {domain} (keyword match or SNI intercept)"
+            else f"{label}: DPI actively blocking {domain}"
         )
         _emit(
             DiagnosticResult(
@@ -943,7 +1343,17 @@ async def check_domain_verbose(
                 status=dpi_status,
                 severity=dpi_severity,
                 message=dpi_msg,
-                details={"domain": domain, "method": "keyword+SNI"},
+                details={
+                    "domain": domain,
+                    "label": label,
+                    "keyword_hit": sig.keyword_hit,
+                    "sni_dummy_hit": sig.sni_dummy_hit,
+                    "sni_dummy_fail_ms": sig.sni_dummy_fail_ms,
+                    "sni_dummy_fast_rst": sig.sni_dummy_fast_rst,
+                    "sni_variance": sig.sni_variance,
+                    "fingerprint_variance": sig.fingerprint_variance,
+                    "host_header_injection": sig.host_header_injection,
+                },
                 recommendations=["Deep Packet Inspection (DPI) is active — use a VPN or VLESS/Trojan proxy"],
                 duration_ms=dpi_ms,
             )
@@ -960,12 +1370,128 @@ async def check_domain_verbose(
             )
         )
 
+    # Sub-probe diagnostics — each one emits its own line so users can see
+    # exactly which layer of DPI is active.
+    if sig.sni_variance:
+        variance_status = CheckStatus.FAIL if sig.sni_variance_suspect else CheckStatus.PASS
+        variance_sev = CheckSeverity.ERROR if sig.sni_variance_suspect else CheckSeverity.INFO
+        _emit(
+            DiagnosticResult(
+                check_name="SNI Variance",
+                status=variance_status,
+                severity=variance_sev,
+                message=(
+                    f"SNI-based DPI confirmed ({sig.sni_variance})"
+                    if sig.sni_variance_suspect
+                    else f"No SNI-based DPI ({sig.sni_variance})"
+                ),
+                details=sig.sni_variance,
+                duration_ms=0,
+            )
+        )
+
+    if sig.fingerprint_variance:
+        fp_status = CheckStatus.WARN if sig.fingerprint_variance_suspect else CheckStatus.PASS
+        fp_sev = CheckSeverity.WARNING if sig.fingerprint_variance_suspect else CheckSeverity.INFO
+        _emit(
+            DiagnosticResult(
+                check_name="TLS Fingerprint",
+                status=fp_status,
+                severity=fp_sev,
+                message=(
+                    f"ClientHello shape matters — {sig.fingerprint_variance}"
+                    if sig.fingerprint_variance_suspect
+                    else f"Fingerprint-agnostic — {sig.fingerprint_variance}"
+                ),
+                details=sig.fingerprint_variance,
+                recommendations=(
+                    ["Use a client with a browser-shaped TLS fingerprint (Xray uTLS, curl-impersonate)"]
+                    if sig.fingerprint_variance_suspect
+                    else []
+                ),
+                duration_ms=0,
+            )
+        )
+
+    if sig.host_header_injection:
+        _emit(
+            DiagnosticResult(
+                check_name="Host-Header DPI",
+                status=CheckStatus.FAIL,
+                severity=CheckSeverity.ERROR,
+                message=f"Plaintext HTTP Host-based DPI injection (code {sig.host_header_code})",
+                details={"injected_code": sig.host_header_code},
+                duration_ms=0,
+            )
+        )
+
+    if sig.http3_reachable is not None:
+        h3_status = CheckStatus.PASS if sig.http3_reachable else CheckStatus.WARN
+        h3_sev = CheckSeverity.INFO if sig.http3_reachable else CheckSeverity.WARNING
+        _emit(
+            DiagnosticResult(
+                check_name="HTTP/3 (QUIC)",
+                status=h3_status,
+                severity=h3_sev,
+                message=(
+                    "UDP/443 responds to QUIC — HTTP/3 reachable"
+                    if sig.http3_reachable
+                    else "No QUIC response on UDP/443 — HTTP/3 filtered or unsupported"
+                ),
+                details={"reachable": sig.http3_reachable},
+                duration_ms=0,
+            )
+        )
+
+    if sig.doh_ips:
+        shared = bool(set(sig.doh_ips) & set(ips))
+        if sig.doh_mismatch and not http_accessible:
+            # Suspicious IP + site broken → genuine DNS tampering.
+            doh_status, doh_sev = CheckStatus.FAIL, CheckSeverity.ERROR
+            doh_msg = (
+                f"Local DNS points to suspicious IPs {ips} while Cloudflare DoH gives "
+                f"{sig.doh_ips}, and the site is unreachable — likely DNS tampering"
+            )
+            doh_recs = ["DNS responses appear tampered — switch to DoH/DoT (1.1.1.1, 8.8.8.8)"]
+        elif sig.doh_mismatch and http_accessible:
+            # Suspicious IP but site works → local split-tunnel / FakeDNS (e.g. Xray
+            # FakeDNS hands out 198.18.0.0/15 addresses for tunneled domains). Not tampering.
+            doh_status, doh_sev = CheckStatus.PASS, CheckSeverity.INFO
+            doh_msg = (
+                f"Local DNS returns a synthetic IP {ips} (DoH: {sig.doh_ips}) but the site "
+                "is reachable — looks like local FakeDNS/split-tunnel (e.g. Xray FakeDNS), not tampering"
+            )
+            doh_recs = []
+        elif shared:
+            doh_status, doh_sev = CheckStatus.PASS, CheckSeverity.INFO
+            doh_msg = f"Local DNS matches Cloudflare DoH (DoH: {sig.doh_ips[:3]})"
+            doh_recs = []
+        else:
+            # Different IPs but local ones are not suspicious — normal CDN/anycast variance.
+            doh_status, doh_sev = CheckStatus.PASS, CheckSeverity.INFO
+            doh_msg = (
+                f"Local DNS and Cloudflare DoH return different IPs ({ips} vs {sig.doh_ips}) — "
+                "likely CDN/anycast variance, not tampering"
+            )
+            doh_recs = []
+        _emit(
+            DiagnosticResult(
+                check_name="DoH Cross-check",
+                status=doh_status,
+                severity=doh_sev,
+                message=doh_msg,
+                details={"doh_ips": sig.doh_ips, "local_ips": ips, "mismatch": sig.doh_mismatch},
+                recommendations=doh_recs,
+                duration_ms=0,
+            )
+        )
+
     # --- 7. AI/regional blocking (selected domains only) ---
     if domain in AI_REGIONAL_DOMAINS:
         if on_step_start:
             on_step_start("Regional Block")
         t0 = time.monotonic()
-        regional = await _check_ai_regional_blocking(domain, timeout=timeout)
+        regional = await _check_ai_regional_blocking(domain, timeout=timeout, proxy_url=proxy_url)
         reg_ms = (time.monotonic() - t0) * 1000
 
         if regional:
