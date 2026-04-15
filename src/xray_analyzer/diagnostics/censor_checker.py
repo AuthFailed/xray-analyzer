@@ -227,7 +227,7 @@ async def _fetch_http_code(
         return await _fetch_with_curl(url, proxy_url, timeout, retries, user_agent, extra_headers, resolve_to_ip)
 
     for attempt in range(retries):
-        async with aiohttp.ClientSession() as session:
+        async with aiohttp.ClientSession(max_line_size=65536, max_field_size=65536) as session:
             try:
                 kwargs: dict[str, Any] = {
                     "timeout": timeout_cfg,

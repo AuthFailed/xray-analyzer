@@ -85,9 +85,7 @@ async def _xray_proxy_context(proxy_url: str | None, silent: bool = False) -> As
     yield proxy_url
 
 
-_DOMAIN_RE = re.compile(
-    r"^(?:[a-zA-Z0-9](?:[a-zA-Z0-9\-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z]{2,}$"
-)
+_DOMAIN_RE = re.compile(r"^(?:[a-zA-Z0-9](?:[a-zA-Z0-9\-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z]{2,}$")
 
 
 def load_domains_file(path: str) -> list[str]:
@@ -550,7 +548,9 @@ async def _cmd_check_via_subscription(domain: str, port: int, timeout: int, subs
         if xray_path:
             settings.xray_binary_path = xray_path
         else:
-            error_console.print("[bold red]✗ Xray binary not found — required for subscription proxy testing[/bold red]")  # noqa: E501
+            error_console.print(
+                "[bold red]✗ Xray binary not found — required for subscription proxy testing[/bold red]"
+            )
             return 1
 
         # Fetch subscription proxies
@@ -781,9 +781,7 @@ async def cmd_serve(args: argparse.Namespace) -> int:
         if not sub_shares:
             error_console.print("[bold red]✗ No valid proxies found in subscription[/bold red]")
             return 1
-        console.print(
-            f"[green]✓[/green] Loaded [bold]{len(sub_shares)}[/bold] proxies from subscription"
-        )
+        console.print(f"[green]✓[/green] Loaded [bold]{len(sub_shares)}[/bold] proxies from subscription")
 
     # --file takes priority over positional domains and --list
     if getattr(args, "file", None):
@@ -835,9 +833,7 @@ async def cmd_serve(args: argparse.Namespace) -> int:
         console.print()
 
         runner = await run_metrics_server(host, port, state)
-        console.print(
-            f"[green]✓[/green] Listening on [bold]http://{host}:{port}/metrics[/bold]  (Ctrl+C to stop)\n"
-        )
+        console.print(f"[green]✓[/green] Listening on [bold]http://{host}:{port}/metrics[/bold]  (Ctrl+C to stop)\n")
 
         try:
             while True:
@@ -861,9 +857,7 @@ async def cmd_serve(args: argparse.Namespace) -> int:
                             total=len(sub_shares),
                         )
 
-                        async def _scan_one_proxy(
-                            share, _sem=sem, _prog=progress, _tid=task_id
-                        ) -> None:
+                        async def _scan_one_proxy(share, _sem=sem, _prog=progress, _tid=task_id) -> None:
                             label = share.name or f"{share.server}:{share.port}"
                             async with _sem:
                                 t0 = time.monotonic()
@@ -881,7 +875,9 @@ async def cmd_serve(args: argparse.Namespace) -> int:
                                     except Exception as tcp_err:
                                         err_msg = f"host unreachable ({share.server}:{share.port}): {tcp_err}"
                                         state.mark_error(err_msg, proxy_label=label)
-                                        log.warning("Proxy host unreachable, skipping scan", proxy=label, error=str(tcp_err))
+                                        log.warning(
+                                            "Proxy host unreachable, skipping scan", proxy=label, error=str(tcp_err)
+                                        )
                                         _prog.console.print(
                                             f"  [yellow]⚠[/yellow] [bold]{label}[/bold]  [dim]host unreachable — scan skipped[/dim]"
                                         )
@@ -906,9 +902,7 @@ async def cmd_serve(args: argparse.Namespace) -> int:
                                 except Exception as e:
                                     state.mark_error(str(e), proxy_label=label)
                                     log.error("Scan failed", proxy=label, error=str(e))
-                                    _prog.console.print(
-                                        f"  [red]✗[/red] [bold]{label}[/bold]  [dim]{e}[/dim]"
-                                    )
+                                    _prog.console.print(f"  [red]✗[/red] [bold]{label}[/bold]  [dim]{e}[/dim]")
                                 finally:
                                     _prog.advance(_tid)
 
@@ -946,7 +940,7 @@ async def cmd_serve(args: argparse.Namespace) -> int:
                             console.print(f"[red]✗[/red] Scan error: {e}")
 
                 await asyncio.sleep(interval)
-        except (asyncio.CancelledError, KeyboardInterrupt):
+        except asyncio.CancelledError, KeyboardInterrupt:
             console.print("\n[dim]Shutting down...[/dim]")
         finally:
             await runner.cleanup()
