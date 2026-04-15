@@ -3,14 +3,24 @@
 import asyncio
 from typing import Any
 
+import aiohttp
+
 from xray_analyzer.core.logger import get_logger
-from xray_analyzer.core.models import CheckStatus, HostDiagnostic, ProxyInfo, ProxyStatus
+from xray_analyzer.core.models import (
+    CheckSeverity,
+    CheckStatus,
+    DiagnosticResult,
+    HostDiagnostic,
+    ProxyInfo,
+    ProxyStatus,
+)
 from xray_analyzer.diagnostics.proxy_cross_checker import (
     check_via_proxy,
     check_xray_cross_connectivity,
 )
 from xray_analyzer.diagnostics.proxy_xray_checker import XRAY_PROTOCOLS
 from xray_analyzer.diagnostics.subscription_parser import ProxyShareURL, find_share_url_for_proxy
+from xray_analyzer.diagnostics.xray_manager import launched_xray
 
 log = get_logger("cross_proxy_tests")
 
@@ -134,7 +144,8 @@ class CrossProxyTestRunner:
             )
             return
 
-        tasks = []
+        # Collect work items first; start Xray only if there is something to do.
+        work: list[tuple[HostDiagnostic, str, int, str]] = []
         for diag in problematic:
             parsed = self._parse_host_port(diag)
             if parsed is None:
@@ -144,7 +155,6 @@ class CrossProxyTestRunner:
             if target_host in ("virt.host", "localhost", "127.0.0.1"):
                 continue
 
-            # Only test proxies that failed Xray connectivity
             has_xray_failure = any(
                 r.check_name.startswith("Proxy Xray Connectivity")
                 and r.status in (CheckStatus.FAIL, CheckStatus.TIMEOUT)
@@ -153,20 +163,48 @@ class CrossProxyTestRunner:
             if not has_xray_failure:
                 continue
 
-            # Find the protocol from diagnostic results
             protocol = "vless"
             for r in diag.results:
                 if r.check_name.startswith("Proxy Xray Connectivity"):
                     protocol = r.details.get("protocol", "vless")
                     break
 
-            tasks.append(
-                self._xray_cross_test_for_host(diag, target_host, target_port, protocol, working_share, working_name)
-            )
+            work.append((diag, target_host, target_port, protocol))
 
-        if tasks:
-            log.info(f"Running {len(tasks)} Xray cross-proxy tests")
-            await asyncio.gather(*tasks, return_exceptions=True)
+        if not work:
+            return
+
+        log.info(f"Running {len(work)} Xray cross-proxy tests through shared {working_name}")
+        try:
+            async with launched_xray(working_share) as socks_url, aiohttp.ClientSession() as session:
+                await asyncio.gather(
+                    *[
+                        self._xray_cross_test_for_host(
+                            diag, target_host, target_port, protocol, socks_url, working_share.protocol, working_name,
+                            session,
+                        )
+                        for diag, target_host, target_port, protocol in work
+                    ],
+                    return_exceptions=True,
+                )
+        except RuntimeError as e:
+            log.error(f"Failed to start shared working Xray proxy for cross-tests: {e}")
+            for diag, target_host, target_port, protocol in work:
+                diag.add_result(
+                    DiagnosticResult(
+                        check_name="Xray Cross-Proxy Connectivity",
+                        status=CheckStatus.SKIP,
+                        severity=CheckSeverity.WARNING,
+                        message=f"Не удалось запустить рабочий прокси для проверки: {e}",
+                        details={
+                            "target_host": target_host,
+                            "target_port": target_port,
+                            "target_protocol": protocol,
+                            "working_proxy": working_name,
+                            "error": str(e),
+                        },
+                    )
+                )
 
     async def _xray_cross_test_for_host(
         self,
@@ -174,8 +212,10 @@ class CrossProxyTestRunner:
         target_host: str,
         target_port: int,
         target_protocol: str,
-        working_share: ProxyShareURL,
+        socks_url: str,
+        working_protocol: str,
         working_name: str,
+        session: aiohttp.ClientSession,
     ) -> None:
         """Run a single Xray cross-proxy test and add result to diagnostic."""
         try:
@@ -183,8 +223,10 @@ class CrossProxyTestRunner:
                 target_host,
                 target_port,
                 target_protocol,
-                working_share,
+                socks_url,
                 working_proxy_name=working_name,
+                working_proxy_protocol=working_protocol,
+                session=session,
             )
             diag.add_result(result)
         except Exception as e:

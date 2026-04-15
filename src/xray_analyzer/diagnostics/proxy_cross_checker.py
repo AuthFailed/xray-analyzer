@@ -6,8 +6,6 @@ import aiohttp
 
 from xray_analyzer.core.logger import get_logger
 from xray_analyzer.core.models import CheckSeverity, CheckStatus, DiagnosticResult
-from xray_analyzer.diagnostics.subscription_parser import ProxyShareURL
-from xray_analyzer.diagnostics.xray_manager import XrayInstance
 
 log = get_logger("proxy_cross_checker")
 
@@ -132,67 +130,50 @@ async def check_xray_cross_connectivity(
     target_host: str,
     target_port: int,
     target_protocol: str,
-    working_proxy_share: ProxyShareURL,
+    socks_url: str,
     working_proxy_name: str = "",
+    working_proxy_protocol: str = "",
+    session: aiohttp.ClientSession | None = None,
 ) -> DiagnosticResult:
     """
-    Test connectivity to a problematic server through another working Xray proxy.
+    Test connectivity to a problematic server through a working Xray proxy.
 
-    Launches the working proxy and tries to reach target_host:target_port through
-    its SOCKS tunnel. If reachable, the target is likely RKN-blocked from our
-    location but works elsewhere. If unreachable through the proxy too, the server
-    itself is down.
+    Uses an already-running Xray SOCKS tunnel (started once by the caller) to
+    reach target_host:target_port. If reachable, the target is likely RKN-blocked
+    from our location but works elsewhere. If unreachable through the proxy too,
+    the server itself is down.
 
     Args:
         target_host: Problematic server hostname or IP
         target_port: Problematic server port
         target_protocol: Protocol of the problematic server (e.g. vless)
-        working_proxy_share: Share URL of the working Xray proxy
+        socks_url: socks5://user:pass@127.0.0.1:port of the working Xray tunnel
         working_proxy_name: Human-readable name of the working proxy
+        working_proxy_protocol: Protocol of the working proxy (for reporting)
+        session: Optional shared aiohttp session; a new one is created if omitted
     """
     loop = asyncio.get_running_loop()
     start_time = loop.time()
     log.info(
-        f"Cross-test: checking {target_host}:{target_port} via {working_proxy_name} ({working_proxy_share.protocol})"
+        f"Cross-test: checking {target_host}:{target_port} via {working_proxy_name} ({working_proxy_protocol})"
     )
-
-    xray = XrayInstance(working_proxy_share)
-
-    try:
-        socks_port = await xray.start()
-    except RuntimeError as e:
-        log.error(f"Failed to start working Xray proxy for cross-test: {e}")
-        return DiagnosticResult(
-            check_name="Xray Cross-Proxy Connectivity",
-            status=CheckStatus.SKIP,
-            severity=CheckSeverity.WARNING,
-            message=f"Не удалось запустить рабочий прокси для проверки: {e}",
-            details={
-                "target_host": target_host,
-                "target_port": target_port,
-                "target_protocol": target_protocol,
-                "working_proxy": working_proxy_name,
-                "error": str(e),
-            },
-        )
-
-    socks_url = f"socks5://{xray.socks_user}:{xray.socks_password}@127.0.0.1:{socks_port}"
 
     # Use http:// to test raw TCP connectivity to the target through the Xray tunnel.
     # Xray routing is configured to route all traffic through the proxy outbound,
     # so this tests whether target_host:target_port is reachable from the proxy's location.
     test_url = f"http://{target_host}:{target_port}/"
 
+    owns_session = session is None
+    if session is None:
+        session = aiohttp.ClientSession()
+
     try:
-        async with (
-            aiohttp.ClientSession() as session,
-            session.get(
-                test_url,
-                proxy=socks_url,
-                timeout=aiohttp.ClientTimeout(total=15, connect=10),
-                allow_redirects=False,
-            ) as response,
-        ):
+        async with session.get(
+            test_url,
+            proxy=socks_url,
+            timeout=aiohttp.ClientTimeout(total=15, connect=10),
+            allow_redirects=False,
+        ) as response:
             duration_ms = (loop.time() - start_time) * 1000
             return DiagnosticResult(
                 check_name="Xray Cross-Proxy Connectivity",
@@ -207,7 +188,7 @@ async def check_xray_cross_connectivity(
                     "target_port": target_port,
                     "target_protocol": target_protocol,
                     "working_proxy": working_proxy_name,
-                    "working_proxy_protocol": working_proxy_share.protocol,
+                    "working_proxy_protocol": working_proxy_protocol,
                     "http_status": response.status,
                     "duration_ms": round(duration_ms, 2),
                 },
@@ -234,7 +215,7 @@ async def check_xray_cross_connectivity(
                 "target_port": target_port,
                 "target_protocol": target_protocol,
                 "working_proxy": working_proxy_name,
-                "working_proxy_protocol": working_proxy_share.protocol,
+                "working_proxy_protocol": working_proxy_protocol,
                 "duration_ms": round(duration_ms, 2),
             },
             recommendations=[
@@ -256,7 +237,7 @@ async def check_xray_cross_connectivity(
                 "target_port": target_port,
                 "target_protocol": target_protocol,
                 "working_proxy": working_proxy_name,
-                "working_proxy_protocol": working_proxy_share.protocol,
+                "working_proxy_protocol": working_proxy_protocol,
                 "duration_ms": round(duration_ms, 2),
             },
             recommendations=[
@@ -278,7 +259,7 @@ async def check_xray_cross_connectivity(
                 "target_port": target_port,
                 "target_protocol": target_protocol,
                 "working_proxy": working_proxy_name,
-                "working_proxy_protocol": working_proxy_share.protocol,
+                "working_proxy_protocol": working_proxy_protocol,
                 "error": str(e),
                 "error_type": type(e).__name__,
                 "duration_ms": round(duration_ms, 2),
@@ -290,4 +271,5 @@ async def check_xray_cross_connectivity(
         )
 
     finally:
-        await xray.stop()
+        if owns_session:
+            await session.close()

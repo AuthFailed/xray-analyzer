@@ -2,6 +2,7 @@
 
 import asyncio
 
+from xray_analyzer.core.config import settings
 from xray_analyzer.core.logger import get_logger
 from xray_analyzer.core.models import (
     CheckSeverity,
@@ -17,7 +18,7 @@ from xray_analyzer.diagnostics.proxy_rkn_throttle_checker import (
     check_rkn_throttle_via_xray,
 )
 from xray_analyzer.diagnostics.subscription_parser import ProxyShareURL, find_share_url_for_proxy
-from xray_analyzer.diagnostics.xray_manager import XrayInstance
+from xray_analyzer.diagnostics.xray_manager import launched_xray
 
 log = get_logger("throttle_checker")
 
@@ -27,6 +28,13 @@ class ThrottleCheckRunner:
 
     def __init__(self, subscription_shares: list[ProxyShareURL]) -> None:
         self._subscription_shares = subscription_shares
+        # Bound parallelism so a batch of 30+ problematic hosts doesn't fan out
+        # into that many simultaneous HTTPS range-reads.
+        self._sem = asyncio.Semaphore(settings.rkn_throttle_concurrency)
+
+    async def _bounded(self, coro):  # type: ignore[no-untyped-def]
+        async with self._sem:
+            return await coro
 
     # --- Direct throttle checks ---
 
@@ -70,10 +78,14 @@ class ThrottleCheckRunner:
                 if share:
                     sni_domain = share.sni or share.host or share.server
                     if sni_domain and sni_domain not in ("", "none") and sni_domain != target_host:
-                        tasks.append(asyncio.create_task(self._throttle_sni_for_host(diag, sni_domain, share)))
+                        tasks.append(
+                            asyncio.create_task(self._bounded(self._throttle_sni_for_host(diag, sni_domain, share)))
+                        )
                     # else: SNI = server, check normally below
 
-            tasks.append(asyncio.create_task(self._throttle_direct_for_host(diag, target_host, target_port)))
+            tasks.append(
+                asyncio.create_task(self._bounded(self._throttle_direct_for_host(diag, target_host, target_port)))
+            )
 
         if tasks:
             log.info(f"Running {len(tasks)} RKN throttle checks (direct)")
@@ -101,7 +113,20 @@ class ThrottleCheckRunner:
         target_host: str,
         target_port: int,
     ) -> None:
-        """Run a single RKN throttle check (direct connection)."""
+        """Run a single RKN throttle check (direct connection).
+
+        Throttle detection is an HTTPS-layer test (16-20 KB cutoff via RST injection),
+        so it only makes sense against port 443. Using the proxy's service port
+        (e.g. 8388 for Shadowsocks) would trigger a TLS handshake failure that looks
+        like throttling but is just a protocol mismatch — a false positive.
+        """
+        if target_port != 443:
+            log.debug(
+                f"Skipping direct throttle check for {target_host}:{target_port} "
+                f"(non-443 port, would yield false positive)"
+            )
+            return
+
         try:
             result = await check_rkn_throttle_direct(target_host, target_port)
             diag.add_result(result)
@@ -141,7 +166,9 @@ class ThrottleCheckRunner:
                 sni_domain = target_host
                 tasks.append(
                     asyncio.create_task(
-                        self._throttle_via_proxy_for_host(diag, sni_domain, working_proxy_url, working_name)
+                        self._bounded(
+                            self._throttle_via_proxy_for_host(diag, sni_domain, working_proxy_url, working_name)
+                        )
                     )
                 )
             else:
@@ -153,7 +180,9 @@ class ThrottleCheckRunner:
                 if has_throttle_failure:
                     tasks.append(
                         asyncio.create_task(
-                            self._throttle_via_proxy_for_host(diag, target_host, working_proxy_url, working_name)
+                            self._bounded(
+                                self._throttle_via_proxy_for_host(diag, target_host, working_proxy_url, working_name)
+                            )
                         )
                     )
 
@@ -202,9 +231,8 @@ class ThrottleCheckRunner:
             )
             return
 
-        tasks: list[asyncio.Task[None]] = []
+        targets: list[tuple[HostDiagnostic, str]] = []
         for diag in problematic:
-            # Only check hosts that failed the direct RKN throttle check
             has_throttle_failure = any(
                 r.check_name.startswith("RKN Throttle") and r.status in (CheckStatus.FAIL, CheckStatus.TIMEOUT)
                 for r in diag.results
@@ -215,50 +243,45 @@ class ThrottleCheckRunner:
             parsed = self._parse_host_port(diag)
             if parsed is None:
                 continue
-            target_host = parsed[0]
 
-            tasks.append(
-                asyncio.create_task(self._xray_throttle_for_host(diag, target_host, working_share, working_name))
-            )
+            targets.append((diag, parsed[0]))
 
-        if tasks:
-            log.info(f"Running {len(tasks)} RKN throttle checks (via Xray: {working_name})")
-            await asyncio.gather(*tasks, return_exceptions=True)
+        if not targets:
+            return
+
+        log.info(f"Running {len(targets)} RKN throttle checks through shared Xray ({working_name})")
+        try:
+            async with launched_xray(working_share) as socks_url:
+                await asyncio.gather(
+                    *[self._bounded(self._xray_throttle_for_host(diag, target_host, socks_url, working_name))
+                      for diag, target_host in targets],
+                    return_exceptions=True,
+                )
+        except RuntimeError as e:
+            log.error(f"Failed to start Xray for throttle checks: {e}")
+            for diag, target_host in targets:
+                diag.add_result(
+                    DiagnosticResult(
+                        check_name="RKN Throttle (via Xray)",
+                        status=CheckStatus.SKIP,
+                        severity=CheckSeverity.WARNING,
+                        message=f"Failed to start Xray for check: {e}",
+                        details={
+                            "target_host": target_host,
+                            "working_proxy": working_name,
+                            "error": str(e),
+                        },
+                    )
+                )
 
     async def _xray_throttle_for_host(
         self,
         diag: HostDiagnostic,
         target_host: str,
-        working_share: ProxyShareURL,
+        socks_url: str,
         working_name: str,
     ) -> None:
-        """Run RKN throttle check through Xray tunnel."""
-        xray = XrayInstance(working_share)
-        socks_port = 0
-        xray_started = False
-
-        try:
-            socks_port = await xray.start()
-            xray_started = True
-        except RuntimeError as e:
-            log.error(f"Failed to start Xray for throttle check: {e}")
-            diag.add_result(
-                DiagnosticResult(
-                    check_name="RKN Throttle (via Xray)",
-                    status=CheckStatus.SKIP,
-                    severity=CheckSeverity.WARNING,
-                    message=f"Failed to start Xray for check: {e}",
-                    details={
-                        "target_host": target_host,
-                        "working_proxy": working_name,
-                        "error": str(e),
-                    },
-                )
-            )
-            return
-
-        socks_url = f"socks5://{xray.socks_user}:{xray.socks_password}@127.0.0.1:{socks_port}"
-
+        """Run RKN throttle check through a shared Xray tunnel."""
         try:
             result = await check_rkn_throttle_via_xray(
                 socks_url=socks_url,
@@ -270,9 +293,6 @@ class ThrottleCheckRunner:
             diag.add_result(result)
         except Exception as e:
             log.error(f"Xray throttle check failed for {target_host} via {working_name}: {e}")
-        finally:
-            if xray_started:
-                await xray.stop()
 
     # --- Utility ---
 

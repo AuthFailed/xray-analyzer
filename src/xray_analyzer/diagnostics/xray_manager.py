@@ -6,7 +6,8 @@ import os
 import secrets
 import socket
 import tempfile
-from contextlib import suppress
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager, suppress
 from pathlib import Path
 from typing import Any
 
@@ -294,3 +295,18 @@ class XrayInstance:
                 config_file.unlink()
 
         log.debug(f"Xray stopped for {self.share.name}")
+
+
+@asynccontextmanager
+async def launched_xray(share: ProxyShareURL) -> AsyncIterator[str]:
+    """Start an Xray instance, yield its socks5:// URL, and stop it on exit.
+
+    Use this when you need a temporary Xray tunnel that many parallel tasks
+    can share — avoids the N+1 problem of starting a fresh Xray per target.
+    """
+    xray = XrayInstance(share)
+    socks_port = await xray.start()
+    try:
+        yield f"socks5://{xray.socks_user}:{xray.socks_password}@127.0.0.1:{socks_port}"
+    finally:
+        await xray.stop()

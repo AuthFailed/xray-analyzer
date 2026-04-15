@@ -38,6 +38,7 @@ class Settings(BaseSettings):
 
     # RKN Throttle Check (16-20KB DPI blocking)
     rkn_throttle_check_enabled: bool = True
+    rkn_throttle_concurrency: int = Field(default=10, ge=1, le=100)
 
     # Logging
     log_level: str = "INFO"
