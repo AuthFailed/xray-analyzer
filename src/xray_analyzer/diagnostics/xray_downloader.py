@@ -124,21 +124,20 @@ async def download_xray(
 
             log.info(f"Downloaded {tmp_path.stat().st_size / 1024 / 1024:.1f} MB")
 
-            # Extract
+            # Extract binary + geoip/geosite in a single archive pass
             with zipfile.ZipFile(tmp_path) as zf:
-                # Find the xray binary inside the zip
-                xray_file = None
-                for name in zf.namelist():
-                    if name == "xray" or name.endswith("/xray"):
-                        xray_file = name
-                        break
+                names = zf.namelist()
+
+                xray_file = next(
+                    (n for n in names if n == "xray" or n.endswith("/xray")),
+                    None,
+                )
 
                 if not xray_file:
-                    # Try to extract all and find xray
+                    # Fallback: extract everything and search recursively
                     zf.extractall(str(install_dir))
                     xray_path = install_dir / "xray"
                     if not xray_path.exists():
-                        # Search recursively
                         xray_files = list(install_dir.rglob("xray"))
                         if xray_files:
                             xray_path = xray_files[0]
@@ -148,17 +147,13 @@ async def download_xray(
                 else:
                     xray_path = install_dir / "xray"
                     zf.extract(xray_file, str(install_dir))
-                    # Move from nested to install dir if needed
                     extracted = install_dir / xray_file
                     if extracted != xray_path:
                         extracted.rename(xray_path)
 
-            # Copy geoip/geosite if present
-            with zipfile.ZipFile(tmp_path) as zf:
-                for name in zf.namelist():
+                for name in names:
                     if name.endswith("geoip.dat") or name.endswith("geosite.dat"):
                         zf.extract(name, str(install_dir))
-                        # Move to install_dir root
                         src = install_dir / name
                         if src.exists() and src != install_dir / Path(name).name:
                             src.rename(install_dir / Path(name).name)

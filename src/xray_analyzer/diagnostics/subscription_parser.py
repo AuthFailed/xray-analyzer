@@ -50,8 +50,8 @@ def decode_subscription(text: str) -> str:
     """
     # Try base64 decode
     try:
-        # Add padding if needed
-        padded = text + "=" * (4 - len(text) % 4) if len(text) % 4 else text
+        # Add padding if needed (no-op when length is already a multiple of 4)
+        padded = text + "=" * (-len(text) % 4)
         decoded = base64.b64decode(padded).decode("utf-8")
         # Check if decoded content has share URLs
         if any(decoded.startswith(p) for p in ("vless://", "trojan://", "ss://", "http://", "socks://")):

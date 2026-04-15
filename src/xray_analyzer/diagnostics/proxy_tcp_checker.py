@@ -16,6 +16,8 @@ log = get_logger("proxy_tcp_checker")
 async def check_proxy_tcp_tunnel(
     proxy_url: str,
     test_url: str | None = None,
+    check_name: str = "Proxy TCP Tunnel",
+    accept_any_status: bool = False,
 ) -> DiagnosticResult:
     """
     Check TCP tunnel through proxy to a status check URL.
@@ -43,7 +45,7 @@ async def check_proxy_tcp_tunnel(
         scheme = parsed_proxy.scheme.lower()
         if scheme not in supported_schemes:
             return DiagnosticResult(
-                check_name="Proxy TCP Tunnel",
+                check_name=check_name,
                 status=CheckStatus.SKIP,
                 severity=CheckSeverity.INFO,
                 message=f"Proxy protocol '{scheme}' not supported for TCP tunnel check",
@@ -60,7 +62,7 @@ async def check_proxy_tcp_tunnel(
             )
     except Exception as e:
         return DiagnosticResult(
-            check_name="Proxy TCP Tunnel",
+            check_name=check_name,
             status=CheckStatus.FAIL,
             severity=CheckSeverity.ERROR,
             message=f"Invalid proxy URL: {e}",
@@ -99,10 +101,10 @@ async def check_proxy_tcp_tunnel(
                 duration_ms=round(duration_ms, 2),
             )
 
-            # 204 or 200 are success
-            if status_code in (200, 204):
+            # 204 or 200 are success (or any status if accept_any_status=True)
+            if accept_any_status or status_code in (200, 204):
                 return DiagnosticResult(
-                    check_name="Proxy TCP Tunnel",
+                    check_name=check_name,
                     status=CheckStatus.PASS,
                     severity=CheckSeverity.INFO,
                     message=f"TCP tunnel via proxy working: HTTP {status_code} ({test_url})",
@@ -110,7 +112,7 @@ async def check_proxy_tcp_tunnel(
                 )
             else:
                 return DiagnosticResult(
-                    check_name="Proxy TCP Tunnel",
+                    check_name=check_name,
                     status=CheckStatus.FAIL,
                     severity=CheckSeverity.ERROR,
                     message=f"TCP tunnel returned unexpected status: HTTP {status_code}",
@@ -127,7 +129,7 @@ async def check_proxy_tcp_tunnel(
         log.error("Proxy TCP tunnel connection error", proxy_url=proxy_url, error=str(e))
 
         return DiagnosticResult(
-            check_name="Proxy TCP Tunnel",
+            check_name=check_name,
             status=CheckStatus.FAIL,
             severity=CheckSeverity.CRITICAL,
             message=f"Failed to connect to proxy: {e}",
@@ -150,7 +152,7 @@ async def check_proxy_tcp_tunnel(
         log.error("Proxy TCP tunnel connector error", proxy_url=proxy_url, error=str(e))
 
         return DiagnosticResult(
-            check_name="Proxy TCP Tunnel",
+            check_name=check_name,
             status=CheckStatus.FAIL,
             severity=CheckSeverity.CRITICAL,
             message=f"Connection error through proxy: {e}",
@@ -173,7 +175,7 @@ async def check_proxy_tcp_tunnel(
         log.error("Proxy TCP tunnel timeout", proxy_url=proxy_url, test_url=test_url)
 
         return DiagnosticResult(
-            check_name="Proxy TCP Tunnel",
+            check_name=check_name,
             status=CheckStatus.TIMEOUT,
             severity=CheckSeverity.CRITICAL,
             message=f"TCP tunnel via proxy timed out ({settings.tcp_timeout}s)",
@@ -195,7 +197,7 @@ async def check_proxy_tcp_tunnel(
         log.error("Proxy TCP tunnel client error", proxy_url=proxy_url, error=str(e))
 
         return DiagnosticResult(
-            check_name="Proxy TCP Tunnel",
+            check_name=check_name,
             status=CheckStatus.FAIL,
             severity=CheckSeverity.ERROR,
             message=f"Error checking TCP tunnel: {e}",
@@ -218,7 +220,7 @@ async def check_proxy_tcp_tunnel(
         log.error("Proxy TCP tunnel import error", proxy_url=proxy_url, error=str(e))
 
         return DiagnosticResult(
-            check_name="Proxy TCP Tunnel",
+            check_name=check_name,
             status=CheckStatus.FAIL,
             severity=CheckSeverity.ERROR,
             message=f"Missing required dependency: {e}",
@@ -238,7 +240,7 @@ async def check_proxy_tcp_tunnel(
         log.error("Proxy TCP tunnel unexpected error", proxy_url=proxy_url, error=str(e))
 
         return DiagnosticResult(
-            check_name="Proxy TCP Tunnel",
+            check_name=check_name,
             status=CheckStatus.FAIL,
             severity=CheckSeverity.ERROR,
             message=f"Unexpected error checking TCP tunnel: {e}",
