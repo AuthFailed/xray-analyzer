@@ -526,7 +526,7 @@ async def _dpi_sni_probe(domain: str, timeout: int = 4) -> tuple[bool, float, in
             code = int(match.group(1))
             return (400 <= code < 600), elapsed_ms, code
         return False, elapsed_ms, 0
-    except (TimeoutError, ssl.SSLError, OSError, socket.gaierror):
+    except TimeoutError, ssl.SSLError, OSError, socket.gaierror:
         return False, (time.monotonic() - t0) * 1000, 0
     except Exception as e:
         log.debug("SNI probe failed", domain=domain, error=str(e))
@@ -538,9 +538,7 @@ async def _dpi_sni_probe(domain: str, timeout: int = 4) -> tuple[bool, float, in
                 await writer.wait_closed()
 
 
-async def _sni_variance_probe(
-    domain: str, target_ip: str, timeout: int = 4
-) -> tuple[bool, dict[str, str]]:
+async def _sni_variance_probe(domain: str, target_ip: str, timeout: int = 4) -> tuple[bool, dict[str, str]]:
     """
     To the *real* target IP, run three TLS handshakes: no-SNI, wrong-SNI, target-SNI.
 
@@ -563,7 +561,7 @@ async def _sni_variance_probe(
                 timeout=timeout,
             )
             return "ok"
-        except (TimeoutError, ssl.SSLError, OSError):
+        except TimeoutError, ssl.SSLError, OSError:
             return "fail"
         except Exception as e:
             log.debug("SNI variance leg failed", domain=domain, label=label, error=str(e))
@@ -583,15 +581,11 @@ async def _sni_variance_probe(
 
     # Suspect SNI-based DPI when target fails while at least one of the benign
     # handshakes succeeds on the same IP.
-    suspect = outcomes["target_sni"] == "fail" and (
-        outcomes["no_sni"] == "ok" or outcomes["harmless_sni"] == "ok"
-    )
+    suspect = outcomes["target_sni"] == "fail" and (outcomes["no_sni"] == "ok" or outcomes["harmless_sni"] == "ok")
     return suspect, outcomes
 
 
-async def _tls_fingerprint_probe(
-    domain: str, target_ip: str, timeout: int = 4
-) -> tuple[bool, dict[str, str]]:
+async def _tls_fingerprint_probe(domain: str, target_ip: str, timeout: int = 4) -> tuple[bool, dict[str, str]]:
     """
     Two handshakes with differently shaped SSLContexts. Pure stdlib, so this is a
     weaker approximation of `curl-impersonate` — it catches the coarsest
@@ -607,7 +601,7 @@ async def _tls_fingerprint_probe(
                 timeout=timeout,
             )
             return "ok"
-        except (TimeoutError, ssl.SSLError, OSError):
+        except TimeoutError, ssl.SSLError, OSError:
             return "fail"
         except Exception as e:
             log.debug("Fingerprint leg failed", domain=domain, label=label, error=str(e))
@@ -668,7 +662,7 @@ async def _plain_http_host_probe(domain: str, timeout: int = 4) -> tuple[bool, i
             code = int(match.group(1))
             return (400 <= code < 600), code
         return False, 0
-    except (TimeoutError, OSError):
+    except TimeoutError, OSError:
         return False, 0
     except Exception as e:
         log.debug("Host-header probe failed", domain=domain, error=str(e))
@@ -955,6 +949,17 @@ async def check_domain(
         _fetch_http_code(f"https://{domain}", proxy_url=proxy_url, timeout=timeout, retries=2),
         _collect_dpi_signals(domain, ips, timeout=timeout),
     )
+    # TCP ok but both HTTP codes zero — more likely a timeout under load
+    # (e.g. local Xray FakeDNS) than a real block. Retry serially with doubled
+    # timeout; healthy domains never enter this branch.
+    if ip_ok and http_code == 0 and https_code == 0:
+        retry_timeout = timeout * 2
+        https_code = await _fetch_http_code(f"https://{domain}", proxy_url=proxy_url, timeout=retry_timeout, retries=1)
+        if https_code == 0:
+            http_code = await _fetch_http_code(
+                f"http://{domain}", proxy_url=proxy_url, timeout=retry_timeout, retries=1
+            )
+
     result.tls_valid = tls_valid
     if not tls_valid:
         result.block_type = "TLS/SSL"
