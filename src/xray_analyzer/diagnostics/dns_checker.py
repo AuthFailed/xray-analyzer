@@ -388,7 +388,7 @@ async def _checkhost_dns_resolve(host: str) -> dict[str, Any]:
                                 unique_ips.append(ip)
                         return {"success": True, "ips": unique_ips}
 
-            except aiohttp.ClientError, TimeoutError:
+            except (aiohttp.ClientError, TimeoutError):
                 continue
 
         return {"success": False, "error": "Check-Host result polling timed out"}
