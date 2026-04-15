@@ -1,10 +1,10 @@
 """Manage Xray core subprocess for VLESS/Trojan/SS proxy testing."""
 
 import asyncio
-import itertools
 import json
 import os
 import secrets
+import socket
 import tempfile
 from contextlib import suppress
 from pathlib import Path
@@ -16,14 +16,17 @@ from xray_analyzer.diagnostics.subscription_parser import ProxyShareURL
 
 log = get_logger("xray_manager")
 
-# Default local SOCKS port range: 19000-19999
-_BASE_PORT = 19000
-_port_counter = itertools.count(0)
-
 
 def _next_socks_port() -> int:
-    """Return next available SOCKS port in range [19000, 19999]."""
-    return _BASE_PORT + (next(_port_counter) % 1000)
+    """Grab a free ephemeral port from the OS and return it.
+
+    A small race remains between closing the probe socket and Xray binding,
+    but OS-assigned ports avoid collisions under parallel fan-out far better
+    than a modulo counter.
+    """
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+        sock.bind(("127.0.0.1", 0))
+        return sock.getsockname()[1]
 
 
 def _generate_xray_config(
@@ -230,37 +233,43 @@ class XrayInstance:
                 stderr=asyncio.subprocess.PIPE,
             )
 
-            # Wait for process to exit or timeout (8s).
-            # TimeoutError means process is still running → started successfully.
-            try:
-                stdout_bytes, stderr_bytes = await asyncio.wait_for(
-                    self._process.communicate(),
-                    timeout=8,
-                )
-                stdout_str = stdout_bytes.decode("utf-8", errors="replace").strip()
-                stderr_str = stderr_bytes.decode("utf-8", errors="replace").strip()
-
-                if stderr_str:
-                    log.debug(f"Xray stderr [{self.share.name}]: {stderr_str}")
-                if stdout_str:
-                    log.debug(f"Xray stdout [{self.share.name}]: {stdout_str}")
-
-                returncode = self._process.returncode or 0
-                if returncode != 0:
+            # Poll the SOCKS port for readiness (up to 8s with 100ms interval).
+            # Xray typically binds within ~500ms, so this is much faster than
+            # waiting the full 8s for process.communicate to time out.
+            deadline = asyncio.get_running_loop().time() + 8
+            while True:
+                if self._process.returncode is not None:
+                    stdout_bytes = await self._process.stdout.read() if self._process.stdout else b""
+                    stderr_bytes = await self._process.stderr.read() if self._process.stderr else b""
+                    stdout_str = stdout_bytes.decode("utf-8", errors="replace").strip()
+                    stderr_str = stderr_bytes.decode("utf-8", errors="replace").strip()
+                    if stderr_str:
+                        log.debug(f"Xray stderr [{self.share.name}]: {stderr_str}")
+                    if stdout_str:
+                        log.debug(f"Xray stdout [{self.share.name}]: {stdout_str}")
                     raise RuntimeError(
-                        f"Xray exited with code {returncode} for "
+                        f"Xray exited with code {self._process.returncode} for "
                         f"{self.share.name}.\n"
                         f"Stderr: {stderr_str}\n"
                         f"Stdout: {stdout_str}"
                     )
 
-                log.info(f"Xray ready for {self.share.name} on port {self.socks_port}")
-                return self.socks_port
+                try:
+                    _, writer = await asyncio.open_connection("127.0.0.1", self.socks_port)
+                    writer.close()
+                    with suppress(Exception):
+                        await writer.wait_closed()
+                    log.info(f"Xray ready for {self.share.name} on port {self.socks_port}")
+                    return self.socks_port
+                except (ConnectionRefusedError, OSError):
+                    pass
 
-            except TimeoutError:
-                # Process is still running — started successfully
-                log.info(f"Xray ready for {self.share.name} on port {self.socks_port}")
-                return self.socks_port
+                if asyncio.get_running_loop().time() >= deadline:
+                    raise RuntimeError(
+                        f"Xray did not bind SOCKS port {self.socks_port} for "
+                        f"{self.share.name} within 8s"
+                    )
+                await asyncio.sleep(0.1)
 
         except (FileNotFoundError, OSError) as e:
             raise RuntimeError(

@@ -132,37 +132,38 @@ async def _run_xray_tests(
     socks_url = f"socks5://{xray.socks_user}:{xray.socks_password}@127.0.0.1:{socks_port}"
 
     try:
-        # 1. Status check
-        status_result = await _check_proxy_status(socks_url, share, label_suffix=label_suffix)
-        results.append(status_result)
+        async with aiohttp.ClientSession() as session:
+            # 1. Status check (gates the rest)
+            status_result = await _check_proxy_status(session, socks_url, share, label_suffix=label_suffix)
+            results.append(status_result)
 
-        # 2. Exit IP check (only if status passed)
-        if status_result.status == CheckStatus.PASS:
-            ip_result = await _check_proxy_exit_ip(socks_url, share, label_suffix=label_suffix)
-            results.append(ip_result)
-
-            # 3. SNI connection check
-            sni_result = await _check_proxy_sni(socks_url, share, label_suffix=label_suffix)
-            results.append(sni_result)
-        else:
-            results.append(
-                DiagnosticResult(
-                    check_name=f"Proxy Exit IP (Xray){label_suffix}",
-                    status=CheckStatus.SKIP,
-                    severity=CheckSeverity.INFO,
-                    message="Пропущено — проверка подключения не прошла",
-                    details={"protocol": share.protocol},
+            # 2+3. Exit IP + SNI in parallel (independent, both go through same tunnel)
+            if status_result.status == CheckStatus.PASS:
+                ip_result, sni_result = await asyncio.gather(
+                    _check_proxy_exit_ip(session, socks_url, share, label_suffix=label_suffix),
+                    _check_proxy_sni(session, socks_url, share, label_suffix=label_suffix),
                 )
-            )
-            results.append(
-                DiagnosticResult(
-                    check_name=f"Proxy SNI Connection (Xray){label_suffix}",
-                    status=CheckStatus.SKIP,
-                    severity=CheckSeverity.INFO,
-                    message="Пропущено — проверка подключения не прошла",
-                    details={"protocol": share.protocol},
+                results.append(ip_result)
+                results.append(sni_result)
+            else:
+                results.append(
+                    DiagnosticResult(
+                        check_name=f"Proxy Exit IP (Xray){label_suffix}",
+                        status=CheckStatus.SKIP,
+                        severity=CheckSeverity.INFO,
+                        message="Пропущено — проверка подключения не прошла",
+                        details={"protocol": share.protocol},
+                    )
                 )
-            )
+                results.append(
+                    DiagnosticResult(
+                        check_name=f"Proxy SNI Connection (Xray){label_suffix}",
+                        status=CheckStatus.SKIP,
+                        severity=CheckSeverity.INFO,
+                        message="Пропущено — проверка подключения не прошла",
+                        details={"protocol": share.protocol},
+                    )
+                )
 
     finally:
         if xray_started:
@@ -172,6 +173,7 @@ async def _run_xray_tests(
 
 
 async def _check_proxy_status(
+    session: aiohttp.ClientSession,
     socks_url: str,
     share: ProxyShareURL,
     label_suffix: str = "",
@@ -181,15 +183,12 @@ async def _check_proxy_status(
     start_time = asyncio.get_running_loop().time()
 
     try:
-        async with (
-            aiohttp.ClientSession() as session,
-            session.get(
-                test_url,
-                proxy=socks_url,
-                timeout=aiohttp.ClientTimeout(total=15),
-                allow_redirects=True,
-            ) as response,
-        ):
+        async with session.get(
+            test_url,
+            proxy=socks_url,
+            timeout=aiohttp.ClientTimeout(total=15),
+            allow_redirects=True,
+        ) as response:
             duration_ms = (asyncio.get_running_loop().time() - start_time) * 1000
             status_code = response.status
 
@@ -266,6 +265,7 @@ async def _check_proxy_status(
 
 
 async def _check_proxy_exit_ip(
+    session: aiohttp.ClientSession,
     socks_url: str,
     share: ProxyShareURL,
     label_suffix: str = "",
@@ -275,14 +275,11 @@ async def _check_proxy_exit_ip(
     start_time = asyncio.get_running_loop().time()
 
     try:
-        async with (
-            aiohttp.ClientSession() as session,
-            session.get(
-                ip_check_url,
-                proxy=socks_url,
-                timeout=aiohttp.ClientTimeout(total=15),
-            ) as response,
-        ):
+        async with session.get(
+            ip_check_url,
+            proxy=socks_url,
+            timeout=aiohttp.ClientTimeout(total=15),
+        ) as response:
             duration_ms = (asyncio.get_running_loop().time() - start_time) * 1000
             if response.status != 200:
                 return DiagnosticResult(
@@ -332,6 +329,7 @@ async def _check_proxy_exit_ip(
 
 
 async def _check_proxy_sni(
+    session: aiohttp.ClientSession,
     socks_url: str,
     share: ProxyShareURL,
     label_suffix: str = "",
@@ -342,15 +340,12 @@ async def _check_proxy_sni(
     start_time = asyncio.get_running_loop().time()
 
     try:
-        async with (
-            aiohttp.ClientSession() as session,
-            session.get(
-                test_url,
-                proxy=socks_url,
-                timeout=aiohttp.ClientTimeout(total=15),
-                allow_redirects=True,
-            ) as response,
-        ):
+        async with session.get(
+            test_url,
+            proxy=socks_url,
+            timeout=aiohttp.ClientTimeout(total=15),
+            allow_redirects=True,
+        ) as response:
             duration_ms = (asyncio.get_running_loop().time() - start_time) * 1000
             status_code = response.status
 
