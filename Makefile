@@ -1,4 +1,4 @@
-.PHONY: help up down build rebuild logs logs-checker restart serve analyze scan check status shell
+.PHONY: help up down build rebuild logs logs-checker restart serve analyze scan check status shell test lint format typecheck ci
 
 .DEFAULT_GOAL := help
 
@@ -76,3 +76,23 @@ check: ## Step-by-step domain diagnosis  [DOMAIN=meduza.io] [PORT=443] [PROXY=..
 
 shell: ## Open a shell inside the analyzer container
 	docker compose run --rm --entrypoint /bin/sh xray-analyzer
+
+# ── Local dev targets ────────────────────────────────────────────────────────
+
+test: ## Run the pytest suite
+	uv run pytest
+
+lint: ## Run ruff lint check
+	uv run ruff check src/ tests/
+
+format: ## Run ruff formatter
+	uv run ruff format src/ tests/
+
+typecheck: ## Run ty static type checker
+	uv run ty check
+
+ci: ## Run all checks (lint + format check + typecheck + tests)
+	uv run ruff check src/ tests/
+	uv run ruff format --check src/ tests/
+	uv run ty check
+	uv run pytest

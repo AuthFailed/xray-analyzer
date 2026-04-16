@@ -57,7 +57,7 @@ def decode_subscription(text: str) -> str:
         # Check if decoded content has share URLs
         if any(decoded.startswith(p) for p in ("vless://", "trojan://", "ss://", "http://", "socks://")):
             return decoded
-    except (binascii.Error, UnicodeDecodeError, ValueError):
+    except binascii.Error, UnicodeDecodeError, ValueError:
         pass
 
     # Return as-is if not base64

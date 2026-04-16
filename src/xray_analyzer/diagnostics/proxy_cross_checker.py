@@ -154,9 +154,7 @@ async def check_xray_cross_connectivity(
     """
     loop = asyncio.get_running_loop()
     start_time = loop.time()
-    log.info(
-        f"Cross-test: checking {target_host}:{target_port} via {working_proxy_name} ({working_proxy_protocol})"
-    )
+    log.info(f"Cross-test: checking {target_host}:{target_port} via {working_proxy_name} ({working_proxy_protocol})")
 
     # Use http:// to test raw TCP connectivity to the target through the Xray tunnel.
     # Xray routing is configured to route all traffic through the proxy outbound,
