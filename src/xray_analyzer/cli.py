@@ -9,8 +9,10 @@ import time
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from pathlib import Path
+from typing import Any
 
 from rich.console import Console
+from rich.padding import Padding
 from rich.panel import Panel
 from rich.progress import (
     BarColumn,
@@ -27,7 +29,7 @@ from xray_analyzer import cli_dpi
 from xray_analyzer.core.analyzer import XrayAnalyzer
 from xray_analyzer.core.config import settings
 from xray_analyzer.core.logger import get_logger, setup_logging
-from xray_analyzer.core.models import CheckSeverity, CheckStatus, DiagnosticResult, HostDiagnostic
+from xray_analyzer.core.models import CheckStatus, DiagnosticResult, HostDiagnostic
 from xray_analyzer.core.standalone_analyzer import _is_valid_server_address, analyze_subscription_proxies
 from xray_analyzer.core.xray_client import XrayCheckerClient
 from xray_analyzer.diagnostics.cdn_target_scanner import load_targets, scan_targets
@@ -42,7 +44,7 @@ from xray_analyzer.diagnostics.censor_checker import (
     run_censor_check,
 )
 from xray_analyzer.diagnostics.dns_dpi_prober import probe_dns_integrity
-from xray_analyzer.diagnostics.subscription_parser import fetch_subscription, parse_share_url
+from xray_analyzer.diagnostics.subscription_parser import ProxyShareURL, fetch_subscription, parse_share_url
 from xray_analyzer.diagnostics.telegram_checker import check_telegram
 from xray_analyzer.diagnostics.xray_downloader import ensure_xray
 from xray_analyzer.diagnostics.xray_manager import XrayInstance
@@ -413,16 +415,59 @@ async def _run_standalone_analysis() -> int:
                 settings.subscription_url,
                 hwid=settings.subscription_hwid,
             )
-        console.print(f"[green]✓[/green] Loaded [bold]{len(shares)}[/bold] proxies from subscription\n")
+        console.print(f"[green]✓[/green] Loaded [bold]{len(shares)}[/bold] proxies from subscription")
 
         if not shares:
             console.print("[yellow]No proxies found in subscription[/yellow]")
             return 0
 
-        # Run diagnostics on all proxies
-        console.print(f"[bold]Testing {len(shares)} proxies...[/bold]\n")
-        with console.status(f"[dim]Running diagnostics on {len(shares)} proxies...[/dim]", spinner="dots"):
-            diagnostics = await analyze_subscription_proxies(shares)
+        # Start panel + live progress bar — same idiom as cmd_scan / cmd_check.
+        console.print()
+        console.print(
+            Panel(
+                f"[bold cyan]🛰  Proxy Analysis[/bold cyan]\n"
+                f"[dim]Subscription · {len(shares)} proxies · Xray "
+                f"{'enabled' if settings.xray_test_enabled else 'disabled'}[/dim]",
+                border_style="blue",
+                padding=(0, 2),
+            )
+        )
+        console.print()
+
+        phase_msg_box: list[str] = [""]
+
+        with Progress(
+            SpinnerColumn(spinner_name="dots"),
+            TextColumn("[progress.description]{task.description}"),
+            BarColumn(bar_width=28),
+            MofNCompleteColumn(),
+            TaskProgressColumn(),
+            TimeElapsedColumn(),
+            console=console,
+            transient=False,
+        ) as progress:
+            task_id = progress.add_task(f"[cyan]Analyzing {len(shares)} proxies[/cyan]", total=len(shares))
+
+            def on_proxy_complete(diag: HostDiagnostic, share: ProxyShareURL) -> None:
+                _print_proxy_progress_line(progress, diag, share.protocol)
+                progress.advance(task_id)
+
+            def on_phase(phase: str, count: int) -> None:
+                if phase == "cross_proxy":
+                    phase_msg_box[0] = (
+                        f"Cross-checking {count} problem hosts via a working proxy (this can take 30-60s)..."
+                    )
+                    progress.update(task_id, description=f"[cyan]{phase_msg_box[0]}[/cyan]")
+                elif phase == "finalizing":
+                    progress.update(task_id, description="[cyan]Finalizing report...[/cyan]")
+
+            diagnostics = await analyze_subscription_proxies(
+                shares,
+                on_proxy_complete=on_proxy_complete,
+                on_phase=on_phase,
+            )
+
+        console.print()
         _print_analysis_results(diagnostics)
         return 0
 
@@ -440,14 +485,12 @@ async def _run_full_analysis_with_checker(watch: bool = False) -> int:
         if watch:
             console.print("[yellow]Starting continuous monitoring... (Ctrl+C to stop)[/yellow]")
             while True:
-                with console.status("[dim]Fetching proxies and running diagnostics...[/dim]", spinner="dots"):
-                    diagnostics = await analyzer.run_full_analysis()
+                diagnostics = await _run_analyzer_with_progress(analyzer)
                 _print_analysis_results(diagnostics)
                 console.print(f"\n[dim]Next check in {settings.check_interval_seconds}s...[/dim]")
                 await asyncio.sleep(settings.check_interval_seconds)
         else:
-            with console.status("[dim]Fetching proxies and running diagnostics...[/dim]", spinner="dots"):
-                diagnostics = await analyzer.run_full_analysis()
+            diagnostics = await _run_analyzer_with_progress(analyzer)
             _print_analysis_results(diagnostics)
 
         return 0
@@ -1115,19 +1158,92 @@ async def cmd_status() -> int:
         await client.close()
 
 
+def _print_proxy_progress_line(progress: Progress, diag: HostDiagnostic, protocol: str) -> None:
+    """Print a single per-proxy progress line under the active Progress bar.
+
+    Mirrors the cmd_scan callback style: icon + colored status label + dim extras.
+    """
+    if diag.overall_status == CheckStatus.PASS:
+        icon, label = "[green]✓[/green]", "[green]OK[/green]     "
+    elif diag.overall_status == CheckStatus.WARN:
+        icon, label = "[yellow]⚠[/yellow]", "[yellow]WARN[/yellow]   "
+    else:
+        icon, label = "[red]✗[/red]", "[red]PROBLEM[/red]"
+
+    extras: list[str] = []
+    # Surface the most actionable signal per proxy.
+    for r in sorted(diag.results, key=_check_sort_key):
+        name = r.check_name.lower()
+        if "xray connectivity" in name and r.status == CheckStatus.PASS:
+            extras.append("[dim]xray✓[/dim]")
+            break
+        if "xray connectivity" in name and r.status in (CheckStatus.FAIL, CheckStatus.TIMEOUT):
+            extras.append("[dim]xray✗[/dim]")
+            break
+    for r in diag.results:
+        if r.check_name == "TCP Connection":
+            extras.append("[dim]tcp✓[/dim]" if r.status == CheckStatus.PASS else "[dim]tcp✗[/dim]")
+            break
+
+    extras_str = "  " + "  ".join(extras) if extras else ""
+    proto_tag = f"[dim]({protocol})[/dim]" if protocol else ""
+    progress.console.print(f"  {icon} [bold]{diag.host}[/bold] {proto_tag}  {label}{extras_str}")
+
+
+async def _run_analyzer_with_progress(analyzer: XrayAnalyzer) -> list[HostDiagnostic]:
+    """Run XrayAnalyzer.run_full_analysis() under a Rich progress bar.
+
+    The bar is created lazily once the proxy count is known (the analyzer fetches
+    shares + proxies first, then signals via on_targets_ready).
+    """
+    progress = Progress(
+        SpinnerColumn(spinner_name="dots"),
+        TextColumn("[progress.description]{task.description}"),
+        BarColumn(bar_width=28),
+        MofNCompleteColumn(),
+        TaskProgressColumn(),
+        TimeElapsedColumn(),
+        console=console,
+        transient=False,
+    )
+
+    task_id_box: list[int] = []
+    progress.start()
+
+    def _on_targets_ready(count: int) -> None:
+        if count == 0:
+            return
+        task_id_box.append(progress.add_task(f"[cyan]Analyzing {count} proxies[/cyan]", total=count))
+
+    def _on_proxy_complete(diag: HostDiagnostic, proxy: Any) -> None:
+        if not task_id_box:
+            return
+        protocol = getattr(proxy, "protocol", "")
+        _print_proxy_progress_line(progress, diag, protocol)
+        progress.advance(task_id_box[0])
+
+    try:
+        return await analyzer.run_full_analysis(
+            on_proxy_complete=_on_proxy_complete,
+            on_targets_ready=_on_targets_ready,
+        )
+    finally:
+        progress.stop()
+
+
 def _print_analysis_results(diagnostics: list[HostDiagnostic]) -> None:
     """Print full analysis results with detailed check-by-check breakdown."""
     if not diagnostics:
         console.print("[yellow]No proxies to analyze[/yellow]")
         return
 
-    # Filter out skipped virtual/invalid hosts (no results means host was skipped)
+    # Filter out skipped virtual/invalid hosts (no results means host was skipped —
+    # subscription section dividers, gateway placeholders, malformed entries).
     real_diagnostics = [d for d in diagnostics if d.results]
     skipped_hosts = [d for d in diagnostics if not d.results]
 
     if skipped_hosts:
-        for sh in skipped_hosts:
-            console.print(f"[dim]○ Skipped: {sh.host}[/dim]")
+        console.print(f"[dim]○ Skipped {len(skipped_hosts)} non-proxy subscription entries[/dim]")
 
     if not real_diagnostics:
         console.print("[yellow]No real hosts to analyze (only virtual/skipped hosts)[/yellow]")
@@ -1156,49 +1272,43 @@ def _print_analysis_results(diagnostics: list[HostDiagnostic]) -> None:
     # WARN hosts go into the passing compact table (they work with caveats)
     passing_and_warn = passing + warning
 
-    # === PROBLEM HOSTS (detailed) ===
+    # === PROBLEM HOSTS (grouped by shared fingerprint) ===
     if failing:
         console.print("[bold red]⚠ HOSTS WITH PROBLEMS[/bold red]\n")
 
+        # Group hosts whose check fingerprint is identical AND whose
+        # host-normalized recommendations are identical. Iteration preserves
+        # the original "failing" order so output stays stable across runs.
+        groups: list[tuple[tuple, tuple, list[HostDiagnostic]]] = []
+        index: dict[tuple, int] = {}
         for diag in failing:
-            failed_checks = [r for r in diag.results if r.status in (CheckStatus.FAIL, CheckStatus.TIMEOUT)]
-            warn_checks = [r for r in diag.results if r.severity == CheckSeverity.WARNING]
+            check_fp = _problem_fingerprint(diag)
+            rec_fp = tuple(_normalize_recommendation(r, diag.host) for r in diag.recommendations)
+            key = (check_fp, rec_fp)
+            if key in index:
+                groups[index[key]][2].append(diag)
+            else:
+                index[key] = len(groups)
+                groups.append((check_fp, rec_fp, [diag]))
 
-            console.print(f"  [bold cyan]→ {diag.host}[/bold cyan]")
+        for _check_fp, _rec_fp, members in groups:
+            head = members[0]
+            if len(members) == 1:
+                console.print(f"  [bold cyan]→ {head.host}[/bold cyan]")
+            else:
+                console.print(f"  [bold cyan]→ {len(members)} hosts with the same symptom:[/bold cyan]")
+                for m in members:
+                    console.print(f"     [cyan]• {m.host}[/cyan]")
             console.print(f"  [dim]{'─' * 60}[/dim]")
+            console.print(Padding(_build_host_table(head), (0, 0, 0, 4)))
 
-            # Print failed/timeout checks first
-            for result in failed_checks:
-                severity_icon = {
-                    CheckStatus.FAIL: "[red]✗ FAIL[/red]",
-                    CheckStatus.TIMEOUT: "[yellow]⏱ TIMEOUT[/yellow]",
-                }.get(result.status, "?")
-
-                console.print(f"    {severity_icon} [bold]{result.check_name}[/bold]")
-                console.print(f"      {result.message}")
-
-                # Show key details
-                details = result.details
-                if "local_ips" in details:
-                    local_ips = details.get("local_ips", ["N/A"]) or ["N/A"]
-                    ch_ips = details.get("checkhost_ips", ["N/A"]) or ["N/A"]
-                    console.print(f"      [dim]Local DNS:[/dim] {', '.join(local_ips)}")
-                    console.print(f"      [dim]Check-Host:[/dim] {', '.join(ch_ips)}")
-                if "exit_ip" in details:
-                    console.print(f"      [dim]Exit IP:[/dim] {details['exit_ip']}")
-                if "http_status" in details:
-                    console.print(f"      [dim]HTTP:[/dim] {details['http_status']}")
-
-            # Print warnings
-            for result in warn_checks:
-                console.print(f"    [yellow]⚠ WARNING[/yellow] [bold]{result.check_name}[/bold]")
-                console.print(f"      {result.message}")
-
-            # Print recommendations
-            if diag.recommendations:
+            if head.recommendations:
                 console.print("    [bold yellow]What to do:[/bold yellow]")
-                for rec in diag.recommendations:
-                    console.print(f"      → {rec}")
+                for rec in _compact_recommendations(head.recommendations):
+                    # Replace this group-leader's host token with <host> when
+                    # the group has multiple members, otherwise show as-is.
+                    rendered = _normalize_recommendation(rec, head.host) if len(members) > 1 else rec
+                    console.print(f"      → {rendered}")
 
             console.print()
 
@@ -1233,87 +1343,6 @@ def _print_analysis_results(diagnostics: list[HostDiagnostic]) -> None:
         console.print(table)
         console.print()
 
-    # === DETAILED CHECK RESULTS FOR ALL HOSTS ===
-    # Only show for problem hosts — passing/warn hosts are already summarized
-    problem_hosts_only = [d for d in real_diagnostics if d.overall_status not in (CheckStatus.PASS, CheckStatus.WARN)]
-
-    if problem_hosts_only:
-        console.print("[bold]Detailed results:[/bold]\n")
-
-        for diag in problem_hosts_only:
-            status_color = "green" if diag.overall_status == CheckStatus.PASS else "red"
-            console.print(f"  [bold {status_color}]{diag.host}[/bold {status_color}]")
-            console.print(f"  [dim]{'─' * 60}[/dim]")
-
-            # Separate into pass/fail/skip for better readability
-            failed = [r for r in diag.results if r.status in (CheckStatus.FAIL, CheckStatus.TIMEOUT)]
-            skipped = [r for r in diag.results if r.status == CheckStatus.SKIP]
-            passed = [r for r in diag.results if r.status == CheckStatus.PASS]
-
-            # Failed checks with details
-            for result in failed:
-                icon, color = _status_icon_and_color(result.status)
-                console.print(f"    [{color}]{icon}[/{color}] [bold]{result.check_name}[/bold]")
-                console.print(f"       {result.message}")
-                details = result.details
-                if "total_bytes_received" in details:
-                    bytes_val = details["total_bytes_received"]
-                    kb_val = bytes_val / 1024
-                    console.print(f"       [dim]Received: {bytes_val} bytes ({kb_val:.1f}KB)[/dim]")
-                if "http_status" in details:
-                    console.print(f"       [dim]HTTP: {details['http_status']}[/dim]")
-                if "exit_ip" in details:
-                    console.print(f"       [dim]Exit IP: {details['exit_ip']}[/dim]")
-                if "local_ips" in details:
-                    console.print(f"       [dim]DNS IPs: {', '.join(details['local_ips'][:2])}[/dim]")
-                if "checkhost_ips" in details:
-                    console.print(f"       [dim]Check-Host IPs: {', '.join(details['checkhost_ips'][:2])}[/dim]")
-                if "latency_avg_ms" in details:
-                    avg = details["latency_avg_ms"]
-                    mn = details["latency_min_ms"]
-                    mx = details["latency_max_ms"]
-                    console.print(f"       [dim]Latency: avg={avg}ms, min={mn}ms, max={mx}ms[/dim]")
-                if "packet_loss_pct" in details:
-                    console.print(f"       [dim]Loss: {details['packet_loss_pct']}%[/dim]")
-                if "sni_domain" in details:
-                    console.print(f"       [dim]SNI domain: {details['sni_domain']}[/dim]")
-                if "checked_for_proxy" in details:
-                    console.print(f"       [dim]Check for proxy: {details['checked_for_proxy']}[/dim]")
-
-            # Skipped checks — compact
-            for result in skipped:
-                reason = result.message[:60] if result.message else "skipped"
-                console.print(f"    [dim]○ SKIP  {result.check_name}: {reason}[/dim]")
-
-            # Passed checks — compact with key details
-            for result in passed:
-                icon, color = _status_icon_and_color(result.status)
-                console.print(f"    [{color}]{icon}[/{color}] {result.check_name}")
-                details = result.details
-                if "total_bytes_received" in details:
-                    bytes_val = details["total_bytes_received"]
-                    kb_val = bytes_val / 1024
-                    console.print(f"       [dim]Received: {bytes_val} bytes ({kb_val:.1f}KB)[/dim]")
-                if "common_ips" in details:
-                    console.print(f"       [dim]Match Check-Host: {', '.join(details['common_ips'])}[/dim]")
-                if "latency_avg_ms" in details:
-                    avg = details["latency_avg_ms"]
-                    mn = details["latency_min_ms"]
-                    mx = details["latency_max_ms"]
-                    console.print(f"       [dim]Latency: avg={avg}ms, min={mn}ms, max={mx}ms[/dim]")
-                if "packet_loss_pct" in details:
-                    console.print(f"       [dim]Loss: {details['packet_loss_pct']}%[/dim]")
-                if "exit_ip" in details:
-                    console.print(f"       [dim]Exit IP: {details['exit_ip']}[/dim]")
-                if "http_status" in details:
-                    console.print(f"       [dim]HTTP: {details['http_status']}[/dim]")
-                if "working_proxy" in details:
-                    console.print(f"       [dim]Via proxy: {details['working_proxy']}[/dim]")
-                    if "duration_ms" in details:
-                        console.print(f"       [dim]Duration: {details['duration_ms']}ms[/dim]")
-
-            console.print()
-
 
 def _check_status_icon(diagnostic: HostDiagnostic, check_name_part: str) -> str:
     """Get a compact status icon for a check."""
@@ -1341,6 +1370,133 @@ def _status_icon_and_color(status: CheckStatus) -> tuple[str, str]:
         CheckStatus.TIMEOUT: ("⏱", "yellow"),
         CheckStatus.SKIP: ("○", "dim"),
     }.get(status, ("?", "white"))
+
+
+# Canonical render order for checks — keeps the per-host block stable regardless
+# of which async task completed first. Lower number = printed earlier.
+_CHECK_ORDER: list[tuple[str, int]] = [
+    ("DNS Resolution", 10),
+    ("TCP Connection", 20),
+    ("TCP Ping", 30),
+    ("Proxy Xray Connectivity (домен", 40),
+    ("Proxy Xray Connectivity (domain", 40),
+    ("Proxy Xray Connectivity (IP", 41),
+    ("Proxy Xray Connectivity", 42),
+    ("Proxy Xray Test", 45),
+    ("Proxy Exit IP", 50),
+    ("Proxy SNI", 60),
+    ("Proxy TCP Tunnel", 70),
+    ("Proxy Tunnel", 71),
+    ("Target via Proxy", 80),
+    ("RKN", 90),
+]
+
+
+def _check_sort_key(result: DiagnosticResult) -> tuple[int, str]:
+    """Sort key for ordering checks within a host block."""
+    name = result.check_name
+    for prefix, rank in _CHECK_ORDER:
+        if name.startswith(prefix):
+            return (rank, name)
+    return (1000, name)
+
+
+def _short_check_name(name: str) -> str:
+    """Strip noisy suffixes from a check name for table rendering."""
+    # Drop "(домен: X)" / "(domain: X)" / "(IP: X)" suffix — host is already
+    # in the section header.
+    name = re.sub(r"\s*\((домен|domain|IP):[^)]+\)\s*$", "", name)
+    # "Proxy Xray Connectivity" → "Proxy Connectivity" (the "Xray" qualifier
+    # is implied since this is the analyze command).
+    name = name.replace("Proxy Xray Connectivity", "Proxy Connectivity")
+    name = name.replace("Proxy Xray Test", "Proxy Test")
+    name = name.replace("Proxy Exit IP (Xray)", "Exit IP")
+    name = name.replace("Proxy SNI Connection (Xray)", "SNI Reachability")
+    name = name.replace("DNS Resolution (Check-Host)", "DNS")
+    name = name.replace("TCP Connection", "TCP Connect")
+    return name
+
+
+def _check_detail_text(result: DiagnosticResult) -> str:
+    """Pick the most useful single-line detail for a check result."""
+    msg = (result.message or "").strip()
+    details = result.details
+
+    if result.status == CheckStatus.PASS:
+        bits: list[str] = []
+        if "exit_ip" in details:
+            bits.append(f"exit {details['exit_ip']}")
+        if "latency_avg_ms" in details and "TCP Ping" in result.check_name:
+            bits.append(f"avg {details['latency_avg_ms']}ms")
+        if "http_status" in details and "HTTP" not in (msg or ""):
+            bits.append(f"HTTP {details['http_status']}")
+        return " · ".join(bits) if bits else ""
+
+    # FAIL / WARN / TIMEOUT / SKIP — keep the message
+    return msg
+
+
+def _problem_fingerprint(diag: HostDiagnostic) -> tuple:
+    """Stable signature for "this host has the same problem as another".
+
+    Built from the (canonical check name, status) pairs. Two hosts that both
+    have ✓ DNS / ⏱ TCP Connect / ✓ Proxy Connectivity / ✓ Exit IP / ✓ SNI
+    will share a fingerprint regardless of which specific server they hit.
+    """
+    return tuple(sorted((_short_check_name(r.check_name), str(r.status)) for r in diag.results))
+
+
+def _normalize_recommendation(rec: str, host_label: str) -> str:
+    """Replace the host's own server:port inside a recommendation with a placeholder.
+
+    Lets us deduplicate "X.com:443 reachable via Y" / "Z.com:443 reachable via Y"
+    into a single shared recommendation when they're otherwise identical.
+    """
+    # Extract the bare server:port from "Name (server:port)"
+    m = re.search(r"\(([^()]+:\d+)\)\s*$", host_label)
+    if m:
+        rec = rec.replace(m.group(1), "<host>")
+    return rec
+
+
+def _build_host_table(diag: HostDiagnostic) -> Table:
+    """Render a per-host check breakdown as a compact Rich table."""
+    table = Table(
+        show_header=False,
+        box=None,
+        padding=(0, 2),
+        pad_edge=False,
+    )
+    table.add_column("Status", justify="center", width=2, no_wrap=True)
+    table.add_column("Check", style="bold", min_width=18, no_wrap=True)
+    table.add_column("Detail", style="dim", overflow="fold")
+
+    for result in sorted(diag.results, key=_check_sort_key):
+        icon, color = _status_icon_and_color(result.status)
+        table.add_row(
+            f"[{color}]{icon}[/{color}]",
+            _short_check_name(result.check_name),
+            _check_detail_text(result),
+        )
+    return table
+
+
+def _compact_recommendations(recs: list[str]) -> list[str]:
+    """Trim noisy recommendation blocks.
+
+    Drops the verbose "Solutions:\\n  1) ...\\n  2) ..." multi-line strings
+    emitted by standalone_analyzer — those repeat near-identical boilerplate
+    on every problem host. Keeps single-line recs as-is.
+    """
+    out: list[str] = []
+    for rec in recs:
+        if rec.startswith("Solutions:"):
+            continue
+        # Collapse remaining multi-line recs into the first line only.
+        first_line = rec.splitlines()[0].strip()
+        if first_line:
+            out.append(first_line)
+    return out
 
 
 def _print_censor_check_results(summary) -> None:
