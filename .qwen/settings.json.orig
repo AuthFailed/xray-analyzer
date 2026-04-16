@@ -1,7 +1,0 @@
-{
-  "permissions": {
-    "allow": [
-      "WebFetch(xray-checker.kutovoy.dev)"
-    ]
-  }
-}
