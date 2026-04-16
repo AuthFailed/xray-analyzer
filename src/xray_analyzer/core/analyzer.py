@@ -114,15 +114,6 @@ class XrayAnalyzer:
 
         return diagnostics
 
-    async def run_single_host_analysis(self, host: str, port: int = 443, proxy_url: str = "") -> HostDiagnostic:
-        """Run diagnostic analysis on a single host."""
-        log.info(f"Starting analysis for {host}:{port}")
-        diagnostic = HostDiagnostic(host=f"{host}:{port}")
-
-        await self._run_all_checks(diagnostic, host, port, None, direct_proxy_url=proxy_url)
-
-        return diagnostic
-
     # --- Initialization helpers ---
 
     async def _load_subscription_shares(self) -> None:

@@ -69,28 +69,6 @@ class StatusSummaryResponse(BaseModel):
     data: StatusSummary
 
 
-class CheckerConfig(BaseModel):
-    """Checker configuration from /api/v1/config."""
-
-    model_config = ConfigDict(populate_by_name=True)
-
-    check_interval: int = Field(alias="checkInterval")
-    check_method: str = Field(alias="checkMethod")
-    timeout: int
-    start_port: int = Field(alias="startPort")
-    subscription_update: bool = Field(alias="subscriptionUpdate")
-    subscription_update_interval: int = Field(alias="subscriptionUpdateInterval")
-    simulate_latency: bool = Field(alias="simulateLatency")
-    subscription_names: list[str] = Field(alias="subscriptionNames")
-
-
-class CheckerConfigResponse(BaseModel):
-    """Response from /api/v1/config."""
-
-    success: bool
-    data: CheckerConfig
-
-
 class SystemInfo(BaseModel):
     """System info from /api/v1/system/info."""
 
@@ -114,13 +92,6 @@ class SystemIPResponse(BaseModel):
 
     success: bool
     data: dict[str, str]
-
-
-class APIErrorResponse(BaseModel):
-    """Standard error response format."""
-
-    success: bool = False
-    error: str
 
 
 # --- Diagnostics Models ---

@@ -8,7 +8,6 @@ from aiohttp import BasicAuth
 from xray_analyzer.core.config import settings
 from xray_analyzer.core.logger import get_logger
 from xray_analyzer.core.models import (
-    CheckerConfigResponse,
     FullProxyResponse,
     ProxyStatusResponse,
     StatusSummaryResponse,
@@ -82,29 +81,10 @@ class XrayCheckerClient:
         data = await self._request("GET", "/api/v1/proxies")
         return FullProxyResponse.model_validate(data)
 
-    async def get_proxy_by_id(self, stable_id: str) -> dict[str, Any]:
-        """Get information about a single proxy."""
-        return await self._request("GET", f"/api/v1/proxies/{stable_id}")
-
-    async def get_proxy_status_simple(self, stable_id: str) -> str:
-        """Get simple status for a proxy (OK/Failed)."""
-        session = await self._get_session()
-        url = f"{self.base_url}/config/{stable_id}"
-        async with session.get(url) as response:
-            text = await response.text()
-            if response.status == 200:
-                return text.strip()
-            raise XrayCheckerAPIError(text.strip(), response.status)
-
     async def get_status_summary(self) -> StatusSummaryResponse:
         """Get summary statistics of all proxies."""
         data = await self._request("GET", "/api/v1/status")
         return StatusSummaryResponse.model_validate(data)
-
-    async def get_checker_config(self) -> CheckerConfigResponse:
-        """Get current checker configuration."""
-        data = await self._request("GET", "/api/v1/config")
-        return CheckerConfigResponse.model_validate(data)
 
     async def get_system_info(self) -> SystemInfoResponse:
         """Get version and uptime information."""

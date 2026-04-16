@@ -21,7 +21,6 @@ from rich.progress import (
     TimeElapsedColumn,
 )
 from rich.table import Table
-from rich.text import Text
 
 from xray_analyzer.core.analyzer import XrayAnalyzer
 from xray_analyzer.core.config import settings
@@ -1304,58 +1303,6 @@ def _print_censor_check_results(summary) -> None:
             )
         console.print(table)
         console.print()
-
-
-def _print_single_diagnostic(diagnostic: HostDiagnostic) -> None:
-    """Print detailed diagnostic for a single host."""
-    if diagnostic.overall_status == CheckStatus.PASS:
-        status_emoji, status_color, border_style = "✓", "green", "green"
-    elif diagnostic.overall_status == CheckStatus.WARN:
-        status_emoji, status_color, border_style = "⚠", "yellow", "yellow"
-    else:
-        status_emoji, status_color, border_style = "✗", "red", "red"
-
-    console.print(
-        Panel(
-            Text(f"{status_emoji} {diagnostic.host}", style=f"bold {status_color}"),
-            subtitle=f"Status: {diagnostic.overall_status.value.upper()}",
-            border_style=border_style,
-        )
-    )
-
-    # Check results
-    table = Table(show_header=True)
-    table.add_column("Check", style="cyan")
-    table.add_column("Status", justify="center")
-    table.add_column("Message", style="white")
-    table.add_column("Duration", justify="right")
-
-    for result in diagnostic.results:
-        if result.status == CheckStatus.PASS:
-            status = "[green]✓ PASS[/green]"
-        elif result.status == CheckStatus.WARN:
-            status = "[yellow]⚠ WARN[/yellow]"
-        elif result.status == CheckStatus.FAIL:
-            status = "[red]✗ FAIL[/red]"
-        elif result.status == CheckStatus.TIMEOUT:
-            status = "[yellow]⏱ TIMEOUT[/yellow]"
-        else:
-            status = "[dim]○ SKIP[/dim]"
-
-        table.add_row(
-            result.check_name,
-            status,
-            result.message,
-            f"{result.duration_ms:.0f}ms",
-        )
-
-    console.print(table)
-
-    # Recommendations
-    if diagnostic.recommendations:
-        console.print("\n[bold yellow]Recommendations:[/bold yellow]")
-        for rec in diagnostic.recommendations:
-            console.print(f"  → {rec}")
 
 
 def main() -> None:
