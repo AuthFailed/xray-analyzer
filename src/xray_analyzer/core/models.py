@@ -160,3 +160,24 @@ class HostDiagnostic(BaseModel):
     def add_recommendation(self, recommendation: str) -> None:
         """Add a recommendation for fixing issues."""
         self.recommendations.append(recommendation)
+
+    def finalize_status(self) -> None:
+        """Re-evaluate overall_status using authoritative signals.
+
+        For a *proxy* host, the authoritative signal is whether the proxy itself
+        accepts traffic — i.e. a passing "Proxy Xray Connectivity" check.
+        Direct TCP/Ping/DNS to the server may legitimately fail (CDN routing,
+        TCP fingerprint blocks, FakeDNS, etc.) while the proxy still works.
+
+        Rules applied here:
+          - If any "Proxy Xray Connectivity" passes → overall is at most WARN
+            (downgrade FAIL → WARN). The host is functionally usable.
+          - If "Proxy Xray Connectivity" itself failed/timed-out → keep FAIL.
+          - Hosts with no proxy connectivity check at all are unaffected.
+        """
+        proxy_results = [r for r in self.results if r.check_name.startswith("Proxy Xray Connectivity")]
+        if not proxy_results:
+            return
+        any_proxy_ok = any(r.status == CheckStatus.PASS for r in proxy_results)
+        if any_proxy_ok and self.overall_status == CheckStatus.FAIL:
+            self.overall_status = CheckStatus.WARN

@@ -35,7 +35,7 @@ async def test_xray_cross_connectivity_success():
         )
 
         assert result.status == CheckStatus.PASS
-        assert "доступен через" in result.message
+        assert "reachable via" in result.message.lower()
         assert result.details["target_host"] == "problematic.example.com"
         assert result.details["target_port"] == 443
         assert result.details["working_proxy"] == "Working Proxy"
@@ -61,7 +61,7 @@ async def test_xray_cross_connectivity_timeout():
         )
 
         assert result.status == CheckStatus.TIMEOUT
-        assert "Таймаут через" in result.message
+        assert "Timeout via" in result.message
         assert len(result.recommendations) > 0
 
 
@@ -84,4 +84,4 @@ async def test_xray_cross_connectivity_http_error():
         )
 
         assert result.status == CheckStatus.FAIL
-        assert "Ошибка через" in result.message
+        assert "Error via" in result.message

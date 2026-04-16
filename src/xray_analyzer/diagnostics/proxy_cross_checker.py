@@ -53,7 +53,7 @@ async def check_via_proxy(
                 status=CheckStatus.PASS,
                 severity=CheckSeverity.INFO,
                 message=(
-                    f"Доступен через {proxy_name}: "
+                    f"Reachable via {proxy_name}: "
                     f"{target_host}:{target_port} → HTTP {response.status}, "
                     f"{round(duration_ms)}ms"
                 ),
@@ -74,7 +74,7 @@ async def check_via_proxy(
             status=CheckStatus.PASS,
             severity=CheckSeverity.INFO,
             message=(
-                f"Доступен через {proxy_name}: {target_host}:{target_port} — TCP подключение установлено, "
+                f"Reachable via {proxy_name}: {target_host}:{target_port} — TCP established, "
                 f"{round(duration_ms)}ms"
             ),
             details={
@@ -91,7 +91,7 @@ async def check_via_proxy(
             check_name="Cross-Proxy Connectivity",
             status=CheckStatus.TIMEOUT,
             severity=CheckSeverity.CRITICAL,
-            message=f"Таймаут через {proxy_name}: {target_host}:{target_port}",
+            message=f"Timeout via {proxy_name}: {target_host}:{target_port}",
             details={
                 "target_host": target_host,
                 "target_port": target_port,
@@ -99,8 +99,8 @@ async def check_via_proxy(
                 "duration_ms": round(duration_ms, 2),
             },
             recommendations=[
-                "Сервер недоступен даже через другой рабочий прокси",
-                "Возможно, сервер выключен или заблокирован на уровне сети",
+                "Server is unreachable even through a working proxy",
+                "The server may be down or blocked at network level",
             ],
         )
 
@@ -110,7 +110,7 @@ async def check_via_proxy(
             check_name="Cross-Proxy Connectivity",
             status=CheckStatus.FAIL,
             severity=CheckSeverity.CRITICAL,
-            message=f"Ошибка через {proxy_name} — {e}",
+            message=f"Error via {proxy_name} — {e}",
             details={
                 "target_host": target_host,
                 "target_port": target_port,
@@ -120,8 +120,8 @@ async def check_via_proxy(
                 "duration_ms": round(duration_ms, 2),
             },
             recommendations=[
-                "Не удалось подключиться через рабочий прокси",
-                "Сервер может быть недоступен или заблокирован",
+                "Could not connect through the working proxy",
+                "Server may be unreachable or blocked",
             ],
         )
 
@@ -173,27 +173,46 @@ async def check_xray_cross_connectivity(
             allow_redirects=False,
         ) as response:
             duration_ms = (loop.time() - start_time) * 1000
+            status_code = response.status
+            base_details = {
+                "target_host": target_host,
+                "target_port": target_port,
+                "target_protocol": target_protocol,
+                "working_proxy": working_proxy_name,
+                "working_proxy_protocol": working_proxy_protocol,
+                "http_status": status_code,
+                "duration_ms": round(duration_ms, 2),
+            }
+
+            # HTTP 5xx means TCP + fronting layer are up, but the backend service
+            # (Xray / masquerade origin) is failing. That's not a "server is up"
+            # situation — it's a service-level failure that matches what a direct
+            # probe would also see. Surface as WARN so the report doesn't overclaim.
+            if 500 <= status_code < 600:
+                return DiagnosticResult(
+                    check_name="Xray Cross-Proxy Connectivity",
+                    status=CheckStatus.WARN,
+                    severity=CheckSeverity.WARNING,
+                    message=(
+                        f"{target_host}:{target_port} TCP reachable via {working_proxy_name} "
+                        f"but service returned HTTP {status_code} — backend likely broken"
+                    ),
+                    details=base_details,
+                )
+
             return DiagnosticResult(
                 check_name="Xray Cross-Proxy Connectivity",
                 status=CheckStatus.PASS,
                 severity=CheckSeverity.INFO,
                 message=(
-                    f"✓ Сервер доступен через {working_proxy_name}: "
-                    f"{target_host}:{target_port} → HTTP {response.status}, {round(duration_ms)}ms"
+                    f"✓ Server reachable via {working_proxy_name}: "
+                    f"{target_host}:{target_port} → HTTP {status_code}, {round(duration_ms)}ms"
                 ),
-                details={
-                    "target_host": target_host,
-                    "target_port": target_port,
-                    "target_protocol": target_protocol,
-                    "working_proxy": working_proxy_name,
-                    "working_proxy_protocol": working_proxy_protocol,
-                    "http_status": response.status,
-                    "duration_ms": round(duration_ms, 2),
-                },
+                details=base_details,
                 recommendations=[
-                    "Сервер доступен через другой рабочий прокси",
-                    "Возможно, сервер заблокирован (RKN) или недоступен из вашего местоположения",
-                    "Попробуйте использовать другой сервер из подписки",
+                    "Server is reachable via another working proxy",
+                    "Possibly RKN-blocked or unreachable from your location",
+                    "Try using a different server from the subscription",
                 ],
             )
 
@@ -205,8 +224,8 @@ async def check_xray_cross_connectivity(
             status=CheckStatus.PASS,
             severity=CheckSeverity.INFO,
             message=(
-                f"✓ Сервер доступен через {working_proxy_name}: "
-                f"{target_host}:{target_port} — TCP подключение установлено, {round(duration_ms)}ms"
+                f"✓ Server reachable via {working_proxy_name}: "
+                f"{target_host}:{target_port} — TCP established, {round(duration_ms)}ms"
             ),
             details={
                 "target_host": target_host,
@@ -217,9 +236,9 @@ async def check_xray_cross_connectivity(
                 "duration_ms": round(duration_ms, 2),
             },
             recommendations=[
-                "Сервер доступен через другой рабочий прокси",
-                "Возможно, сервер заблокирован (RKN) или недоступен из вашего местоположения",
-                "Попробуйте использовать другой сервер из подписки",
+                "Server is reachable via another working proxy",
+                "Possibly RKN-blocked or unreachable from your location",
+                "Try using a different server from the subscription",
             ],
         )
 
@@ -229,7 +248,7 @@ async def check_xray_cross_connectivity(
             check_name="Xray Cross-Proxy Connectivity",
             status=CheckStatus.TIMEOUT,
             severity=CheckSeverity.CRITICAL,
-            message=f"Таймаут через {working_proxy_name}: {target_host}:{target_port}",
+            message=f"Timeout via {working_proxy_name}: {target_host}:{target_port}",
             details={
                 "target_host": target_host,
                 "target_port": target_port,
@@ -239,9 +258,9 @@ async def check_xray_cross_connectivity(
                 "duration_ms": round(duration_ms, 2),
             },
             recommendations=[
-                "Сервер недоступен даже через другой рабочий прокси",
-                "Возможно, сервер выключен или заблокирован на уровне сети",
-                "Проверьте статус сервера на других ресурсах",
+                "Server unreachable even via another working proxy",
+                "The server may be down or blocked at the network level",
+                "Verify server status via another channel",
             ],
         )
 
@@ -251,7 +270,7 @@ async def check_xray_cross_connectivity(
             check_name="Xray Cross-Proxy Connectivity",
             status=CheckStatus.FAIL,
             severity=CheckSeverity.CRITICAL,
-            message=f"Ошибка через {working_proxy_name} — {e}",
+            message=f"Error via {working_proxy_name} — {e}",
             details={
                 "target_host": target_host,
                 "target_port": target_port,
@@ -263,8 +282,8 @@ async def check_xray_cross_connectivity(
                 "duration_ms": round(duration_ms, 2),
             },
             recommendations=[
-                "Не удалось подключиться через рабочий прокси",
-                "Сервер может быть недоступен или заблокирован",
+                "Could not connect through the working proxy",
+                "Server may be unreachable or blocked",
             ],
         )
 

@@ -79,8 +79,8 @@ async def check_proxy_via_xray(
                     status=CheckStatus.PASS,
                     severity=CheckSeverity.WARNING,
                     message=(
-                        f"Домен {share.server} не отвечал, но IP {fallback_server_ip} работает "
-                        f"(возможно DNS/geo-blocking). Прокси рабочий."
+                        f"Domain {share.server} did not respond, but IP {fallback_server_ip} works "
+                        f"(likely DNS / geo-blocking). Proxy is usable via IP."
                     ),
                     details={
                         "domain": share.server,
@@ -113,7 +113,7 @@ async def _run_xray_tests(
                 check_name=f"Proxy Xray Connectivity{label_suffix}",
                 status=CheckStatus.FAIL,
                 severity=CheckSeverity.CRITICAL,
-                message=f"Не удалось запустить Xray: {e}",
+                message=f"Failed to start Xray: {e}",
                 details={
                     "protocol": share.protocol,
                     "server": share.server,
@@ -121,9 +121,9 @@ async def _run_xray_tests(
                     "error": str(e),
                 },
                 recommendations=[
-                    "Установите Xray core: https://github.com/XTLS/Xray-core",
-                    "Укажите путь к бинарному файлу через XRAY_BINARY_PATH",
-                    "Проверьте, что бинарный файл доступен: which xray",
+                    "Install Xray core: https://github.com/XTLS/Xray-core",
+                    "Set XRAY_BINARY_PATH to the binary location",
+                    "Verify the binary is on PATH: which xray",
                 ],
             )
         )
@@ -137,7 +137,9 @@ async def _run_xray_tests(
             status_result = await _check_proxy_status(session, socks_url, share, label_suffix=label_suffix)
             results.append(status_result)
 
-            # 2+3. Exit IP + SNI in parallel (independent, both go through same tunnel)
+            # 2+3. Exit IP + SNI in parallel (independent, both go through same tunnel).
+            # When connectivity itself failed, skip silently — dependent SKIP results
+            # only clutter the output (the connectivity failure already explains why).
             if status_result.status == CheckStatus.PASS:
                 ip_result, sni_result = await asyncio.gather(
                     _check_proxy_exit_ip(session, socks_url, share, label_suffix=label_suffix),
@@ -145,25 +147,6 @@ async def _run_xray_tests(
                 )
                 results.append(ip_result)
                 results.append(sni_result)
-            else:
-                results.append(
-                    DiagnosticResult(
-                        check_name=f"Proxy Exit IP (Xray){label_suffix}",
-                        status=CheckStatus.SKIP,
-                        severity=CheckSeverity.INFO,
-                        message="Пропущено — проверка подключения не прошла",
-                        details={"protocol": share.protocol},
-                    )
-                )
-                results.append(
-                    DiagnosticResult(
-                        check_name=f"Proxy SNI Connection (Xray){label_suffix}",
-                        status=CheckStatus.SKIP,
-                        severity=CheckSeverity.INFO,
-                        message="Пропущено — проверка подключения не прошла",
-                        details={"protocol": share.protocol},
-                    )
-                )
 
     finally:
         if xray_started:
@@ -207,9 +190,7 @@ async def _check_proxy_status(
                     check_name=f"Proxy Xray Connectivity{label_suffix}",
                     status=CheckStatus.PASS,
                     severity=CheckSeverity.INFO,
-                    message=(
-                        f"{share.name} ({share.protocol}): подключился, HTTP {status_code}, {round(duration_ms)}ms"
-                    ),
+                    message=f"connected, HTTP {status_code}, {round(duration_ms)}ms",
                     details=details,
                 )
             else:
@@ -217,7 +198,7 @@ async def _check_proxy_status(
                     check_name=f"Proxy Xray Connectivity{label_suffix}",
                     status=CheckStatus.FAIL,
                     severity=CheckSeverity.ERROR,
-                    message=f"{share.name} ({share.protocol}): HTTP {status_code}",
+                    message=f"HTTP {status_code}",
                     details=details,
                 )
 
@@ -227,7 +208,7 @@ async def _check_proxy_status(
             check_name=f"Proxy Xray Connectivity{label_suffix}",
             status=CheckStatus.TIMEOUT,
             severity=CheckSeverity.CRITICAL,
-            message=f"{share.name} ({share.protocol}): таймаут подключения",
+            message="connection timeout",
             details={
                 "protocol": share.protocol,
                 "server": share.server,
@@ -236,9 +217,9 @@ async def _check_proxy_status(
                 "duration_ms": round(duration_ms, 2),
             },
             recommendations=[
-                "Xray не смог подключиться через прокси",
-                "Проверьте настройки прокси (UUID, TLS, transport)",
-                "Возможно, сервер заблокирован или недоступен",
+                "Xray could not connect through the proxy",
+                "Check proxy settings (UUID, TLS, transport)",
+                "The server may be blocked or unreachable",
             ],
         )
 
@@ -248,7 +229,7 @@ async def _check_proxy_status(
             check_name=f"Proxy Xray Connectivity{label_suffix}",
             status=CheckStatus.FAIL,
             severity=CheckSeverity.CRITICAL,
-            message=f"{share.name} ({share.protocol}): ошибка подключения — {e}",
+            message=f"connection error — {e}",
             details={
                 "protocol": share.protocol,
                 "server": share.server,
@@ -257,9 +238,9 @@ async def _check_proxy_status(
                 "duration_ms": round(duration_ms, 2),
             },
             recommendations=[
-                "Ошибка подключения через Xray",
-                "Проверьте UUID, настройки TLS и transport",
-                "Убедитесь, что сервер доступен",
+                "Xray connection error",
+                "Verify UUID, TLS, and transport settings",
+                "Make sure the server is reachable",
             ],
         )
 
@@ -286,7 +267,7 @@ async def _check_proxy_exit_ip(
                     check_name=f"Proxy Exit IP (Xray){label_suffix}",
                     status=CheckStatus.FAIL,
                     severity=CheckSeverity.ERROR,
-                    message=f"{share.name} ({share.protocol}): HTTP {response.status}",
+                    message=f"HTTP {response.status}",
                     details={
                         "protocol": share.protocol,
                         "http_status": response.status,
@@ -299,7 +280,7 @@ async def _check_proxy_exit_ip(
                 check_name=f"Proxy Exit IP (Xray){label_suffix}",
                 status=CheckStatus.PASS,
                 severity=CheckSeverity.INFO,
-                message=f"{share.name} ({share.protocol}): Exit IP = {exit_ip}",
+                message=f"Exit IP = {exit_ip}",
                 details={
                     "protocol": share.protocol,
                     "exit_ip": exit_ip,
@@ -313,7 +294,7 @@ async def _check_proxy_exit_ip(
             check_name=f"Proxy Exit IP (Xray){label_suffix}",
             status=CheckStatus.TIMEOUT,
             severity=CheckSeverity.CRITICAL,
-            message=f"{share.name} ({share.protocol}): таймаут проверки Exit IP",
+            message="Exit IP check timed out",
             details={"protocol": share.protocol, "timeout_seconds": 15, "duration_ms": round(duration_ms, 2)},
         )
 
@@ -323,7 +304,7 @@ async def _check_proxy_exit_ip(
             check_name=f"Proxy Exit IP (Xray){label_suffix}",
             status=CheckStatus.FAIL,
             severity=CheckSeverity.ERROR,
-            message=f"{share.name} ({share.protocol}): {e}",
+            message=f"{e}",
             details={"protocol": share.protocol, "error": str(e), "duration_ms": round(duration_ms, 2)},
         )
 
@@ -354,7 +335,7 @@ async def _check_proxy_sni(
                     check_name=f"Proxy SNI Connection (Xray){label_suffix}",
                     status=CheckStatus.PASS,
                     severity=CheckSeverity.INFO,
-                    message=f"{share.name} ({share.protocol}): подключился к {sni_domain}, HTTP {status_code}",
+                    message=f"connected to {sni_domain}, HTTP {status_code}",
                     details={
                         "protocol": share.protocol,
                         "sni_domain": sni_domain,
@@ -367,7 +348,7 @@ async def _check_proxy_sni(
                     check_name=f"Proxy SNI Connection (Xray){label_suffix}",
                     status=CheckStatus.FAIL,
                     severity=CheckSeverity.WARNING,
-                    message=f"{share.name} ({share.protocol}): {sni_domain} вернул HTTP {status_code}",
+                    message=f"{sni_domain} returned HTTP {status_code}",
                     details={
                         "protocol": share.protocol,
                         "sni_domain": sni_domain,
@@ -382,7 +363,7 @@ async def _check_proxy_sni(
             check_name=f"Proxy SNI Connection (Xray){label_suffix}",
             status=CheckStatus.TIMEOUT,
             severity=CheckSeverity.CRITICAL,
-            message=f"{share.name} ({share.protocol}): таймаут подключения к {sni_domain}",
+            message=f"connection to {sni_domain} timed out",
             details={"protocol": share.protocol, "sni_domain": sni_domain, "duration_ms": round(duration_ms, 2)},
         )
 
@@ -392,6 +373,6 @@ async def _check_proxy_sni(
             check_name=f"Proxy SNI Connection (Xray){label_suffix}",
             status=CheckStatus.FAIL,
             severity=CheckSeverity.CRITICAL,
-            message=f"{share.name} ({share.protocol}): ошибка подключения к {sni_domain} — {e}",
+            message=f"error connecting to {sni_domain} — {e}",
             details={"protocol": share.protocol, "error": str(e), "duration_ms": round(duration_ms, 2)},
         )

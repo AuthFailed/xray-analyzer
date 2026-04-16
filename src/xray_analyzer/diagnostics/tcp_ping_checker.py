@@ -28,7 +28,15 @@ async def check_tcp_ping(host: str, port: int = 443, count: int = 3) -> Diagnost
     failures = 0
     errors: list[str] = []
 
+    # Small delay between attempts — back-to-back SYNs can trigger rate limits /
+    # SYN-cookie behavior on some servers, producing false "packet loss" when
+    # TCP Connection itself works.
+    inter_attempt_delay = 0.1
+
     for i in range(count):
+        if i > 0:
+            await asyncio.sleep(inter_attempt_delay)
+
         attempt_start = asyncio.get_running_loop().time()
         try:
             _reader, writer = await asyncio.wait_for(
@@ -80,8 +88,25 @@ async def check_tcp_ping(host: str, port: int = 443, count: int = 3) -> Diagnost
 
     # Determine status
     if len(latencies) == count:
-        # All successful
+        # All successful — but if any single attempt landed within 90% of the
+        # timeout it didn't *really* succeed, just barely scraped through. Demote
+        # such cases to WARN so the report doesn't claim everything is fine.
+        timeout_ms = settings.tcp_timeout * 1000
+        max_latency = max(latencies)
         avg_latency = sum(latencies) / len(latencies)
+
+        if max_latency >= 0.9 * timeout_ms:
+            return DiagnosticResult(
+                check_name="TCP Ping",
+                status=CheckStatus.WARN,
+                severity=CheckSeverity.INFO,
+                message=(
+                    f"TCP ping {host}:{port} very slow: avg={details['latency_avg_ms']}ms, "
+                    f"max={details['latency_max_ms']}ms (close to {settings.tcp_timeout}s timeout)"
+                ),
+                details=details,
+            )
+
         severity = CheckSeverity.INFO
         if avg_latency > 1000:
             severity = CheckSeverity.ERROR
@@ -99,34 +124,31 @@ async def check_tcp_ping(host: str, port: int = 443, count: int = 3) -> Diagnost
             details=details,
         )
     elif len(latencies) > 0:
-        # Partial success
+        # Partial success — likely rate limiting; surface as WARN (not FAIL) so it
+        # doesn't override the authoritative TCP Connection result.
+        return DiagnosticResult(
+            check_name="TCP Ping",
+            status=CheckStatus.WARN,
+            severity=CheckSeverity.INFO,
+            message=(
+                f"Unstable response from {host}:{port}: {packet_loss_pct:.0f}% loss, "
+                f"avg={details.get('latency_avg_ms', 'N/A')}ms (likely SYN-retry rate-limiting)"
+            ),
+            details=details,
+        )
+    else:
+        # All failed — keep as FAIL but WARNING severity (not CRITICAL). The authoritative
+        # signal is TCP Connection; TCP Ping alone shouldn't push overall status to FAIL
+        # when servers throttle back-to-back TCP handshakes.
         return DiagnosticResult(
             check_name="TCP Ping",
             status=CheckStatus.FAIL,
             severity=CheckSeverity.WARNING,
-            message=(
-                f"TCP ping to {host}:{port}: packet loss {packet_loss_pct:.0f}%, "
-                f"avg={details.get('latency_avg_ms', 'N/A')}ms"
-            ),
-            details=details,
-            recommendations=[
-                f"Partial packet loss ({packet_loss_pct:.0f}%) to {host}:{port}",
-                "Check network connection stability",
-                "Network or server may be overloaded",
-            ],
-        )
-    else:
-        # All failed
-        return DiagnosticResult(
-            check_name="TCP Ping",
-            status=CheckStatus.FAIL,
-            severity=CheckSeverity.CRITICAL,
             message=f"TCP ping to {host}:{port}: all {count} attempts failed",
             details=details,
             recommendations=[
-                f"Server {host}:{port} unreachable — all {count} connection attempts failed",
-                "Check firewall settings (iptables, ufw)",
-                f"Verify port {port} is open: netstat -tlnp | grep {port}",
-                "Check network reachability: ping <host>",
+                f"Server {host}:{port} not responding to repeat TCP probes",
+                "If TCP Connection passed — likely SYN-flood protection on the server",
+                "Otherwise check firewall and port accessibility",
             ],
         )

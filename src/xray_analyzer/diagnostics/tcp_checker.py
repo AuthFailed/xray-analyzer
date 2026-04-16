@@ -54,7 +54,10 @@ async def check_tcp_connection(host: str, port: int) -> DiagnosticResult:
 
     except TimeoutError:
         duration_ms = (asyncio.get_running_loop().time() - start_time) * 1000
-        log.error(
+        # Timeout is the *expected* failure mode for blocked/unreachable proxies during
+        # bulk analyze runs — emit at DEBUG so we don't spam stderr while the spinner
+        # is running. The result itself surfaces in the rendered report.
+        log.debug(
             "TCP connection timed out",
             host=host,
             port=port,

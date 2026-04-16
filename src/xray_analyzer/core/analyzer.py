@@ -1,6 +1,7 @@
 """Main analyzer that orchestrates all diagnostic checks."""
 
 import asyncio
+from collections.abc import Callable
 from typing import Any
 
 from xray_analyzer.core.config import Settings
@@ -54,12 +55,22 @@ class XrayAnalyzer:
         self._throttle_runner = ThrottleCheckRunner(self._subscription_shares)
         self._recommendation_engine = RecommendationEngine()
 
-    async def run_full_analysis(self) -> list[HostDiagnostic]:
+    async def run_full_analysis(
+        self,
+        on_proxy_complete: Callable[[HostDiagnostic, ProxyInfo | ProxyStatus], None] | None = None,
+        on_targets_ready: Callable[[int], None] | None = None,
+    ) -> list[HostDiagnostic]:
         """
         Run complete diagnostic analysis on all proxies.
 
         By default, only analyzes offline proxies. Set ANALYZE_ONLINE_PROXIES=true
         in .env to analyze all proxies.
+
+        Args:
+            on_proxy_complete: optional callback fired after each proxy finishes
+                its primary diagnostic block (receives the HostDiagnostic and
+                the source ProxyInfo/Status). Used by the CLI to drive a live
+                progress bar — does not see cross-proxy or RKN throttle results.
 
         Returns list of HostDiagnostic objects for each problematic host.
         """
@@ -91,8 +102,14 @@ class XrayAnalyzer:
             else f"Found {len(proxies)} proxies to analyze"
         )
 
+        if on_targets_ready is not None:
+            try:
+                on_targets_ready(len(targets))
+            except Exception as cb_exc:
+                log.warning(f"on_targets_ready callback raised: {cb_exc}")
+
         # Run diagnostics on each proxy
-        diagnostics = await self._analyze_all_proxies(targets)
+        diagnostics = await self._analyze_all_proxies(targets, on_proxy_complete=on_proxy_complete)
 
         # Filter to only problematic hosts
         problematic = [d for d in diagnostics if d.overall_status not in (CheckStatus.PASS, CheckStatus.WARN)]
@@ -194,17 +211,42 @@ class XrayAnalyzer:
 
     # --- Per-proxy analysis ---
 
-    async def _analyze_all_proxies(self, targets: list[ProxyInfo | ProxyStatus]) -> list[HostDiagnostic]:
-        """Run diagnostic analysis on all target proxies concurrently."""
-        tasks = [self._analyze_proxy(proxy) for proxy in targets]
-        results = await asyncio.gather(*tasks, return_exceptions=True)
+    async def _analyze_all_proxies(
+        self,
+        targets: list[ProxyInfo | ProxyStatus],
+        on_proxy_complete: Callable[[HostDiagnostic, ProxyInfo | ProxyStatus], None] | None = None,
+    ) -> list[HostDiagnostic]:
+        """Run diagnostic analysis on all target proxies concurrently.
+
+        If `on_proxy_complete` is provided, it's invoked once per proxy as
+        each task settles (in completion order, not submission order).
+        """
+        # Match each completed task back to its source proxy via the host label.
+        # Per-proxy completion order is what we need for the progress bar.
+        host_to_proxy: dict[str, ProxyInfo | ProxyStatus] = {}
+        for p in targets:
+            if isinstance(p, ProxyInfo):
+                host_to_proxy[f"{p.server}:{p.port}"] = p
+
+        coros = [self._analyze_proxy(proxy) for proxy in targets]
 
         diagnostics: list[HostDiagnostic] = []
-        for result in results:
-            if isinstance(result, Exception):
-                log.error(f"Error during analysis: {result}", exc_info=result)
-            elif isinstance(result, HostDiagnostic):
-                diagnostics.append(result)
+        for completed in asyncio.as_completed(coros):
+            try:
+                result = await completed
+            except Exception as exc:
+                log.error(f"Error during analysis: {exc}", exc_info=exc)
+                continue
+            if not isinstance(result, HostDiagnostic):
+                continue
+            diagnostics.append(result)
+            if on_proxy_complete is not None:
+                proxy = host_to_proxy.get(result.host)
+                if proxy is not None:
+                    try:
+                        on_proxy_complete(result, proxy)
+                    except Exception as cb_exc:
+                        log.warning(f"on_proxy_complete callback raised: {cb_exc}")
         return diagnostics
 
     async def _analyze_proxy(self, proxy: ProxyInfo | ProxyStatus) -> HostDiagnostic:
@@ -240,6 +282,9 @@ class XrayAnalyzer:
 
         await self._run_all_checks(diagnostic, host, port, proxy, direct_proxy_url="")
 
+        # Re-evaluate overall status using authoritative signals
+        diagnostic.finalize_status()
+
         return diagnostic
 
     # --- Running all checks ---
@@ -253,15 +298,20 @@ class XrayAnalyzer:
         direct_proxy_url: str = "",
     ) -> None:
         """Run all diagnostic checks and add results to diagnostic."""
-        # 1-3. DNS, TCP connect, TCP ping — independent, run in parallel
-        dns_result, tcp_result, tcp_ping_result = await asyncio.gather(
+        # DNS + TCP connect in parallel. TCP Ping runs *after* TCP Connection
+        # succeeds — otherwise the N retries just amplify the same timeout into
+        # bogus "packet loss %" numbers, and can trigger rate-limiting that
+        # creates phantom loss on a host whose TCP Connection is actually OK.
+        dns_result, tcp_result = await asyncio.gather(
             check_dns_with_checkhost(host),
             check_tcp_connection(host, port),
-            check_tcp_ping(host, port),
         )
         diagnostic.add_result(dns_result)
         diagnostic.add_result(tcp_result)
-        diagnostic.add_result(tcp_ping_result)
+
+        if tcp_result.status == CheckStatus.PASS:
+            tcp_ping_result = await check_tcp_ping(host, port)
+            diagnostic.add_result(tcp_ping_result)
 
         if dns_result.status == CheckStatus.FAIL:
             diagnostic.add_recommendation("DNS cannot be resolved — check domain and DNS settings")

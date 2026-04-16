@@ -115,7 +115,9 @@ async def check_dns_with_checkhost(host: str) -> DiagnosticResult:
     # If Check-Host failed, report based on local result only
     if not checkhost_success:
         checkhost_error = checkhost_result.get("error", "Check-Host API error")
+        checkhost_api_flaky = checkhost_result.get("api_unavailable", False)
         details["checkhost_error"] = checkhost_error
+        details["checkhost_api_unavailable"] = checkhost_api_flaky
 
         if local_success:
             return DiagnosticResult(
@@ -126,11 +128,26 @@ async def check_dns_with_checkhost(host: str) -> DiagnosticResult:
                 details=details,
             )
         else:
+            # When Check-Host API is flaky AND local DNS failed, don't hard-fail:
+            # a transient resolver glitch is a weak signal — TCP / proxy checks will
+            # tell us if the server is actually unreachable. Surface as WARN instead.
+            local_err = local_result.get("error") or "resolver returned no records"
+            if checkhost_api_flaky:
+                return DiagnosticResult(
+                    check_name="DNS Resolution (Check-Host)",
+                    status=CheckStatus.WARN,
+                    severity=CheckSeverity.WARNING,
+                    message=(
+                        f"DNS for {host} did not resolve locally and Check-Host is unavailable "
+                        f"({local_err}) — verify via TCP / proxy instead"
+                    ),
+                    details=details,
+                )
             return DiagnosticResult(
                 check_name="DNS Resolution (Check-Host)",
                 status=CheckStatus.FAIL,
                 severity=CheckSeverity.CRITICAL,
-                message=f"DNS resolution failed for {host}: {local_result.get('error', 'unknown')}",
+                message=f"DNS resolution failed for {host}: {local_err}",
                 details=details,
                 recommendations=[
                     "Check DNS server settings in /etc/resolv.conf",
@@ -177,18 +194,20 @@ async def check_dns_with_checkhost(host: str) -> DiagnosticResult:
                 details=details,
             )
     elif not local_success and checkhost_success:
-        # Local DNS fails but Check-Host resolves - DNS issue
+        # Local DNS fails but Check-Host resolves the domain. This is expected
+        # when the host is running inside an Xray FakeDNS / split-DNS setup
+        # where the local resolver does not see real Internet records — the
+        # proxy path handles resolution. Surface as WARN (not FAIL) so it
+        # doesn't mask the authoritative proxy/TCP results.
         return DiagnosticResult(
             check_name="DNS Resolution (Check-Host)",
-            status=CheckStatus.FAIL,
-            severity=CheckSeverity.CRITICAL,
-            message=f"Local DNS cannot resolve {host}, but Check-Host resolves it (DNS issue)",
+            status=CheckStatus.WARN,
+            severity=CheckSeverity.INFO,
+            message=(
+                f"Local DNS cannot resolve {host}, but Check-Host does — "
+                f"likely FakeDNS / split-DNS (not a failure if the proxy path works)"
+            ),
             details=details,
-            recommendations=[
-                "Check-Host.net resolves the domain, but local DNS does not",
-                "Check DNS server settings in /etc/resolv.conf",
-                "Try using public DNS (8.8.8.8, 1.1.1.1)",
-            ],
         )
     else:
         # Both fail
@@ -249,21 +268,33 @@ async def _checkhost_dns_resolve(host: str) -> dict[str, Any]:
             timeout=aiohttp.ClientTimeout(total=10),
         ) as response:
             if response.status != 200:
-                return {"success": False, "error": f"Check-Host init failed: HTTP {response.status}"}
+                return {
+                    "success": False,
+                    "error": f"Check-Host init failed: HTTP {response.status}",
+                    "api_unavailable": True,
+                }
 
             init_data = await response.json()
 
             if not init_data.get("ok"):
-                return {"success": False, "error": f"Check-Host returned error: {init_data}"}
+                return {
+                    "success": False,
+                    "error": f"Check-Host returned error: {init_data}",
+                    "api_unavailable": True,
+                }
 
             request_id = init_data.get("request_id")
             if not request_id:
-                return {"success": False, "error": "No request_id in Check-Host response"}
+                return {
+                    "success": False,
+                    "error": "No request_id in Check-Host response",
+                    "api_unavailable": True,
+                }
 
     except aiohttp.ClientError as e:
-        return {"success": False, "error": f"Check-Host HTTP error: {e}"}
+        return {"success": False, "error": f"Check-Host HTTP error: {e}", "api_unavailable": True}
     except TimeoutError:
-        return {"success": False, "error": "Check-Host init timed out"}
+        return {"success": False, "error": "Check-Host init timed out", "api_unavailable": True}
 
     # Step 2: Poll for results (up to 15 seconds)
     result_url = f"{CHECK_HOST_BASE_URL}/check-result/{request_id}"
@@ -280,7 +311,11 @@ async def _checkhost_dns_resolve(host: str) -> dict[str, Any]:
                 timeout=aiohttp.ClientTimeout(total=10),
             ) as response:
                 if response.status != 200:
-                    return {"success": False, "error": f"Check-Host result failed: HTTP {response.status}"}
+                    return {
+                        "success": False,
+                        "error": f"Check-Host result failed: HTTP {response.status}",
+                        "api_unavailable": True,
+                    }
 
                 result_data = await response.json()
 
@@ -315,8 +350,14 @@ async def _checkhost_dns_resolve(host: str) -> dict[str, Any]:
                     return {"success": True, "ips": unique_ips}
 
                 if not has_pending and not all_ips:
-                    # All nodes returned empty results - domain doesn't resolve
-                    return {"success": False, "error": "Domain does not resolve on Check-Host nodes"}
+                    # All nodes returned empty payloads — Check-Host is often flaky
+                    # under load and reports empty even for resolvable domains. Treat
+                    # this as API unavailability rather than a domain-level failure.
+                    return {
+                        "success": False,
+                        "error": "Check-Host nodes returned empty — API may be flaky",
+                        "api_unavailable": True,
+                    }
 
                 # Return early if we have any IPs even with some nodes still pending
                 if all_ips:
@@ -331,4 +372,4 @@ async def _checkhost_dns_resolve(host: str) -> dict[str, Any]:
         except (aiohttp.ClientError, TimeoutError):
             continue
 
-    return {"success": False, "error": "Check-Host result polling timed out"}
+    return {"success": False, "error": "Check-Host result polling timed out", "api_unavailable": True}

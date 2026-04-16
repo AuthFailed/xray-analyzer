@@ -182,7 +182,7 @@ class CrossProxyTestRunner:
                         check_name="Xray Cross-Proxy Connectivity",
                         status=CheckStatus.SKIP,
                         severity=CheckSeverity.WARNING,
-                        message=f"Не удалось запустить рабочий прокси для проверки: {e}",
+                        message=f"Could not start working proxy for cross-tests: {e}",
                         details={
                             "target_host": target_host,
                             "target_port": target_port,
