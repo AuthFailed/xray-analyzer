@@ -262,7 +262,7 @@ class XrayInstance:
                         await writer.wait_closed()
                     log.info(f"Xray ready for {self.share.name} on port {self.socks_port}")
                     return self.socks_port
-                except ConnectionRefusedError, OSError:
+                except (ConnectionRefusedError, OSError):
                     pass
 
                 if asyncio.get_running_loop().time() >= deadline:
@@ -279,14 +279,21 @@ class XrayInstance:
 
     async def stop(self) -> None:
         """Stop the Xray subprocess and clean up config file."""
-        if self._process and self._process.returncode is None:
-            log.debug(f"Stopping Xray for {self.share.name}")
-            try:
-                self._process.terminate()
-                await asyncio.wait_for(self._process.wait(), timeout=5)
-            except TimeoutError:
-                self._process.kill()
-                await self._process.wait()
+        if self._process:
+            if self._process.returncode is None:
+                log.debug(f"Stopping Xray for {self.share.name}")
+                try:
+                    self._process.terminate()
+                    await asyncio.wait_for(self._process.wait(), timeout=5)
+                except TimeoutError:
+                    self._process.kill()
+                    await self._process.wait()
+
+            # Drain PIPE buffers so StreamReader transports release their fds.
+            for stream in (self._process.stdout, self._process.stderr):
+                if stream is not None:
+                    with suppress(Exception):
+                        await stream.read()
 
         config_file = Path(self._config_path) if self._config_path else None
         if config_file and config_file.exists():

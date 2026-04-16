@@ -18,7 +18,7 @@ from xray_analyzer.core.proxy_url import build_proxy_url
 from xray_analyzer.core.recommendation_engine import RecommendationEngine
 from xray_analyzer.core.throttle_checker_runner import ThrottleCheckRunner
 from xray_analyzer.core.xray_client import XrayCheckerClient
-from xray_analyzer.diagnostics.dns_checker import check_dns_with_checkhost
+from xray_analyzer.diagnostics.dns_checker import check_dns_with_checkhost, close_dns_session
 from xray_analyzer.diagnostics.proxy_cross_checker import check_via_proxy
 from xray_analyzer.diagnostics.proxy_ip_checker import check_proxy_exit_ip
 from xray_analyzer.diagnostics.proxy_sni_checker import check_proxy_sni_connection
@@ -413,3 +413,4 @@ class XrayAnalyzer:
     async def close(self) -> None:
         """Clean up resources."""
         await self.client.close()
+        await close_dns_session()

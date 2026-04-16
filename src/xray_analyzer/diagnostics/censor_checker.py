@@ -382,6 +382,7 @@ async def _fetch_with_curl(
             curl_cmd.extend(["-H", f"{key}: {value}"])
 
     for attempt in range(retries):
+        proc: asyncio.subprocess.Process | None = None
         try:
             proc = await asyncio.create_subprocess_exec(
                 *curl_cmd,
@@ -398,6 +399,13 @@ async def _fetch_with_curl(
             if attempt < retries - 1:
                 await asyncio.sleep(0.5)
                 continue
+        finally:
+            # Reap the process if communicate() was interrupted (e.g. CancelledError).
+            if proc is not None and proc.returncode is None:
+                with contextlib.suppress(ProcessLookupError):
+                    proc.kill()
+                with contextlib.suppress(Exception):
+                    await proc.wait()
 
     return 0
 

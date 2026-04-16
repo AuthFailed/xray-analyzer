@@ -15,6 +15,26 @@ log = get_logger("dns_checker")
 
 CHECK_HOST_BASE_URL = "https://check-host.net"
 
+
+# Shared session for Check-Host API calls — avoids spinning up a new TCP pool
+# on every parallel DNS check. Created lazily, closed via close_dns_session().
+class _SessionHolder:
+    session: aiohttp.ClientSession | None = None
+
+
+def _get_checkhost_session() -> aiohttp.ClientSession:
+    if _SessionHolder.session is None or _SessionHolder.session.closed:
+        _SessionHolder.session = aiohttp.ClientSession()
+    return _SessionHolder.session
+
+
+async def close_dns_session() -> None:
+    """Close the shared Check-Host session. Call on app shutdown."""
+    if _SessionHolder.session is not None and not _SessionHolder.session.closed:
+        await _SessionHolder.session.close()
+    _SessionHolder.session = None
+
+
 # Xray FakeDNS address pools — virtual IPs assigned by Xray's transparent DNS proxy.
 # These never exist on the real internet, so comparing them against Check-Host is meaningless.
 # https://xtls.github.io/ru/config/fakedns.html
@@ -215,100 +235,100 @@ async def _checkhost_dns_resolve(host: str) -> dict[str, Any]:
     2. Poll result: GET /check-result/<REQUEST_ID>
     """
     headers = {"Accept": "application/json"}
+    session = _get_checkhost_session()
 
-    async with aiohttp.ClientSession() as session:
-        # Step 1: Init DNS check
-        init_url = f"{CHECK_HOST_BASE_URL}/check-dns"
-        params = {"host": host, "max_nodes": 3}
+    # Step 1: Init DNS check
+    init_url = f"{CHECK_HOST_BASE_URL}/check-dns"
+    params = {"host": host, "max_nodes": 3}
 
+    try:
+        async with session.get(
+            init_url,
+            params=params,
+            headers=headers,
+            timeout=aiohttp.ClientTimeout(total=10),
+        ) as response:
+            if response.status != 200:
+                return {"success": False, "error": f"Check-Host init failed: HTTP {response.status}"}
+
+            init_data = await response.json()
+
+            if not init_data.get("ok"):
+                return {"success": False, "error": f"Check-Host returned error: {init_data}"}
+
+            request_id = init_data.get("request_id")
+            if not request_id:
+                return {"success": False, "error": "No request_id in Check-Host response"}
+
+    except aiohttp.ClientError as e:
+        return {"success": False, "error": f"Check-Host HTTP error: {e}"}
+    except TimeoutError:
+        return {"success": False, "error": "Check-Host init timed out"}
+
+    # Step 2: Poll for results (up to 15 seconds)
+    result_url = f"{CHECK_HOST_BASE_URL}/check-result/{request_id}"
+    max_polls = 15
+    poll_delay = 1
+
+    for _ in range(max_polls):
         try:
+            await asyncio.sleep(poll_delay)
+
             async with session.get(
-                init_url,
-                params=params,
+                result_url,
                 headers=headers,
                 timeout=aiohttp.ClientTimeout(total=10),
             ) as response:
                 if response.status != 200:
-                    return {"success": False, "error": f"Check-Host init failed: HTTP {response.status}"}
+                    return {"success": False, "error": f"Check-Host result failed: HTTP {response.status}"}
 
-                init_data = await response.json()
+                result_data = await response.json()
 
-                if not init_data.get("ok"):
-                    return {"success": False, "error": f"Check-Host returned error: {init_data}"}
+                # Check if any node has completed
+                all_ips: list[str] = []
+                all_done = False
+                has_pending = False
 
-                request_id = init_data.get("request_id")
-                if not request_id:
-                    return {"success": False, "error": "No request_id in Check-Host response"}
+                for _node_id, node_result in result_data.items():
+                    if node_result is None:
+                        has_pending = True
+                        continue
 
-        except aiohttp.ClientError as e:
-            return {"success": False, "error": f"Check-Host HTTP error: {e}"}
-        except TimeoutError:
-            return {"success": False, "error": "Check-Host init timed out"}
+                    all_done = True
+                    # DNS result format: [{"A": [...], "AAAA": [...], "TTL": ...}]
+                    if isinstance(node_result, list) and len(node_result) > 0:
+                        dns_data = node_result[0]
+                        if isinstance(dns_data, dict):
+                            a_records = dns_data.get("A", [])
+                            aaaa_records = dns_data.get("AAAA", [])
+                            all_ips.extend(a_records)
+                            all_ips.extend(aaaa_records)
 
-        # Step 2: Poll for results (up to 15 seconds)
-        result_url = f"{CHECK_HOST_BASE_URL}/check-result/{request_id}"
-        max_polls = 15
-        poll_delay = 1
+                if all_done and all_ips:
+                    # Deduplicate preserving order
+                    seen: set[str] = set()
+                    unique_ips = []
+                    for ip in all_ips:
+                        if ip not in seen:
+                            seen.add(ip)
+                            unique_ips.append(ip)
+                    return {"success": True, "ips": unique_ips}
 
-        for _ in range(max_polls):
-            try:
-                await asyncio.sleep(poll_delay)
+                if not has_pending and not all_ips:
+                    # All nodes returned empty results - domain doesn't resolve
+                    return {"success": False, "error": "Domain does not resolve on Check-Host nodes"}
 
-                async with session.get(
-                    result_url,
-                    headers=headers,
-                    timeout=aiohttp.ClientTimeout(total=10),
-                ) as response:
-                    if response.status != 200:
-                        return {"success": False, "error": f"Check-Host result failed: HTTP {response.status}"}
+                # Return early if we have any IPs even with some nodes still pending
+                if all_ips:
+                    seen = set()
+                    unique_ips = []
+                    for ip in all_ips:
+                        if ip not in seen:
+                            seen.add(ip)
+                            unique_ips.append(ip)
+                    return {"success": True, "ips": unique_ips}
 
-                    result_data = await response.json()
+        except (aiohttp.ClientError, TimeoutError):
+            continue
 
-                    # Check if any node has completed
-                    all_ips: list[str] = []
-                    all_done = False
-                    has_pending = False
-
-                    for _node_id, node_result in result_data.items():
-                        if node_result is None:
-                            has_pending = True
-                            continue
-
-                        all_done = True
-                        # DNS result format: [{"A": [...], "AAAA": [...], "TTL": ...}]
-                        if isinstance(node_result, list) and len(node_result) > 0:
-                            dns_data = node_result[0]
-                            if isinstance(dns_data, dict):
-                                a_records = dns_data.get("A", [])
-                                aaaa_records = dns_data.get("AAAA", [])
-                                all_ips.extend(a_records)
-                                all_ips.extend(aaaa_records)
-
-                    if all_done and all_ips:
-                        # Deduplicate preserving order
-                        seen: set[str] = set()
-                        unique_ips = []
-                        for ip in all_ips:
-                            if ip not in seen:
-                                seen.add(ip)
-                                unique_ips.append(ip)
-                        return {"success": True, "ips": unique_ips}
-
-                    if not has_pending and not all_ips:
-                        # All nodes returned empty results - domain doesn't resolve
-                        return {"success": False, "error": "Domain does not resolve on Check-Host nodes"}
-
-                    # Return early if we have any IPs even with some nodes still pending
-                    if all_ips:
-                        seen = set()
-                        unique_ips = []
-                        for ip in all_ips:
-                            if ip not in seen:
-                                seen.add(ip)
-                                unique_ips.append(ip)
-                        return {"success": True, "ips": unique_ips}
-
-            except aiohttp.ClientError, TimeoutError:
-                continue
-
-        return {"success": False, "error": "Check-Host result polling timed out"}
+    return {"success": False, "error": "Check-Host result polling timed out"}
