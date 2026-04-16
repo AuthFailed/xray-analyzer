@@ -8,7 +8,6 @@ import pytest
 from xray_analyzer.core.models import CheckStatus
 from xray_analyzer.diagnostics.proxy_cross_checker import check_xray_cross_connectivity
 
-
 SOCKS_URL = "socks5://user:pass@127.0.0.1:19001"
 
 
