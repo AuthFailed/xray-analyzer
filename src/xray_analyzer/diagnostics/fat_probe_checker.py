@@ -38,6 +38,7 @@ import time
 from dataclasses import dataclass
 
 import aiohttp
+from aiohttp.abc import AbstractResolver, ResolveResult
 
 from xray_analyzer.core.logger import get_logger
 from xray_analyzer.core.models import CheckSeverity, CheckStatus, DiagnosticResult
@@ -49,7 +50,7 @@ _RANDOM_POOL = "".join(random.choices(string.ascii_letters + string.digits, k=10
 _USER_AGENT = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36"
 
 
-class _PinnedResolver(aiohttp.abc.AbstractResolver):
+class _PinnedResolver(AbstractResolver):
     """aiohttp resolver that always maps the queried host to a fixed IP."""
 
     def __init__(self, pinned_ip: str) -> None:
@@ -60,7 +61,7 @@ class _PinnedResolver(aiohttp.abc.AbstractResolver):
         host: str,
         port: int = 0,
         family: int = socket.AF_INET,
-    ) -> list[aiohttp.abc.ResolveResult]:
+    ) -> list[ResolveResult]:
         return [
             {
                 "hostname": host,
@@ -241,8 +242,21 @@ async def check_fat_probe(
     port: int = 443,
     *,
     sni: str | None = None,
-    **kwargs: object,
+    iterations: int = 16,
+    chunk_size: int = 4000,
+    connect_timeout: float = 8.0,
+    read_timeout: float = 12.0,
+    hint_rtt_ms: float | None = None,
 ) -> DiagnosticResult:
     """Convenience: fat_probe + to_diagnostic in one call."""
-    result = await fat_probe(target, port, sni=sni, **kwargs)  # type: ignore[arg-type]
+    result = await fat_probe(
+        target,
+        port,
+        sni=sni,
+        iterations=iterations,
+        chunk_size=chunk_size,
+        connect_timeout=connect_timeout,
+        read_timeout=read_timeout,
+        hint_rtt_ms=hint_rtt_ms,
+    )
     return to_diagnostic(result, target, port, sni)

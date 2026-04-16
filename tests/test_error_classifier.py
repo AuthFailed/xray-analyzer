@@ -41,7 +41,7 @@ class TestChainHelpers:
 
     def test_get_errno_from_chain_prefers_first_set(self):
         inner = OSError(errno.ECONNREFUSED, "refused")
-        outer = _chain(aiohttp.ClientConnectorError(connection_key=None, os_error=inner), inner)  # type: ignore[arg-type]
+        outer = _chain(aiohttp.ClientConnectorError(connection_key=None, os_error=inner), inner)  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
         assert get_errno_from_chain(outer) == errno.ECONNREFUSED
 
     def test_get_errno_none(self):

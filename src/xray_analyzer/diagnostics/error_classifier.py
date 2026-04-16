@@ -66,7 +66,7 @@ def _walk_chain(exc: BaseException) -> list[BaseException]:
     return seen
 
 
-def find_cause(exc: BaseException, target_type: type) -> BaseException | None:
+def find_cause[E: BaseException](exc: BaseException, target_type: type[E]) -> E | None:
     """First exception in the chain that `isinstance` matches `target_type`."""
     for link in _walk_chain(exc):
         if isinstance(link, target_type):

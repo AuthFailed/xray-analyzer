@@ -29,6 +29,7 @@ import os
 import socket
 import struct
 from collections import Counter
+from collections.abc import Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -358,7 +359,7 @@ async def _batch_doh(
 
 
 def _harvest_stub_ips(
-    answers: dict[str, list[str] | str | None],
+    answers: Mapping[str, list[str] | str | None],
     min_occurrences: int = 2,
 ) -> set[str]:
     """IPs returned by UDP for ≥N different domains → likely ISP splash/block page."""
