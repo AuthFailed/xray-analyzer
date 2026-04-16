@@ -10,8 +10,8 @@ from xray_analyzer.core.models import (
     DiagnosticResult,
     HostDiagnostic,
     ProxyInfo,
-    ProxyStatus,
 )
+from xray_analyzer.core.proxy_url import build_proxy_url
 from xray_analyzer.diagnostics.proxy_rkn_throttle_checker import (
     check_rkn_throttle_direct,
     check_rkn_throttle_via_proxy,
@@ -138,14 +138,11 @@ class ThrottleCheckRunner:
     async def run_throttle_via_proxy_tests(
         self,
         problematic: list[HostDiagnostic],
-        working_proxy: ProxyInfo | ProxyStatus,
+        working_proxy: ProxyInfo,
     ) -> None:
         """Run RKN throttle checks through a working HTTP/SOCKS proxy."""
-        working_proxy_url = self._build_proxy_url(working_proxy)
-        if not working_proxy_url:
-            return
-
-        working_name = getattr(working_proxy, "name", f"{working_proxy.server}:{working_proxy.port}")
+        working_proxy_url = build_proxy_url(working_proxy)
+        working_name = working_proxy.name
 
         tasks: list[asyncio.Task[None]] = []
         for diag in problematic:
@@ -209,13 +206,13 @@ class ThrottleCheckRunner:
     async def run_throttle_via_xray_proxy_tests(
         self,
         problematic: list[HostDiagnostic],
-        working_xray_proxy: ProxyInfo | ProxyStatus,
+        working_xray_proxy: ProxyInfo,
     ) -> None:
         """Run RKN throttle checks through a working Xray proxy."""
-        working_name = getattr(working_xray_proxy, "name", "")
-        working_host = getattr(working_xray_proxy, "server", "")
-        working_port = getattr(working_xray_proxy, "port", 0)
-        working_protocol = getattr(working_xray_proxy, "protocol", "").lower()
+        working_name = working_xray_proxy.name
+        working_host = working_xray_proxy.server
+        working_port = working_xray_proxy.port
+        working_protocol = working_xray_proxy.protocol.lower()
 
         working_share = find_share_url_for_proxy(
             self._subscription_shares,
@@ -253,8 +250,10 @@ class ThrottleCheckRunner:
         try:
             async with launched_xray(working_share) as socks_url:
                 await asyncio.gather(
-                    *[self._bounded(self._xray_throttle_for_host(diag, target_host, socks_url, working_name))
-                      for diag, target_host in targets],
+                    *[
+                        self._bounded(self._xray_throttle_for_host(diag, target_host, socks_url, working_name))
+                        for diag, target_host in targets
+                    ],
                     return_exceptions=True,
                 )
         except RuntimeError as e:
@@ -295,14 +294,6 @@ class ThrottleCheckRunner:
             log.error(f"Xray throttle check failed for {target_host} via {working_name}: {e}")
 
     # --- Utility ---
-
-    @staticmethod
-    def _build_proxy_url(proxy: ProxyInfo | ProxyStatus) -> str | None:
-        """Build a proxy URL from proxy info."""
-        if hasattr(proxy, "server") and hasattr(proxy, "port"):
-            protocol = getattr(proxy, "protocol", "http").lower()
-            return f"{protocol}://{proxy.server}:{proxy.port}"
-        return None
 
     @staticmethod
     def _parse_host_port(diag: HostDiagnostic) -> tuple[str, int] | None:

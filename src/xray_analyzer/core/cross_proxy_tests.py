@@ -1,7 +1,6 @@
 """Cross-proxy testing engine — tests problematic hosts through working proxies."""
 
 import asyncio
-from typing import Any
 
 import aiohttp
 
@@ -14,6 +13,7 @@ from xray_analyzer.core.models import (
     ProxyInfo,
     ProxyStatus,
 )
+from xray_analyzer.core.proxy_url import build_proxy_url
 from xray_analyzer.diagnostics.proxy_cross_checker import (
     check_via_proxy,
     check_xray_cross_connectivity,
@@ -33,53 +33,34 @@ class CrossProxyTestRunner:
 
     # --- Working proxy discovery ---
 
-    def find_working_http_socks_proxy(self, proxies: list[ProxyInfo | ProxyStatus]) -> ProxyInfo | ProxyStatus | None:
+    def find_working_http_socks_proxy(self, proxies: list[ProxyInfo | ProxyStatus]) -> ProxyInfo | None:
         """Find an online HTTP or SOCKS proxy for cross-testing."""
         for proxy in proxies:
-            protocol = getattr(proxy, "protocol", "").lower()
             if (
-                getattr(proxy, "online", False)
-                and protocol in ("http", "socks", "socks5", "socks4")
-                and hasattr(proxy, "server")
-                and hasattr(proxy, "port")
+                isinstance(proxy, ProxyInfo)
+                and proxy.online
+                and proxy.protocol.lower() in ("http", "socks", "socks5", "socks4")
             ):
                 return proxy
         return None
 
-    def find_working_xray_proxy(self, proxies: list[ProxyInfo | ProxyStatus]) -> ProxyInfo | ProxyStatus | None:
+    def find_working_xray_proxy(self, proxies: list[ProxyInfo | ProxyStatus]) -> ProxyInfo | None:
         """Find an online VLESS/Trojan/SS proxy for Xray cross-testing."""
         for proxy in proxies:
-            protocol = getattr(proxy, "protocol", "").lower()
-            if (
-                getattr(proxy, "online", False)
-                and protocol in XRAY_PROTOCOLS
-                and hasattr(proxy, "server")
-                and hasattr(proxy, "port")
-            ):
+            if isinstance(proxy, ProxyInfo) and proxy.online and proxy.protocol.lower() in XRAY_PROTOCOLS:
                 return proxy
         return None
 
     # --- HTTP/SOCKS cross-proxy tests ---
 
-    @staticmethod
-    def _build_proxy_url(proxy: Any) -> str | None:
-        """Build a proxy URL from proxy info."""
-        if hasattr(proxy, "server") and hasattr(proxy, "port"):
-            protocol = getattr(proxy, "protocol", "http").lower()
-            return f"{protocol}://{proxy.server}:{proxy.port}"
-        return None
-
     async def run_cross_proxy_tests(
         self,
         problematic: list[HostDiagnostic],
-        working_proxy: ProxyInfo | ProxyStatus,
+        working_proxy: ProxyInfo,
     ) -> None:
         """Test connectivity to problematic hosts through a working proxy."""
-        working_proxy_url = self._build_proxy_url(working_proxy)
-        if not working_proxy_url:
-            return
-
-        working_name = getattr(working_proxy, "name", f"{working_proxy.server}:{working_proxy.port}")
+        working_proxy_url = build_proxy_url(working_proxy)
+        working_name = working_proxy.name
 
         tasks = []
         for diag in problematic:
@@ -122,13 +103,13 @@ class CrossProxyTestRunner:
     async def run_xray_cross_proxy_tests(
         self,
         problematic: list[HostDiagnostic],
-        working_xray_proxy: ProxyInfo | ProxyStatus,
+        working_xray_proxy: ProxyInfo,
     ) -> None:
         """Test connectivity to problematic Xray proxies through a working Xray proxy."""
-        working_name = getattr(working_xray_proxy, "name", "")
-        working_host = getattr(working_xray_proxy, "server", "")
-        working_port = getattr(working_xray_proxy, "port", 0)
-        working_protocol = getattr(working_xray_proxy, "protocol", "").lower()
+        working_name = working_xray_proxy.name
+        working_host = working_xray_proxy.server
+        working_port = working_xray_proxy.port
+        working_protocol = working_xray_proxy.protocol.lower()
 
         working_share = find_share_url_for_proxy(
             self._subscription_shares,
@@ -180,7 +161,13 @@ class CrossProxyTestRunner:
                 await asyncio.gather(
                     *[
                         self._xray_cross_test_for_host(
-                            diag, target_host, target_port, protocol, socks_url, working_share.protocol, working_name,
+                            diag,
+                            target_host,
+                            target_port,
+                            protocol,
+                            socks_url,
+                            working_share.protocol,
+                            working_name,
                             session,
                         )
                         for diag, target_host, target_port, protocol in work

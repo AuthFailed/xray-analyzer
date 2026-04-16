@@ -14,6 +14,7 @@ from xray_analyzer.core.models import (
     ProxyInfo,
     ProxyStatus,
 )
+from xray_analyzer.core.proxy_url import build_proxy_url
 from xray_analyzer.core.recommendation_engine import RecommendationEngine
 from xray_analyzer.core.throttle_checker_runner import ThrottleCheckRunner
 from xray_analyzer.core.xray_client import XrayCheckerClient
@@ -76,7 +77,7 @@ class XrayAnalyzer:
 
         # Filter to only offline proxies by default
         offline_only = not getattr(settings, "analyze_online_proxies", False)
-        targets = [p for p in proxies if not p.online] if offline_only else proxies  # type: ignore
+        targets = [p for p in proxies if not p.online] if offline_only else proxies
 
         if not targets:
             log.info("No proxies to analyze — all are online")
@@ -207,9 +208,9 @@ class XrayAnalyzer:
     async def _analyze_proxy(self, proxy: ProxyInfo | ProxyStatus) -> HostDiagnostic:
         """Run all diagnostic checks on a single proxy."""
         # Get real server address from full proxy info
-        if hasattr(proxy, "server"):
-            host = proxy.server  # type: ignore
-            port = proxy.port  # type: ignore
+        if isinstance(proxy, ProxyInfo):
+            host = proxy.server
+            port = proxy.port
         else:
             host = ""
             port = 0
@@ -358,9 +359,9 @@ class XrayAnalyzer:
         proxy: Any,
     ) -> None:
         """Run HTTP/SOCKS proxy tests."""
-        proxy_url = self._build_proxy_url(proxy)
-        if not proxy_url:
+        if not isinstance(proxy, ProxyInfo):
             return
+        proxy_url = build_proxy_url(proxy)
 
         # Independent proxy probes (tunnel/exit-IP/SNI/legacy) — gather in parallel
         tasks: list[Any] = [
@@ -373,14 +374,6 @@ class XrayAnalyzer:
             tasks.append(check_proxy_tunnel(proxy_url))
         for result in await asyncio.gather(*tasks):
             diagnostic.add_result(result)
-
-    @staticmethod
-    def _build_proxy_url(proxy: Any) -> str | None:
-        """Build a proxy URL from proxy info."""
-        if hasattr(proxy, "server") and hasattr(proxy, "port"):
-            protocol = getattr(proxy, "protocol", "http").lower()
-            return f"{protocol}://{proxy.server}:{proxy.port}"
-        return None
 
     # --- Cross-proxy tests coordination ---
 

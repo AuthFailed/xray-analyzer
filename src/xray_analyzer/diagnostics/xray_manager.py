@@ -123,9 +123,9 @@ def _generate_xray_config(
             ]
         }
 
-        stream = {"network": share.network}
+        stream: dict[str, Any] = {"network": share.network}
         if share.security in ("tls", "xtls"):
-            tls_settings = {}
+            tls_settings: dict[str, Any] = {}
             if share.sni:
                 tls_settings["serverName"] = share.sni
             if share.fp:
@@ -262,13 +262,12 @@ class XrayInstance:
                         await writer.wait_closed()
                     log.info(f"Xray ready for {self.share.name} on port {self.socks_port}")
                     return self.socks_port
-                except (ConnectionRefusedError, OSError):
+                except ConnectionRefusedError, OSError:
                     pass
 
                 if asyncio.get_running_loop().time() >= deadline:
                     raise RuntimeError(
-                        f"Xray did not bind SOCKS port {self.socks_port} for "
-                        f"{self.share.name} within 8s"
+                        f"Xray did not bind SOCKS port {self.socks_port} for {self.share.name} within 8s"
                     )
                 await asyncio.sleep(0.1)
 

@@ -161,10 +161,10 @@ DPI_FAST_RST_MS = 150
 # - 0.0.0.0/8, 127.0.0.0/8, 240.0.0.0/4: bogons/loopback/reserved.
 # - Plus the explicit RKN stub IPs already defined above.
 _SUSPICIOUS_NETS: list[ipaddress.IPv4Network] = [
-    ipaddress.ip_network("198.18.0.0/15"),
-    ipaddress.ip_network("0.0.0.0/8"),
-    ipaddress.ip_network("127.0.0.0/8"),
-    ipaddress.ip_network("240.0.0.0/4"),
+    ipaddress.IPv4Network("198.18.0.0/15"),
+    ipaddress.IPv4Network("0.0.0.0/8"),
+    ipaddress.IPv4Network("127.0.0.0/8"),
+    ipaddress.IPv4Network("240.0.0.0/4"),
 ]
 
 
@@ -680,7 +680,8 @@ class _QuicProbeProtocol(asyncio.DatagramProtocol):
     def __init__(self, fut: asyncio.Future[bytes]) -> None:
         self._fut = fut
 
-    def datagram_received(self, data: bytes, _addr: Any) -> None:
+    def datagram_received(self, data: bytes, addr: tuple[str | Any, int]) -> None:
+        del addr
         if not self._fut.done():
             self._fut.set_result(data)
 

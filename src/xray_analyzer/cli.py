@@ -502,7 +502,7 @@ async def cmd_check(args: argparse.Namespace) -> int:
                 diagnostic = await check_domain_verbose(
                     domain,
                     port=port,
-                    proxy_url=proxy_url,
+                    proxy_url=proxy_url or "",
                     timeout=timeout,
                     on_step_complete=on_step_complete,
                     on_step_start=on_step_start,
@@ -595,7 +595,7 @@ async def _cmd_check_via_subscription(domain: str, port: int, timeout: int, subs
                     diagnostic = await check_domain_verbose(
                         domain,
                         port=port,
-                        proxy_url=proxy_url,
+                        proxy_url=proxy_url or "",
                         timeout=timeout,
                     )
                     status = diagnostic.overall_status
@@ -740,7 +740,7 @@ async def cmd_scan(args: argparse.Namespace) -> int:
 
                 summary = await run_censor_check(
                     domains=resolved,
-                    proxy_url=proxy_url,
+                    proxy_url=proxy_url or "",
                     timeout=timeout,
                     max_parallel=max_parallel,
                     on_domain_complete=on_domain_complete,
@@ -878,7 +878,8 @@ async def cmd_serve(args: argparse.Namespace) -> int:
                                             "Proxy host unreachable, skipping scan", proxy=label, error=str(tcp_err)
                                         )
                                         _prog.console.print(
-                                            f"  [yellow]⚠[/yellow] [bold]{label}[/bold]  [dim]host unreachable — scan skipped[/dim]"
+                                            f"  [yellow]⚠[/yellow] [bold]{label}[/bold]  "
+                                            f"[dim]host unreachable — scan skipped[/dim]"
                                         )
                                         return
 
