@@ -323,6 +323,15 @@ async def _fetch_http_code(
 
                 async with session.get(url, **kwargs) as response:
                     return response.status
+            except aiohttp.TooManyRedirects as e:
+                first_status = e.history[0].status if e.history else 301
+                log.debug(
+                    "HTTP redirect loop — treating as reachable",
+                    url=url,
+                    first_status=first_status,
+                    hops=len(e.history),
+                )
+                return first_status
             except Exception as e:
                 log.debug("HTTP fetch failed", url=url, attempt=attempt + 1, retries=retries, error=str(e))
                 if attempt < retries - 1:
