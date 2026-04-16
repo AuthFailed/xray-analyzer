@@ -68,6 +68,23 @@ See [`.env.example`](../../.env.example) for a copy-pasteable template.
 | `TELEGRAM_STALL_TIMEOUT` | `10.0` | Read-stall timeout (seconds) |
 | `TELEGRAM_TOTAL_TIMEOUT` | `60.0` | Cap for the full Telegram probe |
 
+## DPI probes inside `serve`
+
+These toggles enable a second periodic loop that runs DPI probes alongside the domain scan and exports `xray_dpi_*` metrics. Disabled by default — `serve` stays a pure domain scanner until you opt in.
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `SERVE_DPI_ENABLED` | `false` | Master toggle — if `false`, no DPI loop runs regardless of other flags |
+| `SERVE_DPI_INTERVAL_SECONDS` | `1800` | Period between DPI probe iterations (shared across DNS/CDN/Telegram). Standard domain scan uses `CHECK_INTERVAL_SECONDS` (default `300`) |
+| `SERVE_DPI_DNS_ENABLED` | `false` | Run `probe_dns_integrity` each iteration |
+| `SERVE_DPI_DNS_DOMAINS` | — | Comma-separated domains to probe. **Empty ⇒ DNS probe skipped even if enabled** |
+| `SERVE_DPI_CDN_ENABLED` | `false` | Run `scan_targets` against bundled `tcp16_targets.json` |
+| `SERVE_DPI_CDN_MAX_PARALLEL` | `10` | Concurrency for the CDN scan |
+| `SERVE_DPI_CDN_LIMIT` | `0` | Cap on how many targets to probe (`0` = all) |
+| `SERVE_DPI_TELEGRAM_ENABLED` | `false` | Run `check_telegram` (30 MB DL, 10 MB UL, 5 DC TCP ping) |
+
+Fat-probe tuning (`FAT_PROBE_*`) and Telegram timeouts (`TELEGRAM_STALL_TIMEOUT` / `TELEGRAM_TOTAL_TIMEOUT`) are shared with the `xray-analyzer dpi` CLI.
+
 ## Logging & notifications
 
 | Variable | Default | Description |

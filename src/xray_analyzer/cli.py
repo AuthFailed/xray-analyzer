@@ -2,6 +2,7 @@
 
 import argparse
 import asyncio
+import contextlib
 import re
 import sys
 import time
@@ -29,6 +30,7 @@ from xray_analyzer.core.logger import get_logger, setup_logging
 from xray_analyzer.core.models import CheckSeverity, CheckStatus, DiagnosticResult, HostDiagnostic
 from xray_analyzer.core.standalone_analyzer import _is_valid_server_address, analyze_subscription_proxies
 from xray_analyzer.core.xray_client import XrayCheckerClient
+from xray_analyzer.diagnostics.cdn_target_scanner import load_targets, scan_targets
 from xray_analyzer.diagnostics.censor_checker import (
     ALLOW_DOMAINS_LISTS,
     DEFAULT_CENSOR_DOMAINS,
@@ -39,7 +41,9 @@ from xray_analyzer.diagnostics.censor_checker import (
     fetch_whitelist_domains,
     run_censor_check,
 )
+from xray_analyzer.diagnostics.dns_dpi_prober import probe_dns_integrity
 from xray_analyzer.diagnostics.subscription_parser import fetch_subscription, parse_share_url
+from xray_analyzer.diagnostics.telegram_checker import check_telegram
 from xray_analyzer.diagnostics.xray_downloader import ensure_xray
 from xray_analyzer.diagnostics.xray_manager import XrayInstance
 from xray_analyzer.metrics.server import MetricsState, run_metrics_server
@@ -758,6 +762,92 @@ async def cmd_scan(args: argparse.Namespace) -> int:
         return 1
 
 
+async def _run_dpi_iteration(state: MetricsState) -> None:
+    """Run one iteration of each enabled DPI probe and feed the MetricsState.
+
+    Probes run sequentially to keep resource usage predictable — they are
+    already concurrent internally. Each probe is isolated: a failure in one
+    does not prevent the others from running.
+    """
+    dns_domains_raw = settings.serve_dpi_dns_domains.strip()
+    if settings.serve_dpi_dns_enabled and dns_domains_raw:
+        domains = [d.strip() for d in dns_domains_raw.split(",") if d.strip()]
+        t0 = time.monotonic()
+        try:
+            report = await probe_dns_integrity(domains, timeout=settings.dns_dpi_timeout)
+            state.update_dpi_dns(report, time.monotonic() - t0)
+            log.info(
+                "DPI DNS probe done",
+                domains=len(domains),
+                stub_ips=len(report.stub_ips),
+                duration_s=round(time.monotonic() - t0, 2),
+            )
+        except Exception as e:
+            state.mark_dpi_dns_error(str(e))
+            log.warning("DPI DNS probe failed", error=str(e))
+
+    if settings.serve_dpi_cdn_enabled:
+        t0 = time.monotonic()
+        try:
+            targets = load_targets()
+            if settings.serve_dpi_cdn_limit > 0:
+                targets = targets[: settings.serve_dpi_cdn_limit]
+            report = await scan_targets(
+                targets,
+                max_parallel=settings.serve_dpi_cdn_max_parallel,
+                iterations=settings.fat_probe_iterations,
+                chunk_size=settings.fat_probe_chunk_size,
+                connect_timeout=settings.fat_probe_connect_timeout,
+                read_timeout=settings.fat_probe_read_timeout,
+                default_sni=settings.fat_probe_default_sni,
+            )
+            state.update_dpi_cdn(report, time.monotonic() - t0)
+            log.info(
+                "DPI CDN probe done",
+                targets=len(targets),
+                overall=report.overall_verdict,
+                duration_s=round(time.monotonic() - t0, 2),
+            )
+        except Exception as e:
+            state.mark_dpi_cdn_error(str(e))
+            log.warning("DPI CDN probe failed", error=str(e))
+
+    if settings.serve_dpi_telegram_enabled:
+        t0 = time.monotonic()
+        try:
+            report = await check_telegram(
+                stall_timeout=settings.telegram_stall_timeout,
+                total_timeout=settings.telegram_total_timeout,
+            )
+            state.update_dpi_telegram(report, time.monotonic() - t0)
+            log.info(
+                "DPI Telegram probe done",
+                verdict=report.verdict,
+                duration_s=round(time.monotonic() - t0, 2),
+            )
+        except Exception as e:
+            state.mark_dpi_telegram_error(str(e))
+            log.warning("DPI Telegram probe failed", error=str(e))
+
+
+async def _dpi_loop(state: MetricsState) -> None:
+    """Periodic DPI probe loop run alongside the main scan loop in `serve`."""
+    interval = settings.serve_dpi_interval_seconds
+    while True:
+        try:
+            await _run_dpi_iteration(state)
+        except asyncio.CancelledError:
+            raise
+        except Exception as e:  # defensive: keep the loop alive on unexpected errors
+            log.error("DPI iteration crashed", error=str(e))
+        await asyncio.sleep(interval)
+
+
+def _any_dpi_probe_enabled() -> bool:
+    dns_on = settings.serve_dpi_dns_enabled and bool(settings.serve_dpi_dns_domains.strip())
+    return dns_on or settings.serve_dpi_cdn_enabled or settings.serve_dpi_telegram_enabled
+
+
 async def cmd_serve(args: argparse.Namespace) -> int:
     """Start Prometheus metrics server with periodic censorship scans."""
     port: int = args.port or settings.metrics_port
@@ -837,6 +927,23 @@ async def cmd_serve(args: argparse.Namespace) -> int:
 
         runner = await run_metrics_server(host, port, state)
         console.print(f"[green]✓[/green] Listening on [bold]http://{host}:{port}/metrics[/bold]  (Ctrl+C to stop)\n")
+
+        dpi_task: asyncio.Task | None = None
+        if settings.serve_dpi_enabled and _any_dpi_probe_enabled():
+            dpi_task = asyncio.create_task(_dpi_loop(state), name="serve-dpi-loop")
+            enabled = [
+                name
+                for name, on in (
+                    ("DNS", settings.serve_dpi_dns_enabled and bool(settings.serve_dpi_dns_domains.strip())),
+                    ("CDN", settings.serve_dpi_cdn_enabled),
+                    ("Telegram", settings.serve_dpi_telegram_enabled),
+                )
+                if on
+            ]
+            console.print(
+                f"[green]✓[/green] DPI probes enabled: [bold]{', '.join(enabled)}[/bold]  "
+                f"[dim](every {settings.serve_dpi_interval_seconds}s)[/dim]\n"
+            )
 
         try:
             while True:
@@ -947,6 +1054,10 @@ async def cmd_serve(args: argparse.Namespace) -> int:
         except asyncio.CancelledError, KeyboardInterrupt:
             console.print("\n[dim]Shutting down...[/dim]")
         finally:
+            if dpi_task is not None and not dpi_task.done():
+                dpi_task.cancel()
+                with contextlib.suppress(asyncio.CancelledError, Exception):
+                    await dpi_task
             await runner.cleanup()
 
         return 0

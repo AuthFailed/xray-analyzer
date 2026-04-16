@@ -68,6 +68,23 @@
 | `TELEGRAM_STALL_TIMEOUT` | `10.0` | Таймаут read-stall (секунды) |
 | `TELEGRAM_TOTAL_TIMEOUT` | `60.0` | Потолок длительности Telegram-пробы |
 
+## DPI-пробы внутри `serve`
+
+Переключатели для второго периодического цикла, который крутится рядом с доменным сканом и пушит метрики `xray_dpi_*`. По умолчанию всё выключено — `serve` остаётся чистым доменным сканером, пока не включишь явно.
+
+| Переменная | Дефолт | Описание |
+|------------|--------|----------|
+| `SERVE_DPI_ENABLED` | `false` | Мастер-тумблер — пока `false`, DPI-цикл не стартует, даже если флажки ниже `true` |
+| `SERVE_DPI_INTERVAL_SECONDS` | `1800` | Период между итерациями DPI-проб (общий для DNS/CDN/Telegram). Обычный доменный скан использует `CHECK_INTERVAL_SECONDS`, дефолт `300` |
+| `SERVE_DPI_DNS_ENABLED` | `false` | Запускать `probe_dns_integrity` каждую итерацию |
+| `SERVE_DPI_DNS_DOMAINS` | — | Список доменов через запятую. **Пусто ⇒ DNS-проба пропускается даже при включённом флаге** |
+| `SERVE_DPI_CDN_ENABLED` | `false` | Запускать `scan_targets` по встроенному `tcp16_targets.json` |
+| `SERVE_DPI_CDN_MAX_PARALLEL` | `10` | Параллельность CDN-скана |
+| `SERVE_DPI_CDN_LIMIT` | `0` | Ограничение числа таргетов (`0` = все) |
+| `SERVE_DPI_TELEGRAM_ENABLED` | `false` | Запускать `check_telegram` (30 MB DL, 10 MB UL, TCP-ping 5 DC) |
+
+Параметры fat-probe (`FAT_PROBE_*`) и Telegram-таймауты (`TELEGRAM_STALL_TIMEOUT` / `TELEGRAM_TOTAL_TIMEOUT`) общие с CLI `xray-analyzer dpi`.
+
 ## Логирование и уведомления
 
 | Переменная | По умолчанию | Описание |

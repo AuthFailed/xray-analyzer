@@ -119,6 +119,54 @@
 - Имя share-ссылки (или `host:port` как fallback) в режиме `serve --subscription`
 - Иначе — сырой URL прокси
 
+### DPI-пробы в `serve`
+
+Экспортируются только когда `SERVE_DPI_ENABLED=true` **и** включён хотя бы один переключатель. DPI-метрики **не** имеют label `proxy` — всегда измеряют саму машину, где запущен `serve`. Крутятся на собственном расписании (`SERVE_DPI_INTERVAL_SECONDS`, по умолчанию `1800`).
+
+#### DNS integrity (`SERVE_DPI_DNS_ENABLED` + `SERVE_DPI_DNS_DOMAINS`)
+
+| Метрика | Тип | Labels | Значение |
+|---------|-----|--------|----------|
+| `xray_dpi_dns_verdict_total` | gauge | `verdict` (`ok`/`spoof`/`intercept`/`fake_nxdomain`/`fake_empty`/`doh_blocked`/`all_dead`) | Сколько доменов с каждым вердиктом |
+| `xray_dpi_dns_domain` | gauge | `domain`, `verdict` | `1` если это текущий вердикт домена (все 7 выводятся всегда) |
+| `xray_dpi_dns_stub_ips_total` | gauge | — | Сколько stub/splash-IP провайдера собрано (появляются ≥ 2× в UDP-ответах) |
+| `xray_dpi_dns_udp_available` | gauge | — | `1` если найден живой UDP-резолвер |
+| `xray_dpi_dns_doh_available` | gauge | — | `1` если найден живой DoH-резолвер |
+| `xray_dpi_dns_up` | gauge | — | `1` если проба прошла, `0` если упала |
+| `xray_dpi_dns_run_duration_seconds` | gauge | — | Длительность последней пробы |
+| `xray_dpi_dns_last_run_timestamp_seconds` | gauge | — | Unix-время последней пробы |
+
+#### CDN / hosting (`SERVE_DPI_CDN_ENABLED`)
+
+| Метрика | Тип | Labels | Значение |
+|---------|-----|--------|----------|
+| `xray_dpi_cdn_provider_targets_total` | gauge | `provider`, `asn` | Цели по провайдеру |
+| `xray_dpi_cdn_provider_targets_passed` | gauge | `provider`, `asn` | Цели, прошедшие fat-probe |
+| `xray_dpi_cdn_provider_targets_blocked` | gauge | `provider`, `asn` | Цели, зарезанные в окне 16–20 KB |
+| `xray_dpi_cdn_provider_targets_errored` | gauge | `provider`, `asn` | Цели с DNS/timeout/refused/прочими ошибками |
+| `xray_dpi_cdn_provider_verdict` | gauge | `provider`, `asn`, `verdict` (`ok`/`partial`/`blocked`) | `1` если это текущий вердикт провайдера/ASN |
+| `xray_dpi_cdn_overall_verdict` | gauge | `verdict` | `1` для текущего общего вердикта |
+| `xray_dpi_cdn_up` | gauge | — | `1` если проба прошла |
+| `xray_dpi_cdn_run_duration_seconds` | gauge | — | Длительность последней пробы |
+| `xray_dpi_cdn_last_run_timestamp_seconds` | gauge | — | Unix-время последней пробы |
+
+#### Telegram (`SERVE_DPI_TELEGRAM_ENABLED`)
+
+| Метрика | Тип | Labels | Значение |
+|---------|-----|--------|----------|
+| `xray_dpi_telegram_verdict` | gauge | `verdict` (`ok`/`slow`/`partial`/`blocked`/`error`) | `1` для текущего вердикта |
+| `xray_dpi_telegram_download_bytes` | gauge | — | Скачано байт в последней пробе |
+| `xray_dpi_telegram_download_duration_seconds` | gauge | — | Время скачивания |
+| `xray_dpi_telegram_download_status` | gauge | `status` (`ok`/`slow`/`stalled`/`blocked`/`error`) | `1` для текущего статуса скачивания |
+| `xray_dpi_telegram_upload_bytes` | gauge | — | Отправлено байт в последней пробе |
+| `xray_dpi_telegram_upload_duration_seconds` | gauge | — | Время отправки |
+| `xray_dpi_telegram_upload_status` | gauge | `status` | `1` для текущего статуса отправки |
+| `xray_dpi_telegram_dc_reachable` | gauge | — | Сколько DC Telegram доступны |
+| `xray_dpi_telegram_dc_total` | gauge | — | Всего DC проверено |
+| `xray_dpi_telegram_up` | gauge | — | `1` если проба прошла |
+| `xray_dpi_telegram_run_duration_seconds` | gauge | — | Длительность последней пробы |
+| `xray_dpi_telegram_last_run_timestamp_seconds` | gauge | — | Unix-время последней пробы |
+
 ### Healthcheck
 
 `GET /health`:

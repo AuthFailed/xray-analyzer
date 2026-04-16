@@ -97,6 +97,17 @@ class Settings(BaseSettings):
     telegram_stall_timeout: float = Field(default=10.0, ge=1.0, le=60.0)
     telegram_total_timeout: float = Field(default=60.0, ge=10.0, le=300.0)
 
+    # DPI probes inside `serve` (periodic, alongside the domain scan)
+    # Master toggle gates the second background loop entirely.
+    serve_dpi_enabled: bool = False
+    serve_dpi_interval_seconds: int = Field(default=1800, ge=60)
+    serve_dpi_dns_enabled: bool = False
+    serve_dpi_dns_domains: str = ""  # comma-sep; empty → DNS probe is skipped
+    serve_dpi_cdn_enabled: bool = False
+    serve_dpi_cdn_max_parallel: int = Field(default=10, ge=1, le=50)
+    serve_dpi_cdn_limit: int = Field(default=0, ge=0)  # 0 = all targets from tcp16_targets.json
+    serve_dpi_telegram_enabled: bool = False
+
     @property
     def is_api_protected(self) -> bool:
         """Check if the API requires authentication."""
