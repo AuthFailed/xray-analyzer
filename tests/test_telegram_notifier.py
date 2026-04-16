@@ -33,31 +33,31 @@ class TestFormatTcpPing:
         details = {"latency_avg_ms": 350.0, "packet_loss_pct": 0}
         result = _format_tcp_ping(details)
         assert "🟡" in result
-        assert "высокий" in result
+        assert "high" in result
         assert "350ms" in result
 
     def test_packet_loss_low(self):
         details = {"latency_avg_ms": 100.0, "packet_loss_pct": 10}
         result = _format_tcp_ping(details)
         assert "10%" in result
-        assert "потери" in result
+        assert "loss" in result
 
     def test_packet_loss_medium(self):
         details = {"latency_avg_ms": 200.0, "packet_loss_pct": 30}
         result = _format_tcp_ping(details)
         assert "🟡" in result
-        assert "потери 30%" in result
+        assert "loss 30%" in result
 
     def test_packet_loss_critical(self):
         details = {"latency_avg_ms": 500.0, "packet_loss_pct": 75}
         result = _format_tcp_ping(details)
         assert "🔴" in result
-        assert "критические потери 75%" in result
+        assert "critical loss 75%" in result
 
     def test_no_data(self):
         details = {}
         result = _format_tcp_ping(details)
-        assert result == "нет данных"
+        assert result == "no data"
 
 
 class TestFormatCheckResult:
@@ -77,8 +77,8 @@ class TestFormatCheckResult:
         result = _format_check_result(check)
         assert result is not None
         assert isinstance(result, list)
-        assert "DNS разрешён" in result[0]
-        assert "Локальный DNS: 1.2.3.4" in result[1]
+        assert "DNS resolved" in result[0]
+        assert "Local DNS: 1.2.3.4" in result[1]
         assert "Check-Host: 1.2.3.4" in result[2]
 
     def test_passed_tcp_ping(self):
@@ -105,7 +105,7 @@ class TestFormatCheckResult:
         )
         result = _format_check_result(check)
         assert result is not None
-        assert "TCP-соединения" in result
+        assert "TCP connection" in result
 
     def test_passed_cross_proxy(self):
         check = DiagnosticResult(
@@ -122,7 +122,7 @@ class TestFormatCheckResult:
         assert result is not None
         assert "🇵🇱 Польша" in result
         assert "Xray" in result
-        assert "сервер работает, возможна блокировка" in result
+        assert "server works, possible blocking" in result
 
     def test_failed_cross_proxy(self):
         check = DiagnosticResult(
@@ -138,7 +138,7 @@ class TestFormatCheckResult:
         result = _format_check_result(check)
         assert result is not None
         assert "🇫🇮 Финляндия" in result
-        assert "сервер может быть выключен" in result
+        assert "server may be down" in result
 
     def test_passed_exit_ip(self):
         check = DiagnosticResult(
@@ -162,7 +162,7 @@ class TestFormatCheckResult:
         )
         result = _format_check_result(check)
         assert result is not None
-        assert "не заблокирован" in result
+        assert "not blocked" in result
 
     def test_failed_xray_connectivity(self):
         check = DiagnosticResult(
@@ -176,7 +176,7 @@ class TestFormatCheckResult:
         assert result is not None
         assert "❌" in result
         assert "vless" in result
-        assert "основная проверка через Xray" in result
+        assert "primary Xray check" in result
 
     def test_failed_xray_connectivity_with_fallback(self):
         check = DiagnosticResult(
@@ -189,8 +189,8 @@ class TestFormatCheckResult:
         result = _format_check_result(check)
         assert result is not None
         assert "⏱" in result
-        assert "fallback по IP" in result
-        assert "основной тест по домену не прошёл" in result
+        assert "IP fallback" in result
+        assert "domain test failed" in result
 
     def test_failed_check(self):
         check = DiagnosticResult(
@@ -227,7 +227,7 @@ class TestFormatCheckResult:
         result = _format_check_result(check)
         assert result is not None
         assert "○" in result
-        assert "пропущено" in result
+        assert "skipped" in result
 
 
 class TestFormatRecommendations:
@@ -346,8 +346,8 @@ class TestTelegramNotifierBuildMessage:
 
         assert "proxy1.example.com:443" in message
         assert "proxy2" not in message  # Should not include passing host
-        assert "Тесты:" in message
-        assert "Что проверить:" in message
+        assert "Tests:" in message
+        assert "What to check:" in message
 
     def test_message_structure(self):
         notifier = TelegramNotifier()
@@ -379,7 +379,7 @@ class TestTelegramNotifierBuildMessage:
         assert "Xray Analyzer" in message
         assert "test.host:443" in message
         assert "1." in message  # Numbered list
-        assert "Тесты:" in message
+        assert "Tests:" in message
 
     def test_message_truncation(self):
         notifier = TelegramNotifier()
@@ -407,4 +407,4 @@ class TestTelegramNotifierBuildMessage:
 
         # Should be truncated
         assert len(message) <= 4050  # MAX_MESSAGE_LENGTH + small buffer
-        assert "обрезано" in message or len(message) < 10000
+        assert "Message truncated" in message or len(message) < 10000

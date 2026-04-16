@@ -103,11 +103,11 @@ def test_recommendation_blocked_for_direct_connections():
     analyzer.add_blocking_recommendations(diag)
 
     assert len(diag.recommendations) == 3
-    assert "заблокирован для прямых подключений" in diag.recommendations[0]
-    assert "блокировка для нашей подсети" in diag.recommendations[1]
-    assert "сервер рабочий" in diag.recommendations[1]
-    assert "мост" in diag.recommendations[2]
-    assert "Сменить IP-адрес" in diag.recommendations[2]
+    assert "is blocked for direct connections" in diag.recommendations[0]
+    assert "blocked for our subnet" in diag.recommendations[1]
+    assert "server is functional" in diag.recommendations[1]
+    assert "Bridge through a working proxy" in diag.recommendations[2]
+    assert "Change the server IP" in diag.recommendations[2]
     # Check multi-line formatting
     assert "\n" in diag.recommendations[2]
 
@@ -123,9 +123,9 @@ def test_recommendation_domain_level_block():
     analyzer.add_blocking_recommendations(diag)
 
     assert len(diag.recommendations) == 3
-    assert "заблокирован (DNS/SNI)" in diag.recommendations[0]
-    assert "Заменить домен" in diag.recommendations[2]
-    assert "SNI-обфускацию" in diag.recommendations[2]
+    assert "is blocked (DNS/SNI)" in diag.recommendations[0]
+    assert "Replace the domain" in diag.recommendations[2]
+    assert "SNI obfuscation" in diag.recommendations[2]
 
 
 def test_recommendation_ip_level_block():
@@ -139,8 +139,8 @@ def test_recommendation_ip_level_block():
     analyzer.add_blocking_recommendations(diag)
 
     assert len(diag.recommendations) == 3
-    assert "заблокирован или сервер недоступен" in diag.recommendations[0]
-    assert "сменить IP-адрес" in diag.recommendations[2]
+    assert "is blocked or server is unreachable" in diag.recommendations[0]
+    assert "change IP" in diag.recommendations[2]
 
 
 # === DNS failure test ===
@@ -160,7 +160,7 @@ def test_recommendation_dns_failure():
     assert len(diag.recommendations) == 3
     assert "DNS" in diag.recommendations[0]
     assert "DNS poisoning" in diag.recommendations[1]
-    assert "публичный DNS" in diag.recommendations[2]
+    assert "public DNS" in diag.recommendations[2]
 
 
 # === RKN throttle vs IP block tests ===
@@ -182,9 +182,9 @@ def test_recommendation_rkn_throttle_detected():
     analyzer.add_blocking_recommendations(diag)
 
     assert len(diag.recommendations) == 3
-    assert "DPI-троттлинг" in diag.recommendations[0]
+    assert "DPI throttling" in diag.recommendations[0]
     assert "16KB" in diag.recommendations[0]
-    assert "обфускацию" in diag.recommendations[2]
+    assert "obfuscation" in diag.recommendations[2]
     assert "Reality" in diag.recommendations[2]
 
 
@@ -204,10 +204,10 @@ def test_recommendation_ip_fully_blocked():
     analyzer.add_blocking_recommendations(diag)
 
     assert len(diag.recommendations) == 3
-    assert "заблокирован для прямых подключений" in diag.recommendations[0]
-    assert "сервер рабочий" in diag.recommendations[1]
-    assert "Сменить IP-адрес" in diag.recommendations[2]
-    assert "мост" in diag.recommendations[2]
+    assert "is blocked for direct connections" in diag.recommendations[0]
+    assert "server is functional" in diag.recommendations[1]
+    assert "Change the server IP" in diag.recommendations[2]
+    assert "Bridge through a working proxy" in diag.recommendations[2]
 
 
 def test_recommendation_ip_blocked_but_cross_works():
@@ -222,8 +222,8 @@ def test_recommendation_ip_blocked_but_cross_works():
     analyzer.add_blocking_recommendations(diag)
 
     assert len(diag.recommendations) == 3
-    assert "сервер рабочий" in diag.recommendations[1]
-    assert "только прямые подключения заблокированы" in diag.recommendations[1]
+    assert "server is functional" in diag.recommendations[1]
+    assert "only direct connections are blocked" in diag.recommendations[1]
 
 
 # === Edge cases ===
@@ -262,7 +262,7 @@ def test_recommendation_no_ip_result_but_cross_pass():
     analyzer.add_blocking_recommendations(diag)
 
     assert len(diag.recommendations) == 3
-    assert "заблокирован для прямых подключений" in diag.recommendations[0]
+    assert "is blocked for direct connections" in diag.recommendations[0]
 
 
 def test_recommendation_deduplicates():
@@ -311,7 +311,7 @@ def test_recommendation_exit_ip_sni_failed_but_connectivity_passed():
     analyzer.add_blocking_recommendations(diag)
 
     assert len(diag.recommendations) == 3
-    assert "подключается, но не достигает внешних сервисов" in diag.recommendations[0]
+    assert "connects but cannot reach external services" in diag.recommendations[0]
     assert "HTTP 204" in diag.recommendations[1]
-    assert "маршрутизацию" in diag.recommendations[2]
+    assert "routing" in diag.recommendations[2]
     assert "firewall" in diag.recommendations[2]
