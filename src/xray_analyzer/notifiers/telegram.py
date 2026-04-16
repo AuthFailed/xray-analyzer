@@ -2,7 +2,8 @@
 
 import aiohttp
 
-from xray_analyzer.core.config import settings
+from xray_analyzer.core.config import Settings
+from xray_analyzer.core.config import settings as default_settings
 from xray_analyzer.core.logger import get_logger
 from xray_analyzer.core.models import (
     CheckStatus,
@@ -190,10 +191,11 @@ def _format_recommendations(diag: HostDiagnostic) -> str:
 class TelegramNotifier(Notifier):
     """Send diagnostic alerts via Telegram Bot API."""
 
-    def __init__(self) -> None:
-        self.bot_token = settings.telegram_bot_token
-        self.chat_id = settings.telegram_chat_id
-        self.enabled = settings.notify_telegram_enabled
+    def __init__(self, settings: Settings | None = None) -> None:
+        cfg = settings or default_settings
+        self.bot_token = cfg.telegram_bot_token
+        self.chat_id = cfg.telegram_chat_id
+        self.enabled = cfg.notify_telegram_enabled
 
     async def send_notification(self, diagnostics: list[HostDiagnostic]) -> bool:
         """Send Telegram notification with diagnostic summary."""

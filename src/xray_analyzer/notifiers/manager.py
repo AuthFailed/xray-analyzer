@@ -1,6 +1,7 @@
 """Notifier manager to coordinate multiple notification providers."""
 
-from xray_analyzer.core.config import settings
+from xray_analyzer.core.config import Settings
+from xray_analyzer.core.config import settings as default_settings
 from xray_analyzer.core.logger import get_logger
 from xray_analyzer.core.models import HostDiagnostic
 from xray_analyzer.notifiers.base import Notifier
@@ -12,11 +13,12 @@ log = get_logger("notifier_manager")
 class NotifierManager:
     """Manage and coordinate multiple notification providers."""
 
-    def __init__(self) -> None:
+    def __init__(self, settings: Settings | None = None) -> None:
+        cfg = settings or default_settings
         self.notifiers: list[Notifier] = []
 
-        if settings.notify_telegram_enabled:
-            self.notifiers.append(TelegramNotifier())
+        if cfg.notify_telegram_enabled:
+            self.notifiers.append(TelegramNotifier(settings=cfg))
             log.info("Telegram notifier enabled")
 
     async def notify(self, diagnostics: list[HostDiagnostic]) -> None:

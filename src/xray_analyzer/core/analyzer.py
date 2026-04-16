@@ -3,7 +3,8 @@
 import asyncio
 from typing import Any
 
-from xray_analyzer.core.config import settings
+from xray_analyzer.core.config import Settings
+from xray_analyzer.core.config import settings as default_settings
 from xray_analyzer.core.cross_proxy_tests import CrossProxyTestRunner
 from xray_analyzer.core.logger import get_logger
 from xray_analyzer.core.models import (
@@ -44,9 +45,10 @@ log = get_logger("analyzer")
 class XrayAnalyzer:
     """Main analyzer that orchestrates all diagnostic checks."""
 
-    def __init__(self) -> None:
-        self.client = XrayCheckerClient()
-        self.notifier_manager = NotifierManager()
+    def __init__(self, settings: Settings | None = None) -> None:
+        self._settings = settings or default_settings
+        self.client = XrayCheckerClient(settings=self._settings)
+        self.notifier_manager = NotifierManager(settings=self._settings)
         self._subscription_shares: list[ProxyShareURL] = []
         self._cross_proxy_runner = CrossProxyTestRunner(self._subscription_shares)
         self._throttle_runner = ThrottleCheckRunner(self._subscription_shares)
@@ -76,7 +78,7 @@ class XrayAnalyzer:
             return []
 
         # Filter to only offline proxies by default
-        offline_only = not getattr(settings, "analyze_online_proxies", False)
+        offline_only = not getattr(self._settings, "analyze_online_proxies", False)
         targets = [p for p in proxies if not p.online] if offline_only else proxies
 
         if not targets:
@@ -96,7 +98,7 @@ class XrayAnalyzer:
         problematic = [d for d in diagnostics if d.overall_status not in (CheckStatus.PASS, CheckStatus.WARN)]
 
         # Run RKN throttle checks on problematic hosts (direct connection test)
-        if problematic and settings.rkn_throttle_check_enabled:
+        if problematic and self._settings.rkn_throttle_check_enabled:
             await self._throttle_runner.run_direct_throttle_checks(problematic)
 
         # Run cross-proxy tests for problematic hosts
@@ -119,12 +121,12 @@ class XrayAnalyzer:
 
     async def _load_subscription_shares(self) -> None:
         """Load subscription share URLs if configured."""
-        if not settings.subscription_url or not settings.xray_test_enabled:
+        if not self._settings.subscription_url or not self._settings.xray_test_enabled:
             return
         try:
             self._subscription_shares = await fetch_subscription(
-                settings.subscription_url,
-                hwid=settings.subscription_hwid,
+                self._settings.subscription_url,
+                hwid=self._settings.subscription_hwid,
             )
             log.info(f"Loaded {len(self._subscription_shares)} proxies from subscription")
             for s in self._subscription_shares:
@@ -137,11 +139,11 @@ class XrayAnalyzer:
 
     async def _ensure_xray_binary(self) -> None:
         """Ensure Xray binary is available if testing VLESS/Trojan/SS."""
-        if not settings.xray_test_enabled:
+        if not self._settings.xray_test_enabled:
             return
-        xray_path = await ensure_xray(settings.xray_binary_path)
+        xray_path = await ensure_xray(self._settings.xray_binary_path)
         if xray_path:
-            settings.xray_binary_path = xray_path
+            self._settings.xray_binary_path = xray_path
             log.info(f"Xray available at: {xray_path}")
         else:
             log.warning(
@@ -169,7 +171,7 @@ class XrayAnalyzer:
                     log.debug(f"Full endpoint unavailable: {e}")
 
                 # Fall back to public endpoint (no server info — limited diagnostics)
-                if not settings.is_api_protected:
+                if not self._settings.is_api_protected:
                     log.warning(
                         "Using public API endpoint — server addresses not available. "
                         "Set CHECKER_API_USERNAME and CHECKER_API_PASSWORD for full diagnostics."
@@ -276,9 +278,9 @@ class XrayAnalyzer:
                 check_proxy_tcp_tunnel(direct_proxy_url),
                 check_proxy_exit_ip(direct_proxy_url),
             ]
-            if settings.proxy_sni_test_enabled:
+            if self._settings.proxy_sni_test_enabled:
                 tasks.append(check_proxy_sni_connection(direct_proxy_url))
-            if settings.tunnel_test_enabled:
+            if self._settings.tunnel_test_enabled:
                 tasks.append(check_proxy_tunnel(direct_proxy_url))
             for result in await asyncio.gather(*tasks):
                 diagnostic.add_result(result)
@@ -368,9 +370,9 @@ class XrayAnalyzer:
             check_proxy_tcp_tunnel(proxy_url),
             check_proxy_exit_ip(proxy_url),
         ]
-        if settings.proxy_sni_test_enabled:
+        if self._settings.proxy_sni_test_enabled:
             tasks.append(check_proxy_sni_connection(proxy_url))
-        if settings.tunnel_test_enabled:
+        if self._settings.tunnel_test_enabled:
             tasks.append(check_proxy_tunnel(proxy_url))
         for result in await asyncio.gather(*tasks):
             diagnostic.add_result(result)

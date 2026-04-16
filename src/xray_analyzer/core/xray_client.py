@@ -5,7 +5,8 @@ from typing import Any
 import aiohttp
 from aiohttp import BasicAuth
 
-from xray_analyzer.core.config import settings
+from xray_analyzer.core.config import Settings
+from xray_analyzer.core.config import settings as default_settings
 from xray_analyzer.core.logger import get_logger
 from xray_analyzer.core.models import (
     FullProxyResponse,
@@ -21,8 +22,9 @@ log = get_logger("xray_checker_client")
 class XrayCheckerClient:
     """Async client for interacting with the Xray Checker API."""
 
-    def __init__(self) -> None:
-        self.base_url = settings.checker_api_url.rstrip("/")
+    def __init__(self, settings: Settings | None = None) -> None:
+        self._settings = settings or default_settings
+        self.base_url = self._settings.checker_api_url.rstrip("/")
         self._session: aiohttp.ClientSession | None = None
 
     async def _get_session(self) -> aiohttp.ClientSession:
@@ -31,10 +33,10 @@ class XrayCheckerClient:
             headers: dict[str, str] = {}
             auth: BasicAuth | None = None
 
-            if settings.is_api_protected:
+            if self._settings.is_api_protected:
                 auth = BasicAuth(
-                    login=settings.checker_api_username,
-                    password=settings.checker_api_password,
+                    login=self._settings.checker_api_username,
+                    password=self._settings.checker_api_password,
                 )
                 log.info("Using Basic Authentication for API requests")
 
