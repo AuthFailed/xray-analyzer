@@ -1,0 +1,30 @@
+{
+  "_source": "Adapted from https://github.com/Runnin4ik/dpi-detector (MIT), config.yml",
+  "udp": [
+    ["8.8.8.8", "Google"],
+    ["1.1.1.1", "Cloudflare"],
+    ["9.9.9.9", "Quad9"],
+    ["94.140.14.14", "AdGuard"],
+    ["77.88.8.8", "Yandex"],
+    ["223.5.5.5", "Alibaba"],
+    ["208.67.222.222", "OpenDNS"],
+    ["76.76.2.0", "ControlD"],
+    ["194.242.2.2", "Mullvad"]
+  ],
+  "doh": [
+    ["https://dns.google/resolve", "Google"],
+    ["https://1.1.1.1/dns-query", "Cloudflare"],
+    ["https://cloudflare-dns.com/dns-query", "Cloudflare"],
+    ["https://dns.adguard-dns.com/resolve", "AdGuard"],
+    ["https://dns.alidns.com/resolve", "Alibaba"],
+    ["https://dns.quad9.net:5053/dns-query", "Quad9"],
+    ["https://doh.opendns.com/dns-query", "OpenDNS"]
+  ],
+  "probe_domains": [
+    "rutor.info",
+    "flibusta.is",
+    "rezka.ag",
+    "shikimori.one",
+    "www.fastmail.com"
+  ]
+}

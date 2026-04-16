@@ -22,6 +22,7 @@ from rich.progress import (
 )
 from rich.table import Table
 
+from xray_analyzer import cli_dpi
 from xray_analyzer.core.analyzer import XrayAnalyzer
 from xray_analyzer.core.config import settings
 from xray_analyzer.core.logger import get_logger, setup_logging
@@ -340,6 +341,9 @@ def create_parser() -> argparse.ArgumentParser:
 
     # status command
     subparsers.add_parser("status", help="Show xray-checker API status")
+
+    # dpi subcommand group — lives in cli_dpi.py to keep this file focused
+    cli_dpi.register(subparsers)
 
     return parser
 
@@ -1331,6 +1335,9 @@ def main() -> None:
         sys.exit(exit_code)
     elif args.command == "status":
         exit_code = asyncio.run(cmd_status())
+        sys.exit(exit_code)
+    elif args.command == "dpi":
+        exit_code = asyncio.run(cli_dpi.dispatch(args))
         sys.exit(exit_code)
     else:
         parser.print_help()

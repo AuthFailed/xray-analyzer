@@ -31,6 +31,15 @@ dev = [
 [project.scripts]
 xray-analyzer = "xray_analyzer.cli:main"
 
+[tool.hatch.build.targets.wheel]
+packages = ["src/xray_analyzer"]
+
+[tool.hatch.build.targets.wheel.force-include]
+"src/xray_analyzer/data/dns_servers.json" = "xray_analyzer/data/dns_servers.json"
+"src/xray_analyzer/data/tcp16_targets.json" = "xray_analyzer/data/tcp16_targets.json"
+"src/xray_analyzer/data/whitelist_sni.txt" = "xray_analyzer/data/whitelist_sni.txt"
+"src/xray_analyzer/data/CREDITS.md" = "xray_analyzer/data/CREDITS.md"
+
 [tool.ruff]
 target-version = "py314"
 line-length = 120

@@ -37,6 +37,13 @@ uv run xray-analyzer scan                                 # built-in default lis
 uv run xray-analyzer scan google.com youtube.com          # specific domains
 uv run xray-analyzer scan --list whitelist                # Russia mobile whitelist
 uv run xray-analyzer scan --proxy socks5://127.0.0.1:1080
+
+# dpi: deep DPI / censorship probes (adapted from Runnin4ik/dpi-detector)
+uv run xray-analyzer dpi dns meduza.io youtube.com        # UDP vs DoH + stub-IP harvest
+uv run xray-analyzer dpi tcp16 5.161.249.234 --sni example.com  # fat-probe 16-20 KB throttle
+uv run xray-analyzer dpi cdn-scan --max-parallel 20       # ASN-bucketed CDN/hosting scan
+uv run xray-analyzer dpi sni-brute 5.161.249.234 --max 50 # find a working SNI for a blocked IP
+uv run xray-analyzer dpi telegram                         # Telegram DL / UL / DC reachability
 ```
 
 ## Architecture
@@ -76,6 +83,19 @@ All settings are loaded from `.env` via `pydantic-settings`. The singleton `sett
 - `SUBSCRIPTION_URL` — required for VLESS/Trojan/SS testing; fetches share links used by `XrayInstance`
 - `XRAY_BINARY_PATH` — path to xray binary; auto-downloaded if not found
 - `RKN_THROTTLE_CHECK_ENABLED` — enables 16–20 KB DPI throttle detection
+
+### DPI probe modules (`diagnostics/*_probe*.py`, `*_checker.py`, `cli_dpi.py`)
+
+Tier 1–6 probes adapted from [Runnin4ik/dpi-detector](https://github.com/Runnin4ik/dpi-detector) (MIT). All share `error_classifier.classify()` which walks `__cause__`/`__context__` chains and maps exceptions to a stable `ErrorLabel` taxonomy (`TLS_DPI`, `TLS_MITM`, `TLS_BLOCK`, `TCP_16_20`, `TCP_RST`, `TCP_ABORT`, `TCP_REFUSED`, `TCP_TIMEOUT`, `NET_UNREACH`, `HOST_UNREACH`, `DNS_FAIL`, `DNS_FAKE`, `ISP_PAGE`, `POOL_TIMEOUT`, `READ_ERR`, `GENERIC`).
+
+- `dns_dpi_prober.py` — raw UDP (9 resolvers) vs DoH JSON (7 resolvers) cross-check; harvests "stub IPs" that appear ≥2× across UDP answers.
+- `tls_version_probe.py` + `http_injection_probe.py` — forced-TLS-1.2/1.3 probes and plain HTTP-80 injection check; share `evaluate_response` for ISP-splash / HTTP-451 / cross-domain-redirect detection.
+- `fat_probe_checker.py` — keepalive-reused socket + 16 HEAD iterations with 4 KB `X-Pad` junk; drop inside the 1-30 KB window → `TCP_16_20`. Supports IP+SNI override via a custom `aiohttp.AbstractResolver`.
+- `cdn_target_scanner.py` — bulk fat-probe against `data/tcp16_targets.json`, grouped by ASN/provider.
+- `sni_brute_force_checker.py` — iterates `data/whitelist_sni.txt` with `hint_rtt_ms` to find a working SNI on a blocked CDN IP.
+- `telegram_checker.py` — concurrent 30 MB DL, 10 MB UL, TCP ping of all 5 DC IPs.
+
+Bundled data (`src/xray_analyzer/data/`): `dns_servers.json`, `tcp16_targets.json`, `whitelist_sni.txt` — see `data/CREDITS.md` for upstream attribution.
 
 ### Test conventions
 

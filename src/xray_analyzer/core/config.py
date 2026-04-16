@@ -71,6 +71,32 @@ class Settings(BaseSettings):
     metrics_host: str = "0.0.0.0"
     metrics_port: int = Field(default=9090, ge=1, le=65535)
 
+    # DPI probes (`xray-analyzer dpi ...`) — see src/xray_analyzer/cli_dpi.py
+    # T1b DNS DPI prober
+    dns_dpi_enabled: bool = True
+    dns_dpi_timeout: float = Field(default=5.0, ge=1.0, le=30.0)
+
+    # T2 TLS 1.2/1.3 split (opt-in inside censor_checker pipeline)
+    dpi_tls_version_split_enabled: bool = False
+
+    # T3 fat-probe
+    fat_probe_enabled: bool = False
+    fat_probe_min_kb: int = Field(default=1, ge=1, le=100)
+    fat_probe_max_kb: int = Field(default=30, ge=1, le=200)
+    fat_probe_iterations: int = Field(default=16, ge=2, le=64)
+    fat_probe_chunk_size: int = Field(default=4000, ge=512, le=16384)
+    fat_probe_connect_timeout: float = Field(default=8.0, ge=1.0, le=30.0)
+    fat_probe_read_timeout: float = Field(default=12.0, ge=1.0, le=60.0)
+    fat_probe_default_sni: str = "example.com"
+
+    # T5 SNI brute-force
+    sni_brute_max_candidates: int = Field(default=200, ge=1, le=5000)
+
+    # T6 Telegram
+    telegram_check_enabled: bool = False
+    telegram_stall_timeout: float = Field(default=10.0, ge=1.0, le=60.0)
+    telegram_total_timeout: float = Field(default=60.0, ge=10.0, le=300.0)
+
     @property
     def is_api_protected(self) -> bool:
         """Check if the API requires authentication."""
