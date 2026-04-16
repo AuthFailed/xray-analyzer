@@ -119,6 +119,54 @@ The `proxy` label is:
 - The share-link name (or `host:port` fallback) when running `serve --subscription`
 - The raw proxy URL otherwise
 
+### DPI probe metrics
+
+Exported only when `SERVE_DPI_ENABLED=true` **and** at least one probe toggle is on. DPI metrics are **not** labeled by `proxy` — they always measure the host running `serve` itself. They run on their own independent schedule (`SERVE_DPI_INTERVAL_SECONDS`, default `1800`).
+
+#### DNS integrity (`SERVE_DPI_DNS_ENABLED` + `SERVE_DPI_DNS_DOMAINS`)
+
+| Metric | Type | Labels | Value |
+|--------|------|--------|-------|
+| `xray_dpi_dns_verdict_total` | gauge | `verdict` (`ok`/`spoof`/`intercept`/`fake_nxdomain`/`fake_empty`/`doh_blocked`/`all_dead`) | Domain count per verdict in last run |
+| `xray_dpi_dns_domain` | gauge | `domain`, `verdict` | `1` if this is the domain's current verdict, else `0` (all 7 emitted per domain) |
+| `xray_dpi_dns_stub_ips_total` | gauge | — | Number of harvested ISP stub/splash IPs (appear ≥ 2× across UDP answers) |
+| `xray_dpi_dns_udp_available` | gauge | — | `1` if a live UDP resolver was found |
+| `xray_dpi_dns_doh_available` | gauge | — | `1` if a live DoH resolver was found |
+| `xray_dpi_dns_up` | gauge | — | `1` if last probe succeeded, `0` if errored |
+| `xray_dpi_dns_run_duration_seconds` | gauge | — | Last probe wall time |
+| `xray_dpi_dns_last_run_timestamp_seconds` | gauge | — | Unix time of last probe |
+
+#### CDN / hosting reachability (`SERVE_DPI_CDN_ENABLED`)
+
+| Metric | Type | Labels | Value |
+|--------|------|--------|-------|
+| `xray_dpi_cdn_provider_targets_total` | gauge | `provider`, `asn` | Targets probed per provider |
+| `xray_dpi_cdn_provider_targets_passed` | gauge | `provider`, `asn` | Targets passing fat-probe |
+| `xray_dpi_cdn_provider_targets_blocked` | gauge | `provider`, `asn` | Targets hit by 16–20 KB DPI window |
+| `xray_dpi_cdn_provider_targets_errored` | gauge | `provider`, `asn` | Targets with DNS/timeout/refused/etc. |
+| `xray_dpi_cdn_provider_verdict` | gauge | `provider`, `asn`, `verdict` (`ok`/`partial`/`blocked`) | `1` if current verdict for that provider/ASN |
+| `xray_dpi_cdn_overall_verdict` | gauge | `verdict` | `1` if the overall verdict across all providers |
+| `xray_dpi_cdn_up` | gauge | — | `1` if last probe succeeded |
+| `xray_dpi_cdn_run_duration_seconds` | gauge | — | Last probe wall time |
+| `xray_dpi_cdn_last_run_timestamp_seconds` | gauge | — | Unix time of last probe |
+
+#### Telegram reachability (`SERVE_DPI_TELEGRAM_ENABLED`)
+
+| Metric | Type | Labels | Value |
+|--------|------|--------|-------|
+| `xray_dpi_telegram_verdict` | gauge | `verdict` (`ok`/`slow`/`partial`/`blocked`/`error`) | `1` for the current verdict |
+| `xray_dpi_telegram_download_bytes` | gauge | — | Bytes downloaded in last probe |
+| `xray_dpi_telegram_download_duration_seconds` | gauge | — | Download wall time |
+| `xray_dpi_telegram_download_status` | gauge | `status` (`ok`/`slow`/`stalled`/`blocked`/`error`) | `1` for the current download status |
+| `xray_dpi_telegram_upload_bytes` | gauge | — | Bytes uploaded in last probe |
+| `xray_dpi_telegram_upload_duration_seconds` | gauge | — | Upload wall time |
+| `xray_dpi_telegram_upload_status` | gauge | `status` | `1` for the current upload status |
+| `xray_dpi_telegram_dc_reachable` | gauge | — | Reachable Telegram DCs |
+| `xray_dpi_telegram_dc_total` | gauge | — | Total Telegram DCs probed |
+| `xray_dpi_telegram_up` | gauge | — | `1` if last probe succeeded |
+| `xray_dpi_telegram_run_duration_seconds` | gauge | — | Last probe wall time |
+| `xray_dpi_telegram_last_run_timestamp_seconds` | gauge | — | Unix time of last probe |
+
 ### Health endpoint
 
 `GET /health`:

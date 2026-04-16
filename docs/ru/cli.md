@@ -226,6 +226,10 @@ uv run xray-analyzer serve --subscription https://example/sub
 - `GET /metrics` — текстовый формат Prometheus v0.0.4 — см. [output.md#метрики-prometheus](output.md#метрики-prometheus).
 - `GET /health` — `200` после первого успешного скана, `503` пока ждёт первого скана, `500` если первый скан упал.
 
+### DPI-пробы рядом со сканом
+
+Включи `SERVE_DPI_ENABLED=true` и минимум один из `SERVE_DPI_DNS_ENABLED` / `SERVE_DPI_CDN_ENABLED` / `SERVE_DPI_TELEGRAM_ENABLED` — `serve` запустит DNS/CDN/Telegram DPI-пробы на своём собственном расписании (`SERVE_DPI_INTERVAL_SECONDS`, дефолт `1800`с) параллельно с обычным доменным сканом. Результаты публикуются как `xray_dpi_*` метрики — см. [configuration.md](configuration.md#dpi-пробы-внутри-serve) и [output.md](output.md#dpi-пробы-в-serve).
+
 ### Вывод
 
 ```
