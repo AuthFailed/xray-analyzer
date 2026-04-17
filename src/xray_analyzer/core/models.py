@@ -1,100 +1,10 @@
-"""Data models for API responses and diagnostics."""
+"""Data models for diagnostics."""
 
 from datetime import datetime
 from enum import StrEnum
 from typing import Any
 
-from pydantic import BaseModel, ConfigDict, Field
-
-# --- Xray Checker API Models ---
-
-
-class ProxyStatus(BaseModel):
-    """Simplified proxy status (public endpoint)."""
-
-    model_config = ConfigDict(populate_by_name=True)
-
-    stable_id: str = Field(alias="stableId")
-    name: str
-    online: bool
-    latency_ms: int = Field(alias="latencyMs")
-
-
-class ProxyInfo(BaseModel):
-    """Information about a single proxy from the checker API."""
-
-    model_config = ConfigDict(populate_by_name=True)
-
-    index: int
-    stable_id: str = Field(alias="stableId")
-    name: str
-    sub_name: str = Field(alias="subName")
-    server: str
-    port: int
-    protocol: str
-    proxy_port: int = Field(alias="proxyPort")
-    online: bool
-    latency_ms: int = Field(alias="latencyMs")
-
-
-class ProxyStatusResponse(BaseModel):
-    """Response from /api/v1/public/proxies."""
-
-    success: bool
-    data: list[ProxyStatus]
-
-
-class FullProxyResponse(BaseModel):
-    """Response from /api/v1/proxies."""
-
-    success: bool
-    data: list[ProxyInfo]
-
-
-class StatusSummary(BaseModel):
-    """Summary statistics from /api/v1/status."""
-
-    model_config = ConfigDict(populate_by_name=True)
-
-    total: int
-    online: int
-    offline: int
-    avg_latency_ms: int = Field(alias="avgLatencyMs")
-
-
-class StatusSummaryResponse(BaseModel):
-    """Response from /api/v1/status."""
-
-    success: bool
-    data: StatusSummary
-
-
-class SystemInfo(BaseModel):
-    """System info from /api/v1/system/info."""
-
-    model_config = ConfigDict(populate_by_name=True)
-
-    version: str
-    uptime: str
-    uptime_sec: int = Field(alias="uptimeSec")
-    instance: str
-
-
-class SystemInfoResponse(BaseModel):
-    """Response from /api/v1/system/info."""
-
-    success: bool
-    data: SystemInfo
-
-
-class SystemIPResponse(BaseModel):
-    """Response from /api/v1/system/ip."""
-
-    success: bool
-    data: dict[str, str]
-
-
-# --- Diagnostics Models ---
+from pydantic import BaseModel, Field
 
 
 class CheckSeverity(StrEnum):

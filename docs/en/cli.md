@@ -4,11 +4,10 @@ Every command is async, prints Rich-styled output, and exits with code `0` on su
 
 **Commands:**
 
-- [`analyze`](#analyze) — fleet diagnostics over every proxy from the checker API or a subscription URL
+- [`analyze`](#analyze) — fleet diagnostics over every proxy from a subscription URL or direct share links
 - [`check`](#check) — single-domain step-by-step diagnosis
 - [`scan`](#scan) — bulk censorship scan across many domains
 - [`serve`](#serve) — periodic `scan` with Prometheus `/metrics` endpoint
-- [`status`](#status) — health of the configured Xray Checker API
 - [`dpi dns`](#dpi-dns) — direct-UDP vs DoH DNS integrity probe
 - [`dpi tcp16`](#dpi-tcp16) — single fat-probe for the 16–20 KB TCP drop
 - [`dpi cdn-scan`](#dpi-cdn-scan) — bulk fat-probe grouped by ASN / provider
@@ -19,22 +18,21 @@ Every command is async, prints Rich-styled output, and exits with code `0` on su
 
 ## `analyze`
 
-Full pipeline over every proxy returned by the Xray Checker API, or every share link in a subscription when running *standalone* (no checker API — just `SUBSCRIPTION_URL`).
+Full pipeline over every proxy from a subscription URL or passed directly as share links (`vless://...`, `trojan://...`, `ss://...`).
 
 ```bash
-uv run xray-analyzer analyze
-uv run xray-analyzer analyze --watch
+uv run xray-analyzer analyze --subscription-url https://example/sub
+uv run xray-analyzer analyze 'vless://...@host:443?...' 'trojan://...@host:443?...'
+uv run xray-analyzer analyze --subscription-url https://example/sub --watch
 uv run xray-analyzer analyze --subscription-url https://example/sub --no-xray
 ```
 
 | Flag | Default | Description |
 |------|---------|-------------|
+| `proxies` (positional) | — | Direct proxy share links (`vless://...`, `trojan://...`, `ss://...`) |
 | `--watch` | off | Loop forever, re-running at `CHECK_INTERVAL_SECONDS` (min 60 s) |
 | `--subscription-url <URL>` | env | Override `SUBSCRIPTION_URL` |
 | `--subscription-hwid <HWID>` | env | `x-hwid` header for the subscription fetch |
-| `--checker-api-url <URL>` | env | Override `CHECKER_API_URL` |
-| `--checker-api-username / --checker-api-password` | env | Basic auth for the checker |
-| `--analyze-online` | off | Also re-check proxies the checker reports as *online* |
 | `--no-xray` | off | Skip the VLESS/Trojan/SS tunnel test |
 | `--no-rkn-throttle` | off | Skip the 16–20 KB DPI probe |
 | `--no-sni` | off | Skip the SNI-through-proxy test |
@@ -246,35 +244,6 @@ Set `SERVE_DPI_ENABLED=true` and at least one probe toggle (`SERVE_DPI_DNS_ENABL
 ```
 
 In `--subscription` mode, one progress line per proxy is printed per cycle.
-
----
-
-## `status`
-
-Quick health check of the configured Xray Checker API.
-
-```bash
-uv run xray-analyzer status
-```
-
-### Output
-
-```
-Health: OK
-
-System Information:
-  Version: 2.4.1
-  Instance: xray-checker
-  Uptime: 3d 7h 22m
-
-Proxy Status Summary:
-  Total: 14
-  Online: 11
-  Offline: 3
-  Avg Latency: 187ms
-
-Server IP: 203.0.113.17
-```
 
 ---
 

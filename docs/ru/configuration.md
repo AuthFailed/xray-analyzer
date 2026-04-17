@@ -4,13 +4,10 @@
 
 Шаблон — см. [`.env.example`](../../.env.example).
 
-## API и авторизация
+## Подписка
 
 | Переменная | По умолчанию | Описание |
 |------------|--------------|----------|
-| `CHECKER_API_URL` | `https://xray-checker.kutovoy.dev` | Базовый URL Xray Checker API |
-| `CHECKER_API_USERNAME` | — | Basic auth username (даёт доступ к полным эндпоинтам с адресами серверов) |
-| `CHECKER_API_PASSWORD` | — | Basic auth password |
 | `SUBSCRIPTION_URL` | — | URL-ы подписок с share-ссылками VLESS/Trojan/SS, через запятую |
 | `SUBSCRIPTION_HWID` | — | Заголовок `x-hwid` при запросе подписки |
 
@@ -30,7 +27,6 @@
 | `RKN_THROTTLE_CONCURRENCY` | `10` | Максимум параллельных RKN-проб |
 | `CHECK_HOST_API_KEY` | — | Опциональный ключ Check-Host.net |
 | `CHECK_INTERVAL_SECONDS` | `300` | Интервал для `analyze --watch` / `serve` (мин. `60`) |
-| `ANALYZE_ONLINE_PROXIES` | `false` | `false` → перепроверять только offline-прокси |
 
 ## Xray core
 
@@ -101,14 +97,7 @@
 
 | Переменная | По умолчанию | Описание |
 |------------|--------------|----------|
-| `CHECKER_EXTERNAL_PORT` | `2112` | Порт хоста для Xray Checker |
 | `METRICS_EXTERNAL_PORT` | `9090` | Порт хоста для `/metrics` |
 | `PROMETHEUS_EXTERNAL_PORT` | `9091` | Порт хоста для Prometheus (`--profile monitoring`) |
 | `GRAFANA_EXTERNAL_PORT` | `3000` | Порт хоста для Grafana (`--profile monitoring`) |
 | `GRAFANA_USER` / `GRAFANA_PASSWORD` | `admin` / `admin` | Креды админа Grafana |
-| `METRICS_PROTECTED` | `false` | Basic auth для метрик Xray Checker |
-| `METRICS_USERNAME` / `METRICS_PASSWORD` | — | Креды метрик Xray Checker |
-| `PROXY_CHECK_INTERVAL` | `300` | Интервал скана Xray Checker |
-| `PROXY_CHECK_METHOD` | `ip` | Метод проверки Xray Checker |
-| `PROXY_TIMEOUT` | `30` | Таймаут Xray Checker на прокси |
-| `CHECKER_LOG_LEVEL` | `info` | Уровень логов Xray Checker |

@@ -7,20 +7,20 @@
                  │ CLI (argparse)       │ cli.py / cli_dpi.py
                  └──────────┬───────────┘
                             │
-                 ┌──────────▼───────────┐
-                 │ XrayAnalyzer         │ core/analyzer.py
-                 │  (orchestrator)      │
-                 └──┬──────┬────────┬───┘
-                    │      │        │
-            fetches │      │        │ runs per-proxy pipeline
-            proxies │      │        │ via asyncio.gather
-                    │      │        │
-         ┌──────────▼──┐ ┌─▼──────┐ │
-         │ XrayChecker │ │ Xray   │ │
-         │ API client  │ │ binary │ │
-         └─────────────┘ └────────┘ │
-                                    │
-        ┌───────────────────────────▼─────────────────────────┐
+              ┌─────────────▼──────────────┐
+              │ analyze_subscription_      │ core/standalone_analyzer.py
+              │   proxies (orchestrator)   │
+              └──┬─────────────────────┬───┘
+                 │                     │
+         parses  │                     │ runs per-proxy pipeline
+    share links  │                     │ via asyncio.gather
+                 │                     │
+         ┌───────▼────┐ ┌────────────┐ │
+         │ Subscription│ │ Xray      │ │
+         │ parser     │ │ binary    │ │
+         └────────────┘ └───────────┘ │
+                                      │
+        ┌─────────────────────────────▼───────────────────────┐
         │                   diagnostics/                       │
         │                                                      │
         │  DNS  ─ TCP ─ Ping ─ RKN ─ Xray/Proxy ─ Cross ─ DPI │
@@ -38,7 +38,7 @@
 
 ## Check pipeline per proxy
 
-`core/analyzer.py::XrayAnalyzer._run_all_checks` runs these sequentially for each offline proxy:
+`core/standalone_analyzer.py::analyze_subscription_proxies` runs these sequentially for each proxy:
 
 1. **DNS resolution** with Check-Host.net comparison — `dns_checker.py`
 2. **TCP connection** — `tcp_checker.py`
@@ -51,13 +51,6 @@ After every proxy has been analyzed, the orchestrator performs two global passes
 
 - **Cross-proxy retest** — any problematic host is re-tried through a known-working proxy to distinguish local network issues from server-side failures (`proxy_cross_checker.py`).
 - **RKN DPI throttle** — 16–20 KB cutoff detection, both directly and through the working proxy (`proxy_rkn_throttle_checker.py`, `core/throttle_checker_runner.py`).
-
-## Standalone vs checker-API mode
-
-`cmd_analyze` picks one of two code paths based on configuration:
-
-- **Standalone** — `SUBSCRIPTION_URL` set, no checker API credentials. Parses share links directly, spawns Xray instances for each, runs the pipeline. Used when the user only has a subscription URL and no Xray Checker deployment. Implemented in `core/standalone_analyzer.py`.
-- **Checker-API** — hits the Xray Checker REST API for the proxy list, then runs the pipeline with full cross-proxy orchestration. Implemented in `core/analyzer.py::XrayAnalyzer`.
 
 ## DPI probe stack
 
@@ -94,16 +87,14 @@ src/xray_analyzer/
 ├── cli.py                            # argparse entry point, command dispatch
 ├── cli_dpi.py                        # xray-analyzer dpi ... subcommand group
 ├── core/
-│   ├── analyzer.py                   # XrayAnalyzer orchestrator (fleet pipeline)
+│   ├── standalone_analyzer.py        # main orchestrator (analyze_subscription_proxies)
 │   ├── config.py                     # pydantic-settings Settings singleton
 │   ├── cross_proxy_tests.py          # retest failing hosts via a working proxy
 │   ├── logger.py                     # structlog setup
 │   ├── models.py                     # DiagnosticResult / HostDiagnostic / CheckStatus
 │   ├── proxy_url.py                  # build_proxy_url helpers
 │   ├── recommendation_engine.py      # maps failure combos → human fixes
-│   ├── standalone_analyzer.py        # subscription-only mode (no checker API)
-│   ├── throttle_checker_runner.py    # batched 16-20 KB probes
-│   └── xray_client.py                # aiohttp client for the Xray Checker REST API
+│   └── throttle_checker_runner.py    # batched 16-20 KB probes
 ├── diagnostics/
 │   ├── dns_checker.py                # local DNS + Check-Host.net cross-check
 │   ├── dns_dpi_prober.py             # UDP vs DoH + stub-IP harvest

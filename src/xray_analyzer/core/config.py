@@ -14,11 +14,6 @@ class Settings(BaseSettings):
         extra="ignore",
     )
 
-    # Xray Checker API
-    checker_api_url: str = Field(default="https://xray-checker.kutovoy.dev")
-    checker_api_username: str = ""
-    checker_api_password: str = ""
-
     # Diagnostics
     dns_timeout: int = Field(default=5, ge=1, le=30)
     tcp_timeout: int = Field(default=5, ge=1, le=30)
@@ -51,9 +46,6 @@ class Settings(BaseSettings):
 
     # Scheduling
     check_interval_seconds: int = Field(default=300, ge=60)
-
-    # Analysis scope
-    analyze_online_proxies: bool = False
 
     # Xray core for VLESS/Trojan/SS testing
     xray_binary_path: str = "xray"  # Path to xray binary (or "xray" if in PATH)
@@ -107,11 +99,5 @@ class Settings(BaseSettings):
     serve_dpi_cdn_max_parallel: int = Field(default=10, ge=1, le=50)
     serve_dpi_cdn_limit: int = Field(default=0, ge=0)  # 0 = all targets from tcp16_targets.json
     serve_dpi_telegram_enabled: bool = False
-
-    @property
-    def is_api_protected(self) -> bool:
-        """Check if the API requires authentication."""
-        return bool(self.checker_api_username and self.checker_api_password)
-
 
 settings = Settings()

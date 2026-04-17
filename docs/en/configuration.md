@@ -4,13 +4,10 @@ All settings come from a `.env` file (loaded by `pydantic-settings`) or real env
 
 See [`.env.example`](../../.env.example) for a copy-pasteable template.
 
-## API & auth
+## Subscription
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `CHECKER_API_URL` | `https://xray-checker.kutovoy.dev` | Xray Checker API base URL |
-| `CHECKER_API_USERNAME` | — | Basic auth username (enables full endpoints that expose server addresses) |
-| `CHECKER_API_PASSWORD` | — | Basic auth password |
 | `SUBSCRIPTION_URL` | — | Comma-separated list of subscription URLs with VLESS/Trojan/SS share links |
 | `SUBSCRIPTION_HWID` | — | `x-hwid` header for the subscription request |
 
@@ -30,7 +27,6 @@ See [`.env.example`](../../.env.example) for a copy-pasteable template.
 | `RKN_THROTTLE_CONCURRENCY` | `10` | Max parallel RKN throttle probes |
 | `CHECK_HOST_API_KEY` | — | Optional key for Check-Host.net |
 | `CHECK_INTERVAL_SECONDS` | `300` | Loop interval for `analyze --watch` / `serve` (min `60`) |
-| `ANALYZE_ONLINE_PROXIES` | `false` | `false` → only re-check proxies the checker reports as offline |
 
 ## Xray core
 
@@ -101,14 +97,7 @@ These variables only affect `docker-compose.yml`; the analyzer itself ignores th
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `CHECKER_EXTERNAL_PORT` | `2112` | Host port for Xray Checker |
 | `METRICS_EXTERNAL_PORT` | `9090` | Host port for `/metrics` |
 | `PROMETHEUS_EXTERNAL_PORT` | `9091` | Host port for Prometheus (`--profile monitoring`) |
 | `GRAFANA_EXTERNAL_PORT` | `3000` | Host port for Grafana (`--profile monitoring`) |
 | `GRAFANA_USER` / `GRAFANA_PASSWORD` | `admin` / `admin` | Grafana admin credentials |
-| `METRICS_PROTECTED` | `false` | Enable basic auth on Xray Checker metrics |
-| `METRICS_USERNAME` / `METRICS_PASSWORD` | — | Xray Checker metrics auth |
-| `PROXY_CHECK_INTERVAL` | `300` | Xray Checker scan interval |
-| `PROXY_CHECK_METHOD` | `ip` | Xray Checker check method |
-| `PROXY_TIMEOUT` | `30` | Xray Checker per-proxy timeout |
-| `CHECKER_LOG_LEVEL` | `info` | Xray Checker log level |

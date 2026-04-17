@@ -1,39 +1,10 @@
 services:
-  xray-checker:
-    image: kutovoys/xray-checker
-    environment:
-      - SUBSCRIPTION_URL=${SUBSCRIPTION_URL}
-      - METRICS_PROTECTED=${METRICS_PROTECTED:-false}
-      - METRICS_USERNAME=${METRICS_USERNAME:-}
-      - METRICS_PASSWORD=${METRICS_PASSWORD:-}
-      - PROXY_CHECK_INTERVAL=${PROXY_CHECK_INTERVAL:-300}
-      - PROXY_CHECK_METHOD=${PROXY_CHECK_METHOD:-ip}
-      - PROXY_TIMEOUT=${PROXY_TIMEOUT:-30}
-      - METRICS_PORT=2112
-      - LOG_LEVEL=${CHECKER_LOG_LEVEL:-info}
-    ports:
-      - "${CHECKER_EXTERNAL_PORT:-2112}:2112"
-    restart: unless-stopped
-    container_name: xray-checker
-    healthcheck:
-      test: ["CMD-SHELL", "wget -qO /dev/null http://localhost:2112/metrics"]
-      interval: 30s
-      timeout: 10s
-      retries: 5
-      start_period: 60s
-    networks:
-      - xray-net
-    profiles:
-      - checker
-
   xray-analyzer:
     image: ghcr.io/authfailed/xray-analyzer:latest
     env_file:
       - .env
     environment:
       - XRAY_BINARY_PATH=/app/xray-bin/xray
-      # Set CHECKER_API_URL only when running with the checker profile
-      - CHECKER_API_URL=${CHECKER_API_URL:-}
     command:
       - uv
       - run

@@ -67,8 +67,6 @@ All five steps must be green for the PR to be mergeable.
 - Tier 1–6 DPI probes are ported from [Runnin4ik/dpi-detector](https://github.com/Runnin4ik/dpi-detector) (MIT).
 - `scan` replicates the domain-censorship heuristics of [@tracerlab](https://t.me/tracerlab)'s bash script.
 - Bundled domain lists — see `src/xray_analyzer/data/CREDITS.md` for sources ([hxehex/russia-mobile-internet-whitelist](https://github.com/hxehex/russia-mobile-internet-whitelist), [itdoginfo/allow-domains](https://github.com/itdoginfo/allow-domains)).
-- The Xray Checker API is provided by [kutovoy/xray-checker](https://github.com/kutovoy/xray-checker).
-
 ## License
 
 MIT.

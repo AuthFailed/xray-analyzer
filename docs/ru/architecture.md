@@ -7,20 +7,20 @@
                  │ CLI (argparse)       │ cli.py / cli_dpi.py
                  └──────────┬───────────┘
                             │
-                 ┌──────────▼───────────┐
-                 │ XrayAnalyzer         │ core/analyzer.py
-                 │  (оркестратор)       │
-                 └──┬──────┬────────┬───┘
-                    │      │        │
-           получает │      │        │ гоняет per-proxy конвейер
-            прокси  │      │        │ через asyncio.gather
-                    │      │        │
-         ┌──────────▼──┐ ┌─▼──────┐ │
-         │ XrayChecker │ │ Xray   │ │
-         │ API client  │ │ binary │ │
-         └─────────────┘ └────────┘ │
-                                    │
-        ┌───────────────────────────▼─────────────────────────┐
+              ┌─────────────▼──────────────┐
+              │ analyze_subscription_      │ core/standalone_analyzer.py
+              │   proxies (оркестратор)    │
+              └──┬─────────────────────┬───┘
+                 │                     │
+        парсит   │                     │ гоняет per-proxy конвейер
+   share-ссылки  │                     │ через asyncio.gather
+                 │                     │
+       ┌─────────▼─────┐ ┌───────────┐ │
+       │ Subscription  │ │ Xray      │ │
+       │ parser        │ │ binary    │ │
+       └───────────────┘ └───────────┘ │
+                                       │
+        ┌──────────────────────────────▼──────────────────────┐
         │                   diagnostics/                       │
         │                                                      │
         │  DNS  ─ TCP ─ Ping ─ RKN ─ Xray/Proxy ─ Cross ─ DPI │
@@ -38,7 +38,7 @@
 
 ## Конвейер проверок на прокси
 
-`core/analyzer.py::XrayAnalyzer._run_all_checks` последовательно для каждого offline-прокси:
+`core/standalone_analyzer.py::analyze_subscription_proxies` последовательно для каждого прокси:
 
 1. **DNS-резолюция** со сравнением с Check-Host.net — `dns_checker.py`
 2. **TCP-соединение** — `tcp_checker.py`
@@ -51,13 +51,6 @@
 
 - **Cross-proxy ретест** — каждый проблемный хост ретраится через рабочий прокси, чтобы отделить локальные сетевые проблемы от серверных (`proxy_cross_checker.py`).
 - **RKN DPI throttle** — обнаружение обрыва 16–20 КБ прямым подключением и через рабочий прокси (`proxy_rkn_throttle_checker.py`, `core/throttle_checker_runner.py`).
-
-## Standalone vs checker-API
-
-`cmd_analyze` выбирает один из двух путей в зависимости от конфига:
-
-- **Standalone** — задан `SUBSCRIPTION_URL`, но нет кредов для checker API. Парсит share-ссылки напрямую, запускает Xray-инстансы, гоняет конвейер. Используется, когда у пользователя только подписка и нет развёрнутого Xray Checker. Реализация — `core/standalone_analyzer.py`.
-- **Checker-API** — обращается к REST-API Xray Checker за списком прокси, затем прогоняет конвейер с полной cross-proxy оркестрацией. Реализация — `core/analyzer.py::XrayAnalyzer`.
 
 ## Стек DPI-проб
 
@@ -94,16 +87,14 @@ src/xray_analyzer/
 ├── cli.py                            # argparse entry point, dispatch команд
 ├── cli_dpi.py                        # группа подкоманд xray-analyzer dpi
 ├── core/
-│   ├── analyzer.py                   # XrayAnalyzer — основной оркестратор
+│   ├── standalone_analyzer.py        # основной оркестратор (analyze_subscription_proxies)
 │   ├── config.py                     # Settings singleton (pydantic-settings)
 │   ├── cross_proxy_tests.py          # ретест проблемных хостов через рабочий прокси
 │   ├── logger.py                     # structlog setup
 │   ├── models.py                     # DiagnosticResult / HostDiagnostic / CheckStatus
 │   ├── proxy_url.py                  # build_proxy_url и хелперы
 │   ├── recommendation_engine.py      # маппинг комбинаций сбоев в человеческие рекомендации
-│   ├── standalone_analyzer.py        # режим подписки без checker API
-│   ├── throttle_checker_runner.py    # батч-пробы 16-20 КБ
-│   └── xray_client.py                # aiohttp-клиент для REST-API Xray Checker
+│   └── throttle_checker_runner.py    # батч-пробы 16-20 КБ
 ├── diagnostics/
 │   ├── dns_checker.py                # локальный DNS + кросс-чек с Check-Host.net
 │   ├── dns_dpi_prober.py             # UDP vs DoH + сбор stub-IP

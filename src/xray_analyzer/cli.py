@@ -9,7 +9,6 @@ import time
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from pathlib import Path
-from typing import Any
 
 from rich.console import Console
 from rich.padding import Padding
@@ -26,12 +25,10 @@ from rich.progress import (
 from rich.table import Table
 
 from xray_analyzer import cli_dpi
-from xray_analyzer.core.analyzer import XrayAnalyzer
 from xray_analyzer.core.config import settings
 from xray_analyzer.core.logger import get_logger, setup_logging
 from xray_analyzer.core.models import CheckStatus, DiagnosticResult, HostDiagnostic
 from xray_analyzer.core.standalone_analyzer import _is_valid_server_address, analyze_subscription_proxies
-from xray_analyzer.core.xray_client import XrayCheckerClient
 from xray_analyzer.diagnostics.cdn_target_scanner import load_targets, scan_targets
 from xray_analyzer.diagnostics.censor_checker import (
     ALLOW_DOMAINS_LISTS,
@@ -148,11 +145,15 @@ def create_parser() -> argparse.ArgumentParser:
     # analyze command
     analyze_parser = subparsers.add_parser("analyze", help="Run full analysis on all proxies")
     analyze_parser.add_argument(
+        "proxies",
+        nargs="*",
+        help="Proxy share links to analyze (vless://..., trojan://..., ss://...)",
+    )
+    analyze_parser.add_argument(
         "--watch",
         action="store_true",
         help="Continuously monitor proxies at configured interval",
     )
-    # Standalone mode options (run without .env configuration)
     analyze_parser.add_argument(
         "--subscription-url",
         type=str,
@@ -162,26 +163,6 @@ def create_parser() -> argparse.ArgumentParser:
         "--subscription-hwid",
         type=str,
         help="HWID header for subscription (overrides SUBSCRIPTION_HWID)",
-    )
-    analyze_parser.add_argument(
-        "--checker-api-url",
-        type=str,
-        help="Xray Checker API URL (overrides CHECKER_API_URL)",
-    )
-    analyze_parser.add_argument(
-        "--checker-api-username",
-        type=str,
-        help="Basic auth username (overrides CHECKER_API_USERNAME)",
-    )
-    analyze_parser.add_argument(
-        "--checker-api-password",
-        type=str,
-        help="Basic auth password (overrides CHECKER_API_PASSWORD)",
-    )
-    analyze_parser.add_argument(
-        "--analyze-online",
-        action="store_true",
-        help="Analyze all proxies including online ones (overrides ANALYZE_ONLINE_PROXIES)",
     )
     analyze_parser.add_argument(
         "--no-xray",
@@ -345,9 +326,6 @@ def create_parser() -> argparse.ArgumentParser:
         help="Maximum parallel domain checks (default: CENSOR_CHECK_MAX_PARALLEL from config)",
     )
 
-    # status command
-    subparsers.add_parser("status", help="Show xray-checker API status")
-
     # dpi subcommand group — lives in cli_dpi.py to keep this file focused
     cli_dpi.register(subparsers)
 
@@ -373,30 +351,19 @@ async def cmd_analyze(args: argparse.Namespace) -> int:
         settings.proxy_sni_domain = args.sni_domain
     if getattr(args, "interval", None):
         settings.check_interval_seconds = args.interval
-    if getattr(args, "analyze_online", False):
-        settings.analyze_online_proxies = True
-    if getattr(args, "checker_api_url", None):
-        settings.checker_api_url = args.checker_api_url
-    if getattr(args, "checker_api_username", None):
-        settings.checker_api_username = args.checker_api_username
-    if getattr(args, "checker_api_password", None):
-        settings.checker_api_password = args.checker_api_password
+    if getattr(args, "subscription_url", None):
+        settings.subscription_url = args.subscription_url
+    if getattr(args, "subscription_hwid", None):
+        settings.subscription_hwid = args.subscription_hwid
 
-    # Determine if we're running in standalone mode (subscription URL only, no checker API)
-    is_standalone = (
-        settings.subscription_url and not settings.checker_api_username and not settings.checker_api_password
-    )
+    # Collect proxy shares from all sources
+    proxy_links: list[str] = getattr(args, "proxies", None) or []
 
-    if is_standalone:
-        return await _run_standalone_analysis()
-    else:
-        return await _run_full_analysis_with_checker(args.watch)
+    return await _run_standalone_analysis(proxy_links=proxy_links, watch=args.watch)
 
 
-async def _run_standalone_analysis() -> int:
-    """Run analysis using only subscription URL without checker API."""
-    console.print("[bold blue]Running in standalone mode (subscription only, no checker API)[/bold blue]\n")
-
+async def _run_standalone_analysis(proxy_links: list[str] | None = None, watch: bool = False) -> int:
+    """Run analysis using subscription URL and/or direct proxy links."""
     try:
         # Ensure Xray is available if testing VLESS/Trojan/SS
         if settings.xray_test_enabled:
@@ -409,97 +376,105 @@ async def _run_standalone_analysis() -> int:
                 console.print("[yellow]⚠[/yellow] Xray not found — VLESS/Trojan/SS tests will be skipped")
                 settings.xray_test_enabled = False
 
-        # Fetch subscription proxies
-        with console.status("[dim]Fetching subscription...[/dim]", spinner="dots"):
-            shares = await fetch_subscription(
-                settings.subscription_url,
-                hwid=settings.subscription_hwid,
-            )
-        console.print(f"[green]✓[/green] Loaded [bold]{len(shares)}[/bold] proxies from subscription")
+        # Collect shares from all sources
+        shares: list[ProxyShareURL] = []
+
+        # 1. Direct proxy links from CLI args
+        if proxy_links:
+            for link in proxy_links:
+                parsed = parse_share_url(link)
+                if parsed:
+                    shares.append(parsed)
+                else:
+                    error_console.print(f"[yellow]⚠[/yellow] Cannot parse proxy link: [dim]{link}[/dim]")
+            if shares:
+                console.print(f"[green]✓[/green] Parsed [bold]{len(shares)}[/bold] proxy link(s) from arguments")
+
+        # 2. Subscription URL
+        if settings.subscription_url:
+            with console.status("[dim]Fetching subscription...[/dim]", spinner="dots"):
+                sub_shares = await fetch_subscription(
+                    settings.subscription_url,
+                    hwid=settings.subscription_hwid,
+                )
+            console.print(f"[green]✓[/green] Loaded [bold]{len(sub_shares)}[/bold] proxies from subscription")
+            shares.extend(sub_shares)
 
         if not shares:
-            console.print("[yellow]No proxies found in subscription[/yellow]")
-            return 0
-
-        # Start panel + live progress bar — same idiom as cmd_scan / cmd_check.
-        console.print()
-        console.print(
-            Panel(
-                f"[bold cyan]🛰  Proxy Analysis[/bold cyan]\n"
-                f"[dim]Subscription · {len(shares)} proxies · Xray "
-                f"{'enabled' if settings.xray_test_enabled else 'disabled'}[/dim]",
-                border_style="blue",
-                padding=(0, 2),
+            error_console.print(
+                "[bold red]No proxies to analyze.[/bold red]\n"
+                "Provide proxy links as arguments or set --subscription-url / SUBSCRIPTION_URL.\n"
+                "Examples:\n"
+                "  xray-analyzer analyze vless://uuid@server:443?...\n"
+                "  xray-analyzer analyze --subscription-url https://sub.example.com/link"
             )
-        )
-        console.print()
+            return 1
 
-        phase_msg_box: list[str] = [""]
-
-        with Progress(
-            SpinnerColumn(spinner_name="dots"),
-            TextColumn("[progress.description]{task.description}"),
-            BarColumn(bar_width=28),
-            MofNCompleteColumn(),
-            TaskProgressColumn(),
-            TimeElapsedColumn(),
-            console=console,
-            transient=False,
-        ) as progress:
-            task_id = progress.add_task(f"[cyan]Analyzing {len(shares)} proxies[/cyan]", total=len(shares))
-
-            def on_proxy_complete(diag: HostDiagnostic, share: ProxyShareURL) -> None:
-                _print_proxy_progress_line(progress, diag, share.protocol)
-                progress.advance(task_id)
-
-            def on_phase(phase: str, count: int) -> None:
-                if phase == "cross_proxy":
-                    phase_msg_box[0] = (
-                        f"Cross-checking {count} problem hosts via a working proxy (this can take 30-60s)..."
-                    )
-                    progress.update(task_id, description=f"[cyan]{phase_msg_box[0]}[/cyan]")
-                elif phase == "finalizing":
-                    progress.update(task_id, description="[cyan]Finalizing report...[/cyan]")
-
-            diagnostics = await analyze_subscription_proxies(
-                shares,
-                on_proxy_complete=on_proxy_complete,
-                on_phase=on_phase,
+        async def _run_once() -> list[HostDiagnostic]:
+            # Start panel + live progress bar
+            source_label = "subscription" if settings.subscription_url else "CLI"
+            console.print()
+            console.print(
+                Panel(
+                    f"[bold cyan]Proxy Analysis[/bold cyan]\n"
+                    f"[dim]{source_label} · {len(shares)} proxies · Xray "
+                    f"{'enabled' if settings.xray_test_enabled else 'disabled'}[/dim]",
+                    border_style="blue",
+                    padding=(0, 2),
+                )
             )
+            console.print()
 
-        console.print()
-        _print_analysis_results(diagnostics)
-        return 0
+            with Progress(
+                SpinnerColumn(spinner_name="dots"),
+                TextColumn("[progress.description]{task.description}"),
+                BarColumn(bar_width=28),
+                MofNCompleteColumn(),
+                TaskProgressColumn(),
+                TimeElapsedColumn(),
+                console=console,
+                transient=False,
+            ) as progress:
+                task_id = progress.add_task(f"[cyan]Analyzing {len(shares)} proxies[/cyan]", total=len(shares))
 
-    except Exception as e:
-        error_console.print(f"[bold red]Error: {e}[/bold red]")
-        log.error("Standalone analysis failed", error=str(e))
-        return 1
+                def on_proxy_complete(diag: HostDiagnostic, share: ProxyShareURL) -> None:
+                    _print_proxy_progress_line(progress, diag, share.protocol)
+                    progress.advance(task_id)
 
+                def on_phase(phase: str, count: int) -> None:
+                    if phase == "cross_proxy":
+                        progress.update(
+                            task_id,
+                            description=f"[cyan]Cross-checking {count} problem hosts via a working proxy...[/cyan]",
+                        )
+                    elif phase == "finalizing":
+                        progress.update(task_id, description="[cyan]Finalizing report...[/cyan]")
 
-async def _run_full_analysis_with_checker(watch: bool = False) -> int:
-    """Run analysis with checker API."""
-    analyzer = XrayAnalyzer()
+                return await analyze_subscription_proxies(
+                    shares,
+                    on_proxy_complete=on_proxy_complete,
+                    on_phase=on_phase,
+                )
 
-    try:
         if watch:
             console.print("[yellow]Starting continuous monitoring... (Ctrl+C to stop)[/yellow]")
             while True:
-                diagnostics = await _run_analyzer_with_progress(analyzer)
+                diagnostics = await _run_once()
+                console.print()
                 _print_analysis_results(diagnostics)
                 console.print(f"\n[dim]Next check in {settings.check_interval_seconds}s...[/dim]")
                 await asyncio.sleep(settings.check_interval_seconds)
         else:
-            diagnostics = await _run_analyzer_with_progress(analyzer)
+            diagnostics = await _run_once()
+            console.print()
             _print_analysis_results(diagnostics)
 
         return 0
+
     except Exception as e:
         error_console.print(f"[bold red]Error: {e}[/bold red]")
         log.error("Analysis failed", error=str(e))
         return 1
-    finally:
-        await analyzer.close()
 
 
 async def cmd_check(args: argparse.Namespace) -> int:
@@ -1109,55 +1084,6 @@ async def cmd_serve(args: argparse.Namespace) -> int:
         return 1
 
 
-async def cmd_status() -> int:
-    """Show checker API status command."""
-    client = XrayCheckerClient()
-    try:
-        # Health check
-        health = await client.check_health()
-        console.print(f"Health: {'[green]OK[/green]' if health else '[red]FAIL[/red]'}")
-
-        if not health:
-            return 1
-
-        # System info
-        try:
-            sys_info = await client.get_system_info()
-            info = sys_info.data
-            console.print("\n[b]System Information:[/b]")
-            console.print(f"  Version: {info.version}")
-            console.print(f"  Instance: {info.instance}")
-            console.print(f"  Uptime: {info.uptime}")
-        except Exception as e:
-            console.print(f"[dim]Failed to get system info: {e}[/dim]")
-
-        # Status summary
-        try:
-            summary_resp = await client.get_status_summary()
-            summary = summary_resp.data
-            console.print("\n[b]Proxy Status Summary:[/b]")
-            console.print(f"  Total: {summary.total}")
-            console.print(f"  Online: [green]{summary.online}[/green]")
-            console.print(f"  Offline: [red]{summary.offline}[/red]")
-            console.print(f"  Avg Latency: {summary.avg_latency_ms}ms")
-        except Exception as e:
-            console.print(f"[dim]Failed to get status summary: {e}[/dim]")
-
-        # Server IP
-        try:
-            ip_resp = await client.get_system_ip()
-            console.print(f"\n[b]Server IP:[/b] {ip_resp.data.get('ip', 'N/A')}")
-        except Exception as e:
-            console.print(f"[dim]Failed to get server IP: {e}[/dim]")
-
-        return 0
-    except Exception as e:
-        error_console.print(f"[bold red]Error: {e}[/bold red]")
-        return 1
-    finally:
-        await client.close()
-
-
 def _print_proxy_progress_line(progress: Progress, diag: HostDiagnostic, protocol: str) -> None:
     """Print a single per-proxy progress line under the active Progress bar.
 
@@ -1188,47 +1114,6 @@ def _print_proxy_progress_line(progress: Progress, diag: HostDiagnostic, protoco
     extras_str = "  " + "  ".join(extras) if extras else ""
     proto_tag = f"[dim]({protocol})[/dim]" if protocol else ""
     progress.console.print(f"  {icon} [bold]{diag.host}[/bold] {proto_tag}  {label}{extras_str}")
-
-
-async def _run_analyzer_with_progress(analyzer: XrayAnalyzer) -> list[HostDiagnostic]:
-    """Run XrayAnalyzer.run_full_analysis() under a Rich progress bar.
-
-    The bar is created lazily once the proxy count is known (the analyzer fetches
-    shares + proxies first, then signals via on_targets_ready).
-    """
-    progress = Progress(
-        SpinnerColumn(spinner_name="dots"),
-        TextColumn("[progress.description]{task.description}"),
-        BarColumn(bar_width=28),
-        MofNCompleteColumn(),
-        TaskProgressColumn(),
-        TimeElapsedColumn(),
-        console=console,
-        transient=False,
-    )
-
-    task_id_box: list[int] = []
-    progress.start()
-
-    def _on_targets_ready(count: int) -> None:
-        if count == 0:
-            return
-        task_id_box.append(progress.add_task(f"[cyan]Analyzing {count} proxies[/cyan]", total=count))
-
-    def _on_proxy_complete(diag: HostDiagnostic, proxy: Any) -> None:
-        if not task_id_box:
-            return
-        protocol = getattr(proxy, "protocol", "")
-        _print_proxy_progress_line(progress, diag, protocol)
-        progress.advance(task_id_box[0])
-
-    try:
-        return await analyzer.run_full_analysis(
-            on_proxy_complete=_on_proxy_complete,
-            on_targets_ready=_on_targets_ready,
-        )
-    finally:
-        progress.stop()
 
 
 def _print_analysis_results(diagnostics: list[HostDiagnostic]) -> None:
@@ -1599,9 +1484,6 @@ def main() -> None:
         sys.exit(exit_code)
     elif args.command == "serve":
         exit_code = asyncio.run(cmd_serve(args))
-        sys.exit(exit_code)
-    elif args.command == "status":
-        exit_code = asyncio.run(cmd_status())
         sys.exit(exit_code)
     elif args.command == "dpi":
         exit_code = asyncio.run(cli_dpi.dispatch(args))

@@ -67,8 +67,6 @@ uv run xray-analyzer --help
 - Пробы Tier 1–6 адаптированы из [Runnin4ik/dpi-detector](https://github.com/Runnin4ik/dpi-detector) (MIT).
 - Логика `scan` повторяет эвристики bash-скрипта [@tracerlab](https://t.me/tracerlab).
 - Встроенные списки доменов — источники перечислены в `src/xray_analyzer/data/CREDITS.md` ([hxehex/russia-mobile-internet-whitelist](https://github.com/hxehex/russia-mobile-internet-whitelist), [itdoginfo/allow-domains](https://github.com/itdoginfo/allow-domains)).
-- API Xray Checker — проект [kutovoy/xray-checker](https://github.com/kutovoy/xray-checker).
-
 ## Лицензия
 
 MIT.

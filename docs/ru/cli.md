@@ -4,11 +4,10 @@
 
 **Команды:**
 
-- [`analyze`](#analyze) — диагностика парка прокси из API checker'а или URL-подписки
+- [`analyze`](#analyze) — диагностика парка прокси из URL-подписки или прямых share-ссылок
 - [`check`](#check) — пошаговая диагностика одного домена
 - [`scan`](#scan) — массовый скан цензуры по множеству доменов
 - [`serve`](#serve) — периодический `scan` + endpoint `/metrics` для Prometheus
-- [`status`](#status) — здоровье настроенного Xray Checker API
 - [`dpi dns`](#dpi-dns) — сравнение прямой UDP-резолюции с DoH
 - [`dpi tcp16`](#dpi-tcp16) — одиночная fat-probe для TCP-обрыва 16–20 КБ
 - [`dpi cdn-scan`](#dpi-cdn-scan) — массовый fat-probe по ASN / провайдерам
@@ -19,22 +18,21 @@
 
 ## `analyze`
 
-Полный конвейер по каждому прокси, возвращённому Xray Checker API, либо по каждой share-ссылке из подписки в *standalone*-режиме (без API checker'а — только `SUBSCRIPTION_URL`).
+Полный конвейер по каждому прокси из URL-подписки или переданному напрямую как share-ссылка (`vless://...`, `trojan://...`, `ss://...`).
 
 ```bash
-uv run xray-analyzer analyze
-uv run xray-analyzer analyze --watch
+uv run xray-analyzer analyze --subscription-url https://example/sub
+uv run xray-analyzer analyze 'vless://...@host:443?...' 'trojan://...@host:443?...'
+uv run xray-analyzer analyze --subscription-url https://example/sub --watch
 uv run xray-analyzer analyze --subscription-url https://example/sub --no-xray
 ```
 
 | Флаг | По умолчанию | Описание |
 |------|--------------|----------|
+| `proxies` (позиционный) | — | Прямые share-ссылки прокси (`vless://...`, `trojan://...`, `ss://...`) |
 | `--watch` | off | Бесконечный цикл с интервалом `CHECK_INTERVAL_SECONDS` (мин. 60 с) |
 | `--subscription-url <URL>` | env | Переопределяет `SUBSCRIPTION_URL` |
 | `--subscription-hwid <HWID>` | env | Заголовок `x-hwid` для запроса подписки |
-| `--checker-api-url <URL>` | env | Переопределяет `CHECKER_API_URL` |
-| `--checker-api-username / --checker-api-password` | env | Basic auth для checker'а |
-| `--analyze-online` | off | Проверять в том числе прокси, которые checker считает online |
 | `--no-xray` | off | Пропустить тест VLESS/Trojan/SS-туннеля |
 | `--no-rkn-throttle` | off | Пропустить пробу 16–20 КБ |
 | `--no-sni` | off | Пропустить SNI-тест через прокси |
@@ -246,35 +244,6 @@ uv run xray-analyzer serve --subscription https://example/sub
 ```
 
 В режиме `--subscription` на каждый цикл печатается по одной строке прогресса на прокси.
-
----
-
-## `status`
-
-Быстрая проверка здоровья настроенного Xray Checker API.
-
-```bash
-uv run xray-analyzer status
-```
-
-### Вывод
-
-```
-Health: OK
-
-System Information:
-  Version: 2.4.1
-  Instance: xray-checker
-  Uptime: 3d 7h 22m
-
-Proxy Status Summary:
-  Total: 14
-  Online: 11
-  Offline: 3
-  Avg Latency: 187ms
-
-Server IP: 203.0.113.17
-```
 
 ---
 
