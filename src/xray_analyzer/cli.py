@@ -24,6 +24,7 @@ from rich.progress import (
     TimeElapsedColumn,
 )
 from rich.table import Table
+from rich.text import Text
 
 from xray_analyzer import cli_dpi
 from xray_analyzer.core.config import settings
@@ -515,6 +516,13 @@ async def _run_standalone_analysis(
             )
             console.print()
 
+            # Pre-compute max host column width for aligned progress output.
+            max_host_w = 0
+            for s in shares:
+                label = f"{s.name.strip()} ({s.server}:{s.port})"
+                host_part = f"[bold]{label}[/bold] [dim]({s.protocol})[/dim]"
+                max_host_w = max(max_host_w, Text.from_markup(host_part).cell_len)
+
             with Progress(
                 SpinnerColumn(spinner_name="dots"),
                 TextColumn("[progress.description]{task.description}"),
@@ -532,7 +540,7 @@ async def _run_standalone_analysis(
                         # Skipped virtual/invalid host — advance silently
                         progress.advance(task_id)
                         return
-                    _print_proxy_progress_line(progress, diag, share.protocol)
+                    _print_proxy_progress_line(progress, diag, share.protocol, max_host_w)
                     progress.advance(task_id)
 
                 def on_phase(phase: str, count: int) -> None:
@@ -1239,7 +1247,9 @@ async def cmd_serve(args: argparse.Namespace) -> int:
         return 1
 
 
-def _print_proxy_progress_line(progress: Progress, diag: HostDiagnostic, protocol: str) -> None:
+def _print_proxy_progress_line(
+    progress: Progress, diag: HostDiagnostic, protocol: str, max_host_width: int = 0
+) -> None:
     """Print a single per-proxy progress line under the active Progress bar.
 
     Mirrors the cmd_scan callback style: icon + colored status label + dim extras.
@@ -1299,7 +1309,10 @@ def _print_proxy_progress_line(progress: Progress, diag: HostDiagnostic, protoco
 
     extras_str = "  " + "  ".join(extras) if extras else ""
     proto_tag = f"[dim]({protocol})[/dim]" if protocol else ""
-    progress.console.print(f"  {icon} [bold]{diag.host}[/bold] {proto_tag}  {label}{extras_str}")
+    host_part = f"[bold]{diag.host}[/bold] {proto_tag}"
+    host_cell_len = Text.from_markup(host_part).cell_len
+    pad = " " * max(0, max_host_width - host_cell_len)
+    progress.console.print(f"  {icon} {host_part}{pad}  {label}{extras_str}")
 
 
 def _diagnostics_to_json(diagnostics: list[HostDiagnostic]) -> str:
