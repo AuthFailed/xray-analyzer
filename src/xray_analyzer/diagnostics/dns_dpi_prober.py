@@ -39,7 +39,7 @@ import aiohttp
 from xray_analyzer.core.logger import get_logger
 from xray_analyzer.core.models import CheckSeverity, CheckStatus, DiagnosticResult
 from xray_analyzer.data import DATA_DIR
-from xray_analyzer.diagnostics.dns_checker import _is_fakedns_ip
+from xray_analyzer.diagnostics.dns_checker import is_fakedns_ip
 
 log = get_logger("dns_dpi_prober")
 
@@ -251,7 +251,7 @@ def _classify_domain(
         # When ALL UDP IPs are FakeDNS virtual addresses (198.18.0.0/15), the
         # local system's Xray/sing-box FakeDNS intercepted the UDP query —
         # this is NOT ISP spoofing. The comparison is meaningless, treat as OK.
-        if all(_is_fakedns_ip(ip) for ip in udp_ips):
+        if all(is_fakedns_ip(ip) for ip in udp_ips):
             return VERDICT_OK
         # UDP and DoH both resolved but to different IPs. For CDN/Anycast this
         # is normal — the downstream stub-IP consensus handles the real case.
@@ -368,7 +368,7 @@ def _harvest_stub_ips(
     for ips in answers.values():
         if isinstance(ips, list):
             counter.update(set(ips))  # set() so duplicate IPs within one answer don't inflate
-    return {ip for ip, count in counter.items() if count >= min_occurrences and not _is_fakedns_ip(ip)}
+    return {ip for ip, count in counter.items() if count >= min_occurrences and not is_fakedns_ip(ip)}
 
 
 # ── Public API ──────────────────────────────────────────────────────────────

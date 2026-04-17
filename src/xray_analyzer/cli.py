@@ -438,7 +438,7 @@ async def cmd_analyze(args: argparse.Namespace) -> int:
         json_output=getattr(args, "json_output", False),
         only_failed=getattr(args, "only_failed", False),
         only_passed=getattr(args, "only_passed", False),
-        serve=getattr(args, "serve", False) or args.watch,
+        serve=getattr(args, "serve", False) or getattr(args, "watch", False),
         serve_host=getattr(args, "host", None),
         serve_port=getattr(args, "port", None),
     )

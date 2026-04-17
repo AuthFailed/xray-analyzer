@@ -38,17 +38,17 @@ async def close_dns_session() -> None:
 # Xray FakeDNS address pools — virtual IPs assigned by Xray's transparent DNS proxy.
 # These never exist on the real internet, so comparing them against Check-Host is meaningless.
 # https://xtls.github.io/ru/config/fakedns.html
-_FAKEDNS_NETWORKS = [
+FAKEDNS_NETWORKS = [
     ip_network("198.18.0.0/15"),  # default IPv4 FakeDNS pool
     ip_network("fc00::/18"),  # default IPv6 FakeDNS pool
 ]
 
 
-def _is_fakedns_ip(addr: str) -> bool:
+def is_fakedns_ip(addr: str) -> bool:
     """Return True if *addr* belongs to Xray FakeDNS virtual address pools."""
     try:
         parsed = ip_address(addr)
-        return any(parsed in net for net in _FAKEDNS_NETWORKS)
+        return any(parsed in net for net in FAKEDNS_NETWORKS)
     except ValueError:
         return False
 
@@ -96,7 +96,7 @@ async def check_dns_with_checkhost(host: str) -> DiagnosticResult:
     # These IPs are never real internet addresses, so the mismatch with Check-Host
     # is expected and harmless — Xray intercepts traffic by the fake IP anyway.
     local_ips_raw = local_result.get("ips", [])
-    fakedns_ips = [ip for ip in local_ips_raw if _is_fakedns_ip(ip)]
+    fakedns_ips = [ip for ip in local_ips_raw if is_fakedns_ip(ip)]
     if fakedns_ips:
         details["fakedns_ips"] = fakedns_ips
         details["checkhost_ips"] = checkhost_result.get("ips", [])

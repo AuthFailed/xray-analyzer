@@ -18,7 +18,7 @@ from xray_analyzer.core.models import (
     HostDiagnostic,
 )
 from xray_analyzer.diagnostics.censor_checker import DomainStatus, run_censor_check
-from xray_analyzer.diagnostics.dns_checker import _is_fakedns_ip, check_dns_with_checkhost, close_dns_session
+from xray_analyzer.diagnostics.dns_checker import check_dns_with_checkhost, close_dns_session, is_fakedns_ip
 from xray_analyzer.diagnostics.dns_dpi_prober import DnsIntegrityReport, close_doh_session, probe_dns_integrity
 from xray_analyzer.diagnostics.fat_probe_checker import check_fat_probe
 from xray_analyzer.diagnostics.http_injection_probe import probe_http_injection
@@ -415,7 +415,7 @@ async def analyze_single_proxy(
             if dns_result.status == CheckStatus.PASS:
                 local_ips = dns_result.details.get("local_ips", [])
                 # Filter out FakeDNS virtual IPs — connecting to 198.18.x.x makes no sense
-                real_ips = [ip for ip in local_ips if not _is_fakedns_ip(ip)]
+                real_ips = [ip for ip in local_ips if not is_fakedns_ip(ip)]
                 fallback_ip = real_ips[0] if real_ips else None
 
             await _run_xray_phase(diagnostic, share, fallback_ip)

@@ -216,13 +216,14 @@ async def check_proxy_connectivity(
 ) -> DiagnosticResult:
     """Check proxy connectivity through Xray SOCKS tunnel."""
     test_url = settings.proxy_status_check_url
+    timeout_s = settings.proxy_check_timeout
     start_time = asyncio.get_running_loop().time()
 
     try:
         async with session.get(
             test_url,
             proxy=socks_url,
-            timeout=aiohttp.ClientTimeout(total=15),
+            timeout=aiohttp.ClientTimeout(total=timeout_s),
             allow_redirects=True,
         ) as response:
             duration_ms = (asyncio.get_running_loop().time() - start_time) * 1000
@@ -235,7 +236,7 @@ async def check_proxy_connectivity(
                 "test_url": test_url,
                 "http_status": status_code,
                 "duration_ms": round(duration_ms, 2),
-                "local_socks_port": share.port,
+                "timeout_seconds": timeout_s,
             }
 
             if status_code in (200, 204):
@@ -261,12 +262,12 @@ async def check_proxy_connectivity(
             check_name=f"Proxy Xray Connectivity{label_suffix}",
             status=CheckStatus.TIMEOUT,
             severity=CheckSeverity.CRITICAL,
-            message="connection timeout",
+            message=f"connection timeout ({timeout_s}s)",
             details={
                 "protocol": share.protocol,
                 "server": share.server,
                 "test_url": test_url,
-                "timeout_seconds": 15,
+                "timeout_seconds": timeout_s,
                 "duration_ms": round(duration_ms, 2),
             },
             recommendations=[
@@ -288,6 +289,7 @@ async def check_proxy_connectivity(
                 "server": share.server,
                 "error": str(e),
                 "error_type": type(e).__name__,
+                "timeout_seconds": timeout_s,
                 "duration_ms": round(duration_ms, 2),
             },
             recommendations=[
@@ -306,13 +308,14 @@ async def check_proxy_exit_ip_xray(
 ) -> DiagnosticResult:
     """Check exit IP through Xray SOCKS tunnel."""
     ip_check_url = settings.proxy_ip_check_url
+    timeout_s = settings.proxy_check_timeout
     start_time = asyncio.get_running_loop().time()
 
     try:
         async with session.get(
             ip_check_url,
             proxy=socks_url,
-            timeout=aiohttp.ClientTimeout(total=15),
+            timeout=aiohttp.ClientTimeout(total=timeout_s),
         ) as response:
             duration_ms = (asyncio.get_running_loop().time() - start_time) * 1000
             if response.status != 200:
@@ -324,6 +327,7 @@ async def check_proxy_exit_ip_xray(
                     details={
                         "protocol": share.protocol,
                         "http_status": response.status,
+                        "timeout_seconds": timeout_s,
                         "duration_ms": round(duration_ms, 2),
                     },
                 )
@@ -347,8 +351,12 @@ async def check_proxy_exit_ip_xray(
             check_name=f"Proxy Exit IP (Xray){label_suffix}",
             status=CheckStatus.TIMEOUT,
             severity=CheckSeverity.CRITICAL,
-            message="Exit IP check timed out",
-            details={"protocol": share.protocol, "timeout_seconds": 15, "duration_ms": round(duration_ms, 2)},
+            message=f"Exit IP check timed out ({timeout_s}s)",
+            details={
+                "protocol": share.protocol,
+                "timeout_seconds": timeout_s,
+                "duration_ms": round(duration_ms, 2),
+            },
         )
 
     except aiohttp.ClientError as e:
@@ -358,7 +366,13 @@ async def check_proxy_exit_ip_xray(
             status=CheckStatus.FAIL,
             severity=CheckSeverity.ERROR,
             message=f"{e}",
-            details={"protocol": share.protocol, "error": str(e), "duration_ms": round(duration_ms, 2)},
+            details={
+                "protocol": share.protocol,
+                "error": str(e),
+                "error_type": type(e).__name__,
+                "timeout_seconds": timeout_s,
+                "duration_ms": round(duration_ms, 2),
+            },
         )
 
 
@@ -371,13 +385,14 @@ async def check_proxy_sni_xray(
     """Check SNI connection through Xray SOCKS tunnel."""
     sni_domain = settings.proxy_sni_domain
     test_url = f"https://{sni_domain}"
+    timeout_s = settings.proxy_check_timeout
     start_time = asyncio.get_running_loop().time()
 
     try:
         async with session.get(
             test_url,
             proxy=socks_url,
-            timeout=aiohttp.ClientTimeout(total=15),
+            timeout=aiohttp.ClientTimeout(total=timeout_s),
             allow_redirects=True,
         ) as response:
             duration_ms = (asyncio.get_running_loop().time() - start_time) * 1000
@@ -416,8 +431,13 @@ async def check_proxy_sni_xray(
             check_name=f"Proxy SNI Connection (Xray){label_suffix}",
             status=CheckStatus.TIMEOUT,
             severity=CheckSeverity.CRITICAL,
-            message=f"connection to {sni_domain} timed out",
-            details={"protocol": share.protocol, "sni_domain": sni_domain, "duration_ms": round(duration_ms, 2)},
+            message=f"connection to {sni_domain} timed out ({timeout_s}s)",
+            details={
+                "protocol": share.protocol,
+                "sni_domain": sni_domain,
+                "timeout_seconds": timeout_s,
+                "duration_ms": round(duration_ms, 2),
+            },
         )
 
     except aiohttp.ClientError as e:
@@ -427,7 +447,14 @@ async def check_proxy_sni_xray(
             status=CheckStatus.FAIL,
             severity=CheckSeverity.CRITICAL,
             message=f"error connecting to {sni_domain} — {e}",
-            details={"protocol": share.protocol, "error": str(e), "duration_ms": round(duration_ms, 2)},
+            details={
+                "protocol": share.protocol,
+                "sni_domain": sni_domain,
+                "error": str(e),
+                "error_type": type(e).__name__,
+                "timeout_seconds": timeout_s,
+                "duration_ms": round(duration_ms, 2),
+            },
         )
 
 

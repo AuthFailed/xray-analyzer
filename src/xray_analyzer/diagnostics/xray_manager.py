@@ -278,10 +278,11 @@ class XrayInstance:
                 stderr=asyncio.subprocess.PIPE,
             )
 
-            # Poll the SOCKS port for readiness (up to 8s with 100ms interval).
+            # Poll the SOCKS port for readiness with 100ms interval.
             # Xray typically binds within ~500ms, so this is much faster than
-            # waiting the full 8s for process.communicate to time out.
-            deadline = asyncio.get_running_loop().time() + 8
+            # waiting the full timeout for process.communicate to time out.
+            startup_timeout = settings.xray_startup_timeout
+            deadline = asyncio.get_running_loop().time() + startup_timeout
             while True:
                 if self._process.returncode is not None:
                     stdout_bytes = await self._process.stdout.read() if self._process.stdout else b""
@@ -311,7 +312,8 @@ class XrayInstance:
 
                 if asyncio.get_running_loop().time() >= deadline:
                     raise RuntimeError(
-                        f"Xray did not bind SOCKS port {self.socks_port} for {self.share.name} within 8s"
+                        f"Xray did not bind SOCKS port {self.socks_port} for "
+                        f"{self.share.name} within {startup_timeout}s"
                     )
                 await asyncio.sleep(0.1)
 

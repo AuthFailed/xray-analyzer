@@ -27,6 +27,9 @@ class Settings(BaseSettings):
     proxy_status_check_url: str = "http://cp.cloudflare.com/generate_204"
     proxy_ip_check_url: str = "https://api.ipify.org?format=text"
 
+    # Proxy check timeouts (seconds) — used for connectivity, exit IP, SNI checks via Xray
+    proxy_check_timeout: int = Field(default=15, ge=3, le=60)
+
     # Proxy SNI Check
     proxy_sni_test_enabled: bool = True
     proxy_sni_domain: str = "max.ru"
@@ -51,6 +54,7 @@ class Settings(BaseSettings):
     xray_binary_path: str = "xray"  # Path to xray binary (or "xray" if in PATH)
     xray_test_enabled: bool = True
     xray_fakedns_enabled: bool = True  # Enable FakeDNS in spawned Xray instances (handles 198.18.0.0/15 IPs)
+    xray_startup_timeout: int = Field(default=8, ge=2, le=30)  # Max seconds to wait for Xray SOCKS port
     subscription_url: str = ""  # Subscription URL with VLESS/Trojan/SS share links
     subscription_hwid: str = ""  # HWID header for subscription (x-hwid)
 
