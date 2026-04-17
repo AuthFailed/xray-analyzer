@@ -219,7 +219,7 @@ async def analyze_subscription_proxies(
         # Build a host-label → share map so the per-proxy callback can recover
         # the original share even though asyncio.as_completed yields anonymous
         # awaitables (not the original task objects).
-        share_by_label = {f"{s.name} ({s.server}:{s.port})": s for s in shares}
+        share_by_label = {f"{s.name.strip()} ({s.server}:{s.port})": s for s in shares}
 
         # One shared probe cache for the whole run — see _DirectProbeCache docstring.
         probe_cache = _DirectProbeCache()
@@ -231,7 +231,7 @@ async def analyze_subscription_proxies(
                     timeout=settings.analyze_proxy_timeout,
                 )
             except TimeoutError:
-                label = f"{share.name} ({share.server}:{share.port})"
+                label = f"{share.name.strip()} ({share.server}:{share.port})"
                 diag = HostDiagnostic(host=label)
                 diag.add_result(
                     DiagnosticResult(
@@ -303,7 +303,8 @@ async def analyze_single_proxy(
     port = share.port
 
     # Build display label: use proxy name for readability
-    label = f"{share.name} ({host}:{port})"
+    name = share.name.strip()
+    label = f"{name} ({host}:{port})"
 
     # Skip virtual host placeholders
     if host in {"virt.host", "localhost", "127.0.0.1"}:
@@ -1045,6 +1046,13 @@ async def _run_standalone_cross_tests(
                     )
 
             await asyncio.gather(*[_cross_test_one(d) for d in problematic])
+
+        # Cross-proxy TIMEOUT results push overall_status back to FAIL via
+        # add_result, but finalize_status was already called before cross-tests.
+        # Re-finalize so that hosts where the proxy itself works (Proxy Xray
+        # Connectivity passed) stay at WARN, not FAIL.
+        for diag in problematic:
+            diag.finalize_status()
     except Exception as e:
         log.error(f"Failed to start working proxy for cross-tests: {e}")
     finally:

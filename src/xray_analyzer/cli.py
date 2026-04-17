@@ -528,6 +528,10 @@ async def _run_standalone_analysis(
                 task_id = progress.add_task(f"[cyan]Analyzing {len(shares)} proxies[/cyan]", total=len(shares))
 
                 def on_proxy_complete(diag: HostDiagnostic, share: ProxyShareURL) -> None:
+                    if not diag.results:
+                        # Skipped virtual/invalid host — advance silently
+                        progress.advance(task_id)
+                        return
                     _print_proxy_progress_line(progress, diag, share.protocol)
                     progress.advance(task_id)
 
@@ -556,7 +560,7 @@ async def _run_standalone_analysis(
             # Build label → share map (same format as standalone_analyzer.py)
             share_by_label: dict[str, ProxyShareURL] = {}
             for s in shares:
-                label = f"{s.name} ({s.server}:{s.port})"
+                label = f"{s.name.strip()} ({s.server}:{s.port})"
                 state.register_proxy(label, s)
                 share_by_label[label] = s
 
@@ -1259,7 +1263,12 @@ def _print_proxy_progress_line(progress: Progress, diag: HostDiagnostic, protoco
             break
     for r in diag.results:
         if r.check_name == "TCP Connection":
-            extras.append("[dim]tcp✓[/dim]" if r.status == CheckStatus.PASS else "[dim]tcp✗[/dim]")
+            if r.status == CheckStatus.PASS:
+                extras.append("[dim]tcp✓[/dim]")
+            elif r.status == CheckStatus.TIMEOUT:
+                extras.append("[dim]tcp⏱[/dim]")
+            else:
+                extras.append("[dim]tcp✗[/dim]")
             break
     # DPI fat probe signal
     for r in diag.results:
@@ -1396,12 +1405,13 @@ def _print_analysis_results(
     # WARN hosts go into the passing compact table (they work with caveats)
     passing_and_warn = passing + warning
 
-    # Sort passing hosts by ping latency (fastest first)
-    def _ping_sort_key(diag: HostDiagnostic) -> float:
+    # Sort: OK first, then WARN; within each group — by ping latency
+    def _ping_sort_key(diag: HostDiagnostic) -> tuple[int, float]:
+        group = 0 if diag.overall_status == CheckStatus.PASS else 1
         for r in diag.results:
             if "TCP Ping" in r.check_name and r.status == CheckStatus.PASS:
-                return r.details.get("latency_avg_ms", 9999.0)
-        return 9999.0
+                return (group, r.details.get("latency_avg_ms", 9999.0))
+        return (group, 9999.0)
 
     passing_and_warn.sort(key=_ping_sort_key)
 
@@ -1447,7 +1457,7 @@ def _print_analysis_results(
 
     # === PASSING + WARN HOSTS (compact) ===
     if passing_and_warn:
-        console.print("[bold green]✓ HOSTS WITHOUT ISSUES[/bold green]\n")
+        console.print("[bold green]✓ WORKING HOSTS[/bold green]\n")
 
         # Detect which optional columns have data in any diagnostic
         all_results = [r for d in passing_and_warn for r in d.results]
@@ -1457,30 +1467,34 @@ def _print_analysis_results(
 
         table = Table(show_header=True, box=None, padding=(0, 2))
         table.add_column("Host", style="cyan")
+        table.add_column("Ping", justify="right")
         table.add_column("DNS", justify="center")
         table.add_column("TCP", justify="center")
-        table.add_column("Ping", justify="center")
         if has_dpi:
             table.add_column("DPI", justify="center")
         table.add_column("Proxy", justify="center")
-        table.add_column("Exit IP", justify="left", style="dim")
         if has_censor:
             table.add_column("Censor", justify="center")
         if has_telegram:
             table.add_column("TG", justify="center")
+        table.add_column("Exit IP", justify="left", style="dim")
 
+        warn_separator_added = False
         for diag in passing_and_warn:
-            dns = _check_status_icon(diag, "DNS")
+            # Visual separator between OK and WARN groups
+            if not warn_separator_added and diag.overall_status == CheckStatus.WARN:
+                warn_separator_added = True
+                num_cols = 5 + has_dpi + has_censor + has_telegram + 1  # +1 for Exit IP
+                table.add_row(*[""] * num_cols)
+                table.add_row(*["[dim]⚠ with minor issues[/dim]"] + [""] * (num_cols - 1))
+
+            dns = _check_status_icon(diag, "DNS Resolution")
             tcp = _check_status_icon(diag, "TCP Connection")
-            # Ping: show avg latency if available
-            ping_text = _check_status_icon(diag, "TCP Ping")
-            for r in diag.results:
-                if "TCP Ping" in r.check_name and r.status == CheckStatus.PASS:
-                    avg_ms = r.details.get("latency_avg_ms")
-                    if avg_ms is not None:
-                        ping_text = f"[green]{avg_ms}ms[/green]"
-                    break
             proxy = _check_status_icon(diag, "Xray Connectivity") or _check_status_icon(diag, "Tunnel")
+
+            # Ping: always show latency when available, colored by status
+            ping_text = _format_ping(diag)
+
             # Exit IP
             exit_ip = ""
             for r in diag.results:
@@ -1488,20 +1502,51 @@ def _print_analysis_results(
                     exit_ip = r.details.get("exit_ip", "")
                     break
 
-            row = [diag.host, dns, tcp, ping_text]
+            row = [diag.host, ping_text, dns, tcp]
             if has_dpi:
                 row.append(_check_status_icon(diag, "Fat Probe"))
             row.append(proxy)
-            row.append(exit_ip)
             if has_censor:
                 row.append(_check_status_icon(diag, "Censor Canary"))
             if has_telegram:
                 row.append(_check_status_icon(diag, "Telegram Reachability"))
+            row.append(exit_ip)
 
             table.add_row(*row)
 
         console.print(table)
         console.print()
+
+
+def _format_ping(diag: HostDiagnostic) -> str:
+    """Format ping column: show latency with color based on status."""
+    for r in diag.results:
+        if "TCP Ping" not in r.check_name:
+            continue
+        avg_ms = r.details.get("latency_avg_ms")
+        if avg_ms is not None:
+            # Round to integer for clean display
+            ms = round(avg_ms)
+            if r.status == CheckStatus.PASS:
+                if ms < 50:
+                    return f"[green]{ms}ms[/green]"
+                elif ms < 200:
+                    return f"[yellow]{ms}ms[/yellow]"
+                else:
+                    return f"[red]{ms}ms[/red]"
+            elif r.status == CheckStatus.WARN:
+                loss = r.details.get("loss_percent")
+                loss_hint = f" {loss}%loss" if loss else ""
+                return f"[yellow]{ms}ms{loss_hint}[/yellow]"
+            else:
+                return f"[red]{ms}ms[/red]"
+        # No latency data — fall back to icon
+        if r.status == CheckStatus.FAIL:
+            return "[red]✗[/red]"
+        if r.status == CheckStatus.TIMEOUT:
+            return "[yellow]⏱[/yellow]"
+        return _check_status_icon(diag, "TCP Ping")
+    return "[dim]–[/dim]"
 
 
 def _check_status_icon(diagnostic: HostDiagnostic, check_name_part: str) -> str:
@@ -1553,6 +1598,7 @@ _CHECK_ORDER: list[tuple[str, int]] = [
     ("Proxy TCP Tunnel", 70),
     ("Proxy Tunnel", 71),
     ("Target via Proxy", 80),
+    ("Xray Cross-Proxy Connectivity", 82),
     ("Censor Canary", 85),
     ("Telegram Reachability", 86),
     ("RKN", 90),
@@ -1571,11 +1617,13 @@ def _check_sort_key(result: DiagnosticResult) -> tuple[int, str]:
 
 def _short_check_name(name: str) -> str:
     """Strip noisy suffixes from a check name for table rendering."""
-    # Drop "(домен: X)" / "(domain: X)" / "(IP: X)" suffix — host is already
-    # in the section header.
-    name = re.sub(r"\s*\((домен|domain|IP):[^)]+\)\s*$", "", name)
+    # Shorten "(домен: X)" / "(domain: X)" → "(домен)" / "(domain)",
+    # "(IP: X)" → "(IP)" — host is already in the section header.
+    name = re.sub(r"\s*\((домен|domain):[^)]+\)", "", name)
+    name = re.sub(r"\s*\(IP:[^)]+\)", " (IP)", name)
     # "Proxy Xray Connectivity" → "Proxy Connectivity" (the "Xray" qualifier
     # is implied since this is the analyze command).
+    name = name.replace("Xray Cross-Proxy Connectivity", "Cross-Proxy Check")
     name = name.replace("Proxy Xray Connectivity", "Proxy Connectivity")
     name = name.replace("Proxy Xray Test", "Proxy Test")
     name = name.replace("Proxy Exit IP (Xray)", "Exit IP")
@@ -1603,6 +1651,14 @@ def _check_detail_text(result: DiagnosticResult) -> str:
         if "http_status" in details and "HTTP" not in (msg or ""):
             bits.append(f"HTTP {details['http_status']}")
         return " · ".join(bits) if bits else ""
+
+    # For DPI Fat Probe failures, prefer the compact label over the verbose
+    # aiohttp error string (e.g. "tls_dpi" instead of "Cannot connect to
+    # host X ssl:default [[SSL: TLSV1_ALERT_...").
+    if "Fat Probe" in result.check_name and result.status == CheckStatus.FAIL:
+        label = details.get("label", "")
+        if label:
+            return label
 
     # FAIL / WARN / TIMEOUT / SKIP — keep the message
     return msg
