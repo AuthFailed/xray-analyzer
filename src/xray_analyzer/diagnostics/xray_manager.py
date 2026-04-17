@@ -79,8 +79,6 @@ def _generate_xray_config(
                     "serverName": share.sni or share.host,
                     "fingerprint": share.fp or "chrome",
                 }
-                if share.sni:
-                    stream["realitySettings"]["serverName"] = share.sni
             else:
                 # Regular TLS
                 tls_settings: dict[str, Any] = {}
@@ -109,6 +107,11 @@ def _generate_xray_config(
                 "path": share.path,
                 "host": [share.host] if share.host else [],
             }
+        elif share.network == "splithttp":
+            stream["splithttpSettings"] = {
+                "path": share.path,
+                "host": share.host,
+            }
 
         outbound["streamSettings"] = stream
 
@@ -124,14 +127,23 @@ def _generate_xray_config(
         }
 
         stream: dict[str, Any] = {"network": share.network}
-        if share.security in ("tls", "xtls"):
-            tls_settings: dict[str, Any] = {}
-            if share.sni:
-                tls_settings["serverName"] = share.sni
-            if share.fp:
-                tls_settings["fingerprint"] = share.fp
+        if share.security in ("tls", "xtls", "reality"):
+            if share.security == "reality":
+                stream["realitySettings"] = {
+                    "publicKey": share.pbk,
+                    "shortId": share.sid,
+                    "spiderX": share.spx,
+                    "serverName": share.sni or share.host,
+                    "fingerprint": share.fp or "chrome",
+                }
+            else:
+                tls_settings: dict[str, Any] = {}
+                if share.sni:
+                    tls_settings["serverName"] = share.sni
+                if share.fp:
+                    tls_settings["fingerprint"] = share.fp
+                stream["tlsSettings" if share.security == "tls" else "xtlsSettings"] = tls_settings
             stream["security"] = share.security
-            stream["tlsSettings" if share.security == "tls" else "xtlsSettings"] = tls_settings
 
         if share.network == "ws":
             stream["wsSettings"] = {
@@ -140,6 +152,16 @@ def _generate_xray_config(
             }
         elif share.network == "grpc":
             stream["grpcSettings"] = {"serviceName": share.service_name or ""}
+        elif share.network == "httpupgrade":
+            stream["httpupgradeSettings"] = {
+                "path": share.path,
+                "host": share.host,
+            }
+        elif share.network == "splithttp":
+            stream["splithttpSettings"] = {
+                "path": share.path,
+                "host": share.host,
+            }
 
         outbound["streamSettings"] = stream
 

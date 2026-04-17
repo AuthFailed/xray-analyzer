@@ -253,6 +253,8 @@ def _classify_domain(
         # this is NOT ISP spoofing. The comparison is meaningless, treat as OK.
         if all(_is_fakedns_ip(ip) for ip in udp_ips):
             return VERDICT_OK
+        # UDP and DoH both resolved but to different IPs. For CDN/Anycast this
+        # is normal — the downstream stub-IP consensus handles the real case.
         return VERDICT_OK
 
     if doh_ips and not udp_ips:
