@@ -98,9 +98,9 @@ class TestClassifyDomain:
         # without other evidence (the stub-IP elevation handles the real case).
         assert _classify_domain(["104.16.0.1"], ["104.16.0.2"]) == VERDICT_OK
 
-    def test_udp_fakedns_pool_flagged_as_spoof(self):
-        # 198.18.0.x ∈ Xray FakeDNS pool — real ISP poisoning mimics this
-        assert _classify_domain(["198.18.0.5"], ["1.1.1.1"]) == VERDICT_SPOOF
+    def test_udp_fakedns_pool_treated_as_ok(self):
+        # 198.18.0.x ∈ Xray FakeDNS pool — local FakeDNS intercepted UDP, not ISP spoofing
+        assert _classify_domain(["198.18.0.5"], ["1.1.1.1"]) == VERDICT_OK
 
     def test_udp_nxdomain_while_doh_resolves(self):
         assert _classify_domain("NXDOMAIN", ["1.1.1.1"]) == VERDICT_FAKE_NXDOMAIN

@@ -248,12 +248,11 @@ def _classify_domain(
     if udp_ips and doh_ips:
         if set(udp_ips) == set(doh_ips):
             return VERDICT_OK
-        # Many CDNs return anycast-variant IPs per resolver; only flag as spoof
-        # when UDP answer contains at least one FakeDNS / known-bogon IP. The
-        # downstream stub-IP consensus step can still elevate generic
-        # "different but both legitimate-looking" to spoof via stub_ips.
-        if any(_is_fakedns_ip(ip) for ip in udp_ips):
-            return VERDICT_SPOOF
+        # When ALL UDP IPs are FakeDNS virtual addresses (198.18.0.0/15), the
+        # local system's Xray/sing-box FakeDNS intercepted the UDP query —
+        # this is NOT ISP spoofing. The comparison is meaningless, treat as OK.
+        if all(_is_fakedns_ip(ip) for ip in udp_ips):
+            return VERDICT_OK
         return VERDICT_OK
 
     if doh_ips and not udp_ips:
@@ -367,7 +366,7 @@ def _harvest_stub_ips(
     for ips in answers.values():
         if isinstance(ips, list):
             counter.update(set(ips))  # set() so duplicate IPs within one answer don't inflate
-    return {ip for ip, count in counter.items() if count >= min_occurrences}
+    return {ip for ip, count in counter.items() if count >= min_occurrences and not _is_fakedns_ip(ip)}
 
 
 # ── Public API ──────────────────────────────────────────────────────────────

@@ -435,11 +435,10 @@ async def cmd_analyze(args: argparse.Namespace) -> int:
 
     return await _run_standalone_analysis(
         proxy_links=proxy_links,
-        watch=args.watch,
         json_output=getattr(args, "json_output", False),
         only_failed=getattr(args, "only_failed", False),
         only_passed=getattr(args, "only_passed", False),
-        serve=getattr(args, "serve", False),
+        serve=getattr(args, "serve", False) or args.watch,
         serve_host=getattr(args, "host", None),
         serve_port=getattr(args, "port", None),
     )
@@ -447,7 +446,6 @@ async def cmd_analyze(args: argparse.Namespace) -> int:
 
 async def _run_standalone_analysis(
     proxy_links: list[str] | None = None,
-    watch: bool = False,
     json_output: bool = False,
     only_failed: bool = False,
     only_passed: bool = False,
@@ -613,7 +611,8 @@ async def _run_standalone_analysis(
                 await runner.cleanup()
             return 0
 
-        elif watch:
+        else:
+            # Normal one-shot analysis (default) or --watch (loop in the future)
             diagnostics = await _run_once()
             console.print()
             if json_output:

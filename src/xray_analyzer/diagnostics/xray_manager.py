@@ -158,29 +158,51 @@ def _generate_xray_config(
     else:
         raise ValueError(f"Unsupported protocol for Xray: {share.protocol}")
 
+    # Sniffing: extract the real domain from TLS ClientHello / HTTP Host header.
+    # "fakedns+others" tells Xray to first try decoding FakeDNS virtual IPs
+    # (198.18.0.0/15) back to the original domain, then fall back to TLS/HTTP
+    # sniffing. This is critical when the local system resolver returns FakeDNS
+    # IPs — without it, Xray would try to connect to a virtual IP directly.
+    # routeOnly: sniffed domain is used for routing only, destination address
+    # stays as-is — prevents double-resolution issues with CDN endpoints.
+    dest_override = ["fakedns+others"] if settings.xray_fakedns_enabled else ["http", "tls"]
+
+    inbound: dict[str, Any] = {
+        "port": socks_port,
+        "listen": "127.0.0.1",
+        "protocol": "socks",
+        "settings": {
+            "auth": "password",
+            "accounts": [{"user": socks_user, "pass": socks_password}],
+            "udp": True,
+        },
+        "sniffing": {
+            "enabled": True,
+            "destOverride": dest_override,
+            "routeOnly": True,
+        },
+    }
+
     # No routing rules: all traffic goes through the proxy outbound by default.
     # This is correct for all use cases (connectivity checks, cross-proxy tests,
     # throttle checks) — we always want traffic to travel through the proxy.
-    config = {
+    config: dict[str, Any] = {
         "log": {"loglevel": "warning"},
-        "inbounds": [
-            {
-                "port": socks_port,
-                "listen": "127.0.0.1",
-                "protocol": "socks",
-                "settings": {
-                    "auth": "password",
-                    "accounts": [{"user": socks_user, "pass": socks_password}],
-                    "udp": True,
-                },
-                "sniffing": {
-                    "enabled": True,
-                    "destOverride": ["http", "tls"],
-                },
-            }
-        ],
+        "inbounds": [inbound],
         "outbounds": [outbound],
     }
+
+    # FakeDNS: allocate a virtual IP pool so Xray can map domains ↔ IPs when the
+    # local resolver returns addresses from 198.18.0.0/15 (Xray/sing-box FakeDNS).
+    # The dns.servers entry "fakedns" makes the pool the primary resolver —
+    # outbound resolution is still delegated to the remote proxy server.
+    if settings.xray_fakedns_enabled:
+        config["fakedns"] = [
+            {"ipPool": "198.18.0.0/15", "poolSize": 65535},
+        ]
+        config["dns"] = {
+            "servers": ["fakedns"],
+        }
 
     return config
 

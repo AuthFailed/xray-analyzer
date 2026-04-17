@@ -50,6 +50,7 @@ class Settings(BaseSettings):
     # Xray core for VLESS/Trojan/SS testing
     xray_binary_path: str = "xray"  # Path to xray binary (or "xray" if in PATH)
     xray_test_enabled: bool = True
+    xray_fakedns_enabled: bool = True  # Enable FakeDNS in spawned Xray instances (handles 198.18.0.0/15 IPs)
     subscription_url: str = ""  # Subscription URL with VLESS/Trojan/SS share links
     subscription_hwid: str = ""  # HWID header for subscription (x-hwid)
 

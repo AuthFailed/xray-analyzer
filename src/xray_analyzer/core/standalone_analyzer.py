@@ -722,14 +722,27 @@ def _add_standalone_recommendations(diagnostic: HostDiagnostic, share: ProxyShar
                 server_ip = local_ips[0]
                 break
 
-    # DNS mismatch with Check-Host (geo-blocking indicator)
-    dns_warning = next(
-        (r for r in results if r.check_name.startswith("DNS Resolution") and r.severity == CheckSeverity.WARNING),
+    # DNS mismatch with Check-Host — only flag when proxy connectivity also fails.
+    # CDN/Anycast naturally return different IPs per region; mismatches alone are
+    # not evidence of geo-blocking unless the proxy path itself is broken.
+    dns_mismatch = next(
+        (
+            r
+            for r in results
+            if r.check_name.startswith("DNS Resolution")
+            and r.details.get("ip_match") is False
+            and not r.details.get("fakedns_ips")
+        ),
         None,
     )
-    if dns_warning:
-        diagnostic.add_recommendation(f"⚠️ DNS for {server_domain} doesn't match Check-Host (geo-blocking)")
-        diagnostic.add_recommendation("Local DNS returns different IPs than external Check-Host.net nodes")
+    xray_connectivity_failed = not any(
+        r.check_name.startswith("Proxy Xray Connectivity") and r.status == CheckStatus.PASS for r in results
+    )
+    if dns_mismatch and xray_connectivity_failed:
+        diagnostic.add_recommendation(
+            f"⚠️ DNS for {server_domain} differs from Check-Host and proxy is unreachable — possible DNS poisoning"
+        )
+        diagnostic.add_recommendation("Try connecting by IP or using DoH/DoT to bypass DNS manipulation")
 
     # Check if Xray connectivity passed but Exit IP/SNI failed
     xray_connectivity_passed = any(

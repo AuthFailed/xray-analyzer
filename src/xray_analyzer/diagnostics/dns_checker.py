@@ -184,13 +184,17 @@ async def check_dns_with_checkhost(host: str) -> DiagnosticResult:
                 details=details,
             )
         else:
-            # No common IPs - possible DNS poisoning or geo-blocking
-            # Local DNS resolves, so it's not a failure — just a geo-blocking indicator
+            # No common IPs — can be CDN geo-routing (Cloudflare, Fastly, etc.),
+            # Anycast, or actual DNS poisoning. Local DNS resolves, so it's not
+            # a failure — surface as INFO, not a blocking indicator.
             return DiagnosticResult(
                 check_name="DNS Resolution (Check-Host)",
                 status=CheckStatus.PASS,
-                severity=CheckSeverity.WARNING,
-                message=(f"DNS for {host}: local IPs don't match Check-Host (possible DNS poisoning or geo-blocking)"),
+                severity=CheckSeverity.INFO,
+                message=(
+                    f"DNS for {host}: local IPs differ from Check-Host "
+                    f"(normal for CDN/Anycast; may indicate DNS poisoning if proxy fails)"
+                ),
                 details=details,
             )
     elif not local_success and checkhost_success:
