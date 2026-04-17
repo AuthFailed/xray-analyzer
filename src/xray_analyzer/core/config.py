@@ -96,6 +96,7 @@ class Settings(BaseSettings):
     analyze_canary_domains: str = ""  # comma-sep; empty → small built-in list
     analyze_telegram_enabled: bool = False  # Telegram check through proxy
     analyze_sni_brute_enabled: bool = False  # SNI brute-force when DPI throttle found
+    analyze_proxy_timeout: int = Field(default=120, ge=30, le=600)  # per-proxy analysis timeout (seconds)
 
     # DPI probes inside `serve` (periodic, alongside the domain scan)
     # Master toggle gates the second background loop entirely.

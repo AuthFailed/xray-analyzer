@@ -6,10 +6,12 @@ No external prometheus-client library required — writes the text format direct
 
 import time
 from dataclasses import dataclass, field
+from typing import Protocol
 
 from aiohttp import web
 
 from xray_analyzer.core.logger import get_logger
+from xray_analyzer.core.models import CheckSeverity, CheckStatus, HostDiagnostic
 from xray_analyzer.diagnostics.cdn_target_scanner import (
     VERDICT_BLOCKED as CDN_VERDICT_BLOCKED,
 )
@@ -33,6 +35,7 @@ from xray_analyzer.diagnostics.dns_dpi_prober import (
 from xray_analyzer.diagnostics.dns_dpi_prober import (
     VERDICT_OK as DNS_VERDICT_OK,
 )
+from xray_analyzer.diagnostics.subscription_parser import ProxyShareURL
 from xray_analyzer.diagnostics.telegram_checker import TelegramReport
 
 _DNS_VERDICTS: tuple[str, ...] = (
@@ -84,6 +87,18 @@ class DpiProbeState:
     telegram_last_run: float = 0.0
     telegram_duration: float = 0.0
     telegram_error: str = ""
+
+
+class MetricsRenderable(Protocol):
+    """Protocol for objects that can be rendered as Prometheus metrics."""
+
+    @property
+    def has_any_scan(self) -> bool: ...
+
+    @property
+    def has_any_error(self) -> bool: ...
+
+    def render(self) -> str: ...
 
 
 @dataclass
@@ -577,7 +592,228 @@ class MetricsState:
         return lines
 
 
-async def run_metrics_server(host: str, port: int, state: MetricsState) -> web.AppRunner:
+_STATUS_VALUE = {
+    CheckStatus.PASS: 1.0,
+    CheckStatus.WARN: 0.5,
+    CheckStatus.FAIL: 0.0,
+    CheckStatus.SKIP: -1.0,
+    CheckStatus.TIMEOUT: 0.0,
+}
+
+# Check names that signal DPI when they fail with high severity.
+_DPI_CHECK_KEYWORDS = ("Probe", "DPI", "Throttle")
+
+
+@dataclass
+class ProxyAnalysisMetricsState:
+    """Holds proxy analysis results for the Prometheus metrics endpoint.
+
+    Each proxy is identified by a label string (name or host:port).
+    Updated after every analysis cycle; read by the HTTP handler.
+    """
+
+    _diagnostics: dict[str, HostDiagnostic] = field(default_factory=dict)
+    _shares: dict[str, ProxyShareURL] = field(default_factory=dict)
+    last_run: float = 0.0
+    analysis_duration: float = 0.0
+    last_error: str = ""
+
+    def register_proxy(self, label: str, share: ProxyShareURL) -> None:
+        self._shares[label] = share
+
+    def update_proxy(self, label: str, diag: HostDiagnostic) -> None:
+        self._diagnostics[label] = diag
+
+    def finish_cycle(self, duration: float) -> None:
+        self.last_run = time.time()
+        self.analysis_duration = duration
+        self.last_error = ""
+
+    def mark_cycle_error(self, error: str) -> None:
+        self.last_error = error
+        self.last_run = time.time()
+
+    @property
+    def has_any_scan(self) -> bool:
+        return bool(self._diagnostics)
+
+    @property
+    def has_any_error(self) -> bool:
+        return bool(self.last_error)
+
+    # ------------------------------------------------------------------
+    # Helpers
+    # ------------------------------------------------------------------
+
+    def _proxy_labels(self, label: str) -> str:
+        """Build the common label set string for a proxy."""
+        share = self._shares.get(label)
+        if share:
+            proxy = _esc(share.name or f"{share.server}:{share.port}")
+            server = _esc(share.server)
+            port = str(share.port)
+            protocol = _esc(share.protocol)
+        else:
+            proxy = _esc(label)
+            server = ""
+            port = ""
+            protocol = ""
+        return f'proxy="{proxy}",server="{server}",port="{port}",protocol="{protocol}"'
+
+    @staticmethod
+    def _is_dpi_detected(diag: HostDiagnostic) -> bool:
+        for r in diag.results:
+            if (
+                any(kw in r.check_name for kw in _DPI_CHECK_KEYWORDS)
+                and r.status == CheckStatus.FAIL
+                and r.severity in (CheckSeverity.CRITICAL, CheckSeverity.ERROR)
+            ):
+                return True
+            if r.details.get("dpi_detected"):
+                return True
+        return False
+
+    # ------------------------------------------------------------------
+    # Prometheus text rendering
+    # ------------------------------------------------------------------
+
+    def render(self) -> str:
+        if not self._shares and not self._diagnostics:
+            return "# xray-analyzer proxy analysis: no proxies registered\nxray_proxy_analysis_up 0\n"
+
+        if not self._diagnostics:
+            lines = ["# xray-analyzer proxy analysis: waiting for first cycle"]
+            for label in self._shares:
+                lbl = self._proxy_labels(label)
+                lines.append(f"xray_proxy_status{{{lbl}}} 0")
+            lines.append("")
+            lines.append("xray_proxy_analysis_up 0")
+            return "\n".join(lines) + "\n"
+
+        lines: list[str] = []
+
+        # ---- per-proxy overall status --------------------------------
+        lines += [
+            "# HELP xray_proxy_status Proxy overall status: 1=pass, 0.5=warn, 0=fail",
+            "# TYPE xray_proxy_status gauge",
+        ]
+        for label, diag in self._diagnostics.items():
+            lbl = self._proxy_labels(label)
+            value = _STATUS_VALUE.get(diag.overall_status, 0.0)
+            lines.append(f"xray_proxy_status{{{lbl}}} {value}")
+
+        # ---- per-proxy per-check status ------------------------------
+        lines += [
+            "",
+            "# HELP xray_proxy_check_status Per-check status: 1=pass, 0.5=warn, 0=fail, -1=skip",
+            "# TYPE xray_proxy_check_status gauge",
+        ]
+        for label, diag in self._diagnostics.items():
+            lbl = self._proxy_labels(label)
+            for r in diag.results:
+                check = _esc(r.check_name)
+                value = _STATUS_VALUE.get(r.status, 0.0)
+                lines.append(f'xray_proxy_check_status{{{lbl},check="{check}"}} {value}')
+
+        # ---- per-proxy per-check duration ----------------------------
+        lines += [
+            "",
+            "# HELP xray_proxy_check_duration_ms Per-check duration in milliseconds",
+            "# TYPE xray_proxy_check_duration_ms gauge",
+        ]
+        for label, diag in self._diagnostics.items():
+            lbl = self._proxy_labels(label)
+            for r in diag.results:
+                if r.duration_ms > 0:
+                    check = _esc(r.check_name)
+                    lines.append(f'xray_proxy_check_duration_ms{{{lbl},check="{check}"}} {r.duration_ms:.1f}')
+
+        # ---- per-proxy TCP ping latency ------------------------------
+        lines += [
+            "",
+            "# HELP xray_proxy_ping_avg_ms TCP ping average latency in milliseconds",
+            "# TYPE xray_proxy_ping_avg_ms gauge",
+        ]
+        for label, diag in self._diagnostics.items():
+            lbl = self._proxy_labels(label)
+            for r in diag.results:
+                if "TCP Ping" in r.check_name and r.status == CheckStatus.PASS:
+                    avg_ms = r.details.get("latency_avg_ms")
+                    if avg_ms is not None:
+                        lines.append(f"xray_proxy_ping_avg_ms{{{lbl}}} {avg_ms:.1f}")
+                    break
+
+        # ---- per-proxy exit IP info ----------------------------------
+        lines += [
+            "",
+            "# HELP xray_proxy_exit_ip_info Proxy exit IP (info metric, always 1)",
+            "# TYPE xray_proxy_exit_ip_info gauge",
+        ]
+        for label, diag in self._diagnostics.items():
+            lbl = self._proxy_labels(label)
+            for r in diag.results:
+                if "Exit IP" in r.check_name and r.status == CheckStatus.PASS:
+                    ip = _esc(r.details.get("exit_ip", ""))
+                    if ip:
+                        lines.append(f'xray_proxy_exit_ip_info{{{lbl},ip="{ip}"}} 1')
+                    break
+
+        # ---- per-proxy DPI detected ----------------------------------
+        lines += [
+            "",
+            "# HELP xray_proxy_dpi_detected DPI/throttle detected on proxy path: 1=yes, 0=no",
+            "# TYPE xray_proxy_dpi_detected gauge",
+        ]
+        for label, diag in self._diagnostics.items():
+            lbl = self._proxy_labels(label)
+            value = 1 if self._is_dpi_detected(diag) else 0
+            lines.append(f"xray_proxy_dpi_detected{{{lbl}}} {value}")
+
+        # ---- summary counters ----------------------------------------
+        total = len(self._diagnostics)
+        passing = sum(1 for d in self._diagnostics.values() if d.overall_status == CheckStatus.PASS)
+        warning = sum(1 for d in self._diagnostics.values() if d.overall_status == CheckStatus.WARN)
+        failing = total - passing - warning
+
+        lines += [
+            "",
+            "# HELP xray_proxy_total Total proxies analyzed",
+            "# TYPE xray_proxy_total gauge",
+            f"xray_proxy_total {total}",
+            "",
+            "# HELP xray_proxy_passing Proxies with PASS status",
+            "# TYPE xray_proxy_passing gauge",
+            f"xray_proxy_passing {passing}",
+            "",
+            "# HELP xray_proxy_warning Proxies with WARN status",
+            "# TYPE xray_proxy_warning gauge",
+            f"xray_proxy_warning {warning}",
+            "",
+            "# HELP xray_proxy_failing Proxies with FAIL/TIMEOUT status",
+            "# TYPE xray_proxy_failing gauge",
+            f"xray_proxy_failing {failing}",
+        ]
+
+        # ---- cycle timing & health -----------------------------------
+        lines += [
+            "",
+            "# HELP xray_proxy_analysis_duration_seconds Duration of last analysis cycle",
+            "# TYPE xray_proxy_analysis_duration_seconds gauge",
+            f"xray_proxy_analysis_duration_seconds {self.analysis_duration:.3f}",
+            "",
+            "# HELP xray_proxy_analysis_last_run_timestamp_seconds Unix timestamp of last completed cycle",
+            "# TYPE xray_proxy_analysis_last_run_timestamp_seconds gauge",
+            f"xray_proxy_analysis_last_run_timestamp_seconds {self.last_run:.3f}",
+            "",
+            "# HELP xray_proxy_analysis_up 1 if last analysis cycle succeeded, 0 if it errored",
+            "# TYPE xray_proxy_analysis_up gauge",
+            f"xray_proxy_analysis_up {0 if self.last_error else 1}",
+        ]
+
+        return "\n".join(lines) + "\n"
+
+
+async def run_metrics_server(host: str, port: int, state: MetricsRenderable) -> web.AppRunner:
     """Start the Prometheus HTTP server.  Returns the AppRunner so the caller can clean up."""
 
     async def handle_metrics(_request: web.Request) -> web.Response:

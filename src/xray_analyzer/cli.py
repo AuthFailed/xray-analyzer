@@ -3,6 +3,7 @@
 import argparse
 import asyncio
 import contextlib
+import json
 import re
 import sys
 import time
@@ -45,7 +46,7 @@ from xray_analyzer.diagnostics.subscription_parser import ProxyShareURL, fetch_s
 from xray_analyzer.diagnostics.telegram_checker import check_telegram
 from xray_analyzer.diagnostics.xray_downloader import ensure_xray
 from xray_analyzer.diagnostics.xray_manager import XrayInstance
-from xray_analyzer.metrics.server import MetricsState, run_metrics_server
+from xray_analyzer.metrics.server import MetricsState, ProxyAnalysisMetricsState, run_metrics_server
 
 log = get_logger("cli")
 console = Console()
@@ -229,6 +230,37 @@ def create_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Enable all optional checks (DPI probes, censor canary, Telegram, SNI brute)",
     )
+    analyze_parser.add_argument(
+        "--json",
+        action="store_true",
+        dest="json_output",
+        help="Output results as JSON (machine-readable)",
+    )
+    analyze_parser.add_argument(
+        "--only-failed",
+        action="store_true",
+        help="Only show hosts with problems",
+    )
+    analyze_parser.add_argument(
+        "--only-passed",
+        action="store_true",
+        help="Only show hosts without problems",
+    )
+    analyze_parser.add_argument(
+        "--serve",
+        action="store_true",
+        help="Start a Prometheus metrics server and loop analysis (implies --watch)",
+    )
+    analyze_parser.add_argument(
+        "--port",
+        type=int,
+        help="Metrics server port for --serve mode (default: METRICS_PORT or 9090)",
+    )
+    analyze_parser.add_argument(
+        "--host",
+        type=str,
+        help="Metrics server bind host for --serve mode (default: METRICS_HOST or 0.0.0.0)",
+    )
 
     # check command — single domain step-by-step diagnosis
     check_parser = subparsers.add_parser(
@@ -401,10 +433,28 @@ async def cmd_analyze(args: argparse.Namespace) -> int:
     # Collect proxy shares from all sources
     proxy_links: list[str] = getattr(args, "proxies", None) or []
 
-    return await _run_standalone_analysis(proxy_links=proxy_links, watch=args.watch)
+    return await _run_standalone_analysis(
+        proxy_links=proxy_links,
+        watch=args.watch,
+        json_output=getattr(args, "json_output", False),
+        only_failed=getattr(args, "only_failed", False),
+        only_passed=getattr(args, "only_passed", False),
+        serve=getattr(args, "serve", False),
+        serve_host=getattr(args, "host", None),
+        serve_port=getattr(args, "port", None),
+    )
 
 
-async def _run_standalone_analysis(proxy_links: list[str] | None = None, watch: bool = False) -> int:
+async def _run_standalone_analysis(
+    proxy_links: list[str] | None = None,
+    watch: bool = False,
+    json_output: bool = False,
+    only_failed: bool = False,
+    only_passed: bool = False,
+    serve: bool = False,
+    serve_host: str | None = None,
+    serve_port: int | None = None,
+) -> int:
     """Run analysis using subscription URL and/or direct proxy links."""
     try:
         # Ensure Xray is available if testing VLESS/Trojan/SS
@@ -498,18 +548,78 @@ async def _run_standalone_analysis(proxy_links: list[str] | None = None, watch: 
                     on_phase=on_phase,
                 )
 
-        if watch:
-            console.print("[yellow]Starting continuous monitoring... (Ctrl+C to stop)[/yellow]")
-            while True:
-                diagnostics = await _run_once()
-                console.print()
-                _print_analysis_results(diagnostics)
-                console.print(f"\n[dim]Next check in {settings.check_interval_seconds}s...[/dim]")
-                await asyncio.sleep(settings.check_interval_seconds)
-        else:
+        if serve:
+            # --serve mode: start metrics HTTP server and loop analysis
+            host = serve_host or settings.metrics_host
+            port = serve_port or settings.metrics_port
+            interval = settings.check_interval_seconds
+
+            state = ProxyAnalysisMetricsState()
+            # Build label → share map (same format as standalone_analyzer.py)
+            share_by_label: dict[str, ProxyShareURL] = {}
+            for s in shares:
+                label = f"{s.name} ({s.server}:{s.port})"
+                state.register_proxy(label, s)
+                share_by_label[label] = s
+
+            console.print()
+            console.print(
+                Panel(
+                    f"[bold cyan]Proxy Analysis Metrics[/bold cyan]\n"
+                    f"[green]http://{host}:{port}/metrics[/green]\n"
+                    f"[dim]{len(shares)} proxies · analyze every {interval}s[/dim]",
+                    border_style="blue",
+                    padding=(0, 2),
+                )
+            )
+            console.print()
+
+            runner = await run_metrics_server(host, port, state)
+            console.print(
+                f"[green]✓[/green] Listening on [bold]http://{host}:{port}/metrics[/bold]  (Ctrl+C to stop)\n"
+            )
+
+            try:
+                while True:
+                    cycle_t0 = time.monotonic()
+                    try:
+                        diagnostics = await _run_once()
+                        duration = time.monotonic() - cycle_t0
+
+                        for diag in diagnostics:
+                            state.update_proxy(diag.host, diag)
+                        state.finish_cycle(duration)
+
+                        passing = sum(1 for d in diagnostics if d.overall_status == CheckStatus.PASS)
+                        warning = sum(1 for d in diagnostics if d.overall_status == CheckStatus.WARN)
+                        failing = len(diagnostics) - passing - warning
+                        ts = time.strftime("%H:%M:%S")
+                        console.print(
+                            f"[dim]{ts}[/dim]  cycle done  "
+                            f"[green]{passing} pass[/green] · "
+                            f"[yellow]{warning} warn[/yellow] · "
+                            f"[red]{failing} fail[/red]  "
+                            f"[dim]{duration:.1f}s · next in {interval}s[/dim]"
+                        )
+                    except Exception as e:
+                        state.mark_cycle_error(str(e))
+                        log.error("Analysis cycle failed", error=str(e))
+                        console.print(f"[red]✗[/red] Cycle error: {e}")
+
+                    await asyncio.sleep(interval)
+            except (asyncio.CancelledError, KeyboardInterrupt):
+                console.print("\n[dim]Shutting down...[/dim]")
+            finally:
+                await runner.cleanup()
+            return 0
+
+        elif watch:
             diagnostics = await _run_once()
             console.print()
-            _print_analysis_results(diagnostics)
+            if json_output:
+                print(_diagnostics_to_json(diagnostics))
+            else:
+                _print_analysis_results(diagnostics, only_failed=only_failed, only_passed=only_passed)
 
         return 0
 
@@ -1184,7 +1294,62 @@ def _print_proxy_progress_line(progress: Progress, diag: HostDiagnostic, protoco
     progress.console.print(f"  {icon} [bold]{diag.host}[/bold] {proto_tag}  {label}{extras_str}")
 
 
-def _print_analysis_results(diagnostics: list[HostDiagnostic]) -> None:
+def _diagnostics_to_json(diagnostics: list[HostDiagnostic]) -> str:
+    """Serialize diagnostics to JSON for machine consumption."""
+    data = []
+    for diag in diagnostics:
+        host_data = {
+            "host": diag.host,
+            "overall_status": str(diag.overall_status),
+            "recommendations": diag.recommendations,
+            "checks": [],
+        }
+        for r in sorted(diag.results, key=_check_sort_key):
+            check = {
+                "name": r.check_name,
+                "status": str(r.status),
+                "severity": str(r.severity),
+                "message": r.message,
+                "duration_ms": r.duration_ms,
+                "details": r.details,
+            }
+            host_data["checks"].append(check)
+        data.append(host_data)
+    return json.dumps(data, indent=2, ensure_ascii=False, default=str)
+
+
+def _print_watch_diff(
+    prev: list[HostDiagnostic],
+    curr: list[HostDiagnostic],
+) -> None:
+    """Print status changes between watch iterations."""
+    prev_map = {d.host: d.overall_status for d in prev if d.results}
+    curr_map = {d.host: d.overall_status for d in curr if d.results}
+
+    changes: list[str] = []
+    for host, new_status in curr_map.items():
+        old_status = prev_map.get(host)
+        if old_status is None:
+            changes.append(f"  [cyan]+ {host}[/cyan] → {new_status}")
+        elif old_status != new_status:
+            old_icon, old_color = _status_icon_and_color(old_status)
+            new_icon, new_color = _status_icon_and_color(new_status)
+            changes.append(f"  [{old_color}]{old_icon}[/{old_color}] → [{new_color}]{new_icon}[/{new_color}]  {host}")
+
+    for host in prev_map:
+        if host not in curr_map:
+            changes.append(f"  [dim]- {host} (removed)[/dim]")
+
+    if changes:
+        console.print(Panel("\n".join(changes), title="[bold]Changes since last run[/bold]", border_style="blue"))
+        console.print()
+
+
+def _print_analysis_results(
+    diagnostics: list[HostDiagnostic],
+    only_failed: bool = False,
+    only_passed: bool = False,
+) -> None:
     """Print full analysis results with detailed check-by-check breakdown."""
     if not diagnostics:
         console.print("[yellow]No proxies to analyze[/yellow]")
@@ -1207,7 +1372,7 @@ def _print_analysis_results(diagnostics: list[HostDiagnostic]) -> None:
     warning = [d for d in real_diagnostics if d.overall_status == CheckStatus.WARN]
     failing = [d for d in real_diagnostics if d.overall_status not in (CheckStatus.PASS, CheckStatus.WARN)]
 
-    # === SUMMARY HEADER ===
+    # === SUMMARY HEADER (always shows real counts) ===
     warn_part = f"  |  [yellow]⚠ WARN:[/yellow] {len(warning)}" if warning else ""
     console.print()
     console.print(
@@ -1220,10 +1385,26 @@ def _print_analysis_results(diagnostics: list[HostDiagnostic]) -> None:
             border_style="green" if not failing else "red",
         )
     )
+
+    # Apply output filters (after summary so counts are accurate)
+    if only_failed:
+        passing = []
+        warning = []
+    if only_passed:
+        failing = []
     console.print()
 
     # WARN hosts go into the passing compact table (they work with caveats)
     passing_and_warn = passing + warning
+
+    # Sort passing hosts by ping latency (fastest first)
+    def _ping_sort_key(diag: HostDiagnostic) -> float:
+        for r in diag.results:
+            if "TCP Ping" in r.check_name and r.status == CheckStatus.PASS:
+                return r.details.get("latency_avg_ms", 9999.0)
+        return 9999.0
+
+    passing_and_warn.sort(key=_ping_sort_key)
 
     # === PROBLEM HOSTS (grouped by shared fingerprint) ===
     if failing:
@@ -1283,6 +1464,7 @@ def _print_analysis_results(diagnostics: list[HostDiagnostic]) -> None:
         if has_dpi:
             table.add_column("DPI", justify="center")
         table.add_column("Proxy", justify="center")
+        table.add_column("Exit IP", justify="left", style="dim")
         if has_censor:
             table.add_column("Censor", justify="center")
         if has_telegram:
@@ -1291,13 +1473,27 @@ def _print_analysis_results(diagnostics: list[HostDiagnostic]) -> None:
         for diag in passing_and_warn:
             dns = _check_status_icon(diag, "DNS")
             tcp = _check_status_icon(diag, "TCP Connection")
-            ping = _check_status_icon(diag, "TCP Ping")
+            # Ping: show avg latency if available
+            ping_text = _check_status_icon(diag, "TCP Ping")
+            for r in diag.results:
+                if "TCP Ping" in r.check_name and r.status == CheckStatus.PASS:
+                    avg_ms = r.details.get("latency_avg_ms")
+                    if avg_ms is not None:
+                        ping_text = f"[green]{avg_ms}ms[/green]"
+                    break
             proxy = _check_status_icon(diag, "Xray Connectivity") or _check_status_icon(diag, "Tunnel")
+            # Exit IP
+            exit_ip = ""
+            for r in diag.results:
+                if "Exit IP" in r.check_name and r.status == CheckStatus.PASS:
+                    exit_ip = r.details.get("exit_ip", "")
+                    break
 
-            row = [diag.host, dns, tcp, ping]
+            row = [diag.host, dns, tcp, ping_text]
             if has_dpi:
                 row.append(_check_status_icon(diag, "Fat Probe"))
             row.append(proxy)
+            row.append(exit_ip)
             if has_censor:
                 row.append(_check_status_icon(diag, "Censor Canary"))
             if has_telegram:

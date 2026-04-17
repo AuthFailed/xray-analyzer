@@ -225,7 +225,24 @@ async def analyze_subscription_proxies(
         probe_cache = _DirectProbeCache()
 
         async def _wrapped(share: ProxyShareURL) -> HostDiagnostic:
-            return await analyze_single_proxy(share, probe_cache=probe_cache)
+            try:
+                return await asyncio.wait_for(
+                    analyze_single_proxy(share, probe_cache=probe_cache),
+                    timeout=settings.analyze_proxy_timeout,
+                )
+            except TimeoutError:
+                label = f"{share.name} ({share.server}:{share.port})"
+                diag = HostDiagnostic(host=label)
+                diag.add_result(
+                    DiagnosticResult(
+                        check_name="Analysis Timeout",
+                        status=CheckStatus.TIMEOUT,
+                        severity=CheckSeverity.CRITICAL,
+                        message=f"Analysis exceeded {settings.analyze_proxy_timeout}s limit",
+                        details={"timeout_seconds": settings.analyze_proxy_timeout},
+                    )
+                )
+                return diag
 
         coros = [_wrapped(share) for share in shares]
 
@@ -330,6 +347,15 @@ async def analyze_single_proxy(
             _stub_ips = dns_integrity_report.stub_ips or None
         except Exception as e:
             log.warning(f"DNS integrity probe failed for {host}: {e}")
+            diagnostic.add_result(
+                DiagnosticResult(
+                    check_name="DNS Integrity",
+                    status=CheckStatus.SKIP,
+                    severity=CheckSeverity.INFO,
+                    message=f"DNS integrity probe error: {e}",
+                    details={"error": str(e)},
+                )
+            )
 
     # A5. Fat Probe (RKN 16-20 KB DPI throttle detection)
     if tcp_result.status == CheckStatus.PASS and settings.rkn_throttle_check_enabled:
@@ -344,6 +370,15 @@ async def analyze_single_proxy(
                 diagnostic.add_result(result)
         except Exception as e:
             log.warning(f"TLS version probe failed for {host}: {e}")
+            diagnostic.add_result(
+                DiagnosticResult(
+                    check_name="TLS 1.2 / 1.3 Probe",
+                    status=CheckStatus.SKIP,
+                    severity=CheckSeverity.INFO,
+                    message=f"TLS probe error: {e}",
+                    details={"error": str(e)},
+                )
+            )
 
     # A7. HTTP Injection (port 80 ISP redirect/block page detection)
     if _host_is_domain and settings.analyze_http_injection_enabled:
@@ -352,6 +387,15 @@ async def analyze_single_proxy(
             diagnostic.add_result(http_inj_result)
         except Exception as e:
             log.warning(f"HTTP injection probe failed for {host}: {e}")
+            diagnostic.add_result(
+                DiagnosticResult(
+                    check_name="HTTP Injection Probe",
+                    status=CheckStatus.SKIP,
+                    severity=CheckSeverity.INFO,
+                    message=f"HTTP injection probe error: {e}",
+                    details={"error": str(e)},
+                )
+            )
 
     # 4. Protocol-specific tests
     if share.protocol.lower() in XRAY_PROTOCOLS:
@@ -918,27 +962,26 @@ async def _run_standalone_cross_tests(
         # proxy was working, producing bogus "reachable via X" claims for hosts
         # whose servers were genuinely down.
         async with aiohttp.ClientSession() as session:
-            for diag in problematic:
-                # Extract server:port from diagnostic
+            sem = asyncio.Semaphore(5)
+
+            async def _cross_test_one(diag: HostDiagnostic) -> None:
                 host = diag.host
                 start = host.rfind("(")
                 end = host.rfind(")")
                 if start == -1 or end == -1:
-                    continue
+                    return
                 server_port = host[start + 1 : end]
                 parts = server_port.rsplit(":", 1)
                 if len(parts) != 2:
-                    continue
+                    return
                 target_host, target_port_str = parts
                 try:
                     target_port = int(target_port_str)
                 except ValueError:
-                    continue
+                    return
 
-                # Skip if target's server is the working proxy's server (any port) —
-                # the answer is trivially "yes reachable" and only pollutes the report.
                 if target_host == working_share.server:
-                    continue
+                    return
 
                 target_protocol = "vless"
                 for r in diag.results:
@@ -946,19 +989,20 @@ async def _run_standalone_cross_tests(
                         target_protocol = r.details.get("protocol", "vless")
                         break
 
-                try:
-                    cross_result = await check_xray_cross_connectivity(
-                        target_host,
-                        target_port,
-                        target_protocol,
-                        socks_url,
-                        working_proxy_name=working_share.name,
-                        working_proxy_protocol=working_share.protocol,
-                        session=session,
-                    )
-                except Exception as e:
-                    log.error(f"Cross-test failed for {target_host}:{target_port}: {e}")
-                    continue
+                async with sem:
+                    try:
+                        cross_result = await check_xray_cross_connectivity(
+                            target_host,
+                            target_port,
+                            target_protocol,
+                            socks_url,
+                            working_proxy_name=working_share.name,
+                            working_proxy_protocol=working_share.protocol,
+                            session=session,
+                        )
+                    except Exception as e:
+                        log.error(f"Cross-test failed for {target_host}:{target_port}: {e}")
+                        return
 
                 diag.add_result(cross_result)
 
@@ -968,8 +1012,6 @@ async def _run_standalone_cross_tests(
                         f"— server is up; direct route may be RKN-blocked"
                     )
                 elif cross_result.status == CheckStatus.WARN:
-                    # TCP reachable, but service responded with 5xx on both paths
-                    # → the Xray / backend service on this server is broken.
                     http_code = cross_result.details.get("http_status")
                     code_hint = f" (HTTP {http_code})" if http_code else ""
                     diag.add_recommendation(
@@ -986,6 +1028,8 @@ async def _run_standalone_cross_tests(
                         f"✗ {target_host}:{target_port} cross-probe failed via {working_share.name} "
                         f"— {cross_result.message}"
                     )
+
+            await asyncio.gather(*[_cross_test_one(d) for d in problematic])
     except Exception as e:
         log.error(f"Failed to start working proxy for cross-tests: {e}")
     finally:
