@@ -13,7 +13,6 @@
 - **Массовый сканер цензуры** — `scan` параллельно проверяет сотни доменов с живым прогресс-баром; встроенный список плюс внешние блок-листы (`whitelist`, `russia-inside`, `russia-outside`, `ukraine-inside`).
 - **Глубокие DPI-пробы** — прямой UDP vs DoH DNS, split TLS 1.2/1.3, обнаружение HTTP-инъекций, keepalive fat-probe для TCP-обрыва на 16–20 КБ, массовый скан CDN/ASN, брут-форс SNI, проверка доступности Telegram DC.
 - **Экспортер Prometheus** — `serve` гоняет периодические сканы и публикует метрики per-domain / per-proxy на `/metrics`.
-- **Telegram-уведомления** — отформатированные отчёты о проблемах в чат.
 - **Docker-first** — один `docker compose up` поднимает checker + analyzer + опциональный Prometheus/Grafana-стек.
 
 Построено на `aiohttp`, `pydantic-settings`, `rich`, `structlog`. Требуется Python 3.14+.

@@ -13,7 +13,6 @@ Combines a full proxy-health pipeline, a six-tier DPI / censorship probe suite, 
 - **Bulk censorship scan** — `scan` iterates hundreds of domains in parallel with a live progress bar; built-in list plus community blocklists (`whitelist`, `russia-inside`, `russia-outside`, `ukraine-inside`).
 - **DPI deep probes** — direct-UDP vs DoH DNS cross-check, TLS 1.2/1.3 split, HTTP injection detection, keepalive "fat-probe" for the 16–20 KB TCP drop, bulk CDN/ASN scan, SNI brute-force, Telegram DC reachability.
 - **Prometheus exporter** — `serve` runs periodic scans and exposes per-domain / per-proxy metrics at `/metrics`.
-- **Telegram notifier** — formatted problem reports to a chat.
 - **Docker-first** — one `docker compose up` starts the checker + analyzer + optional Prometheus/Grafana stack.
 
 Built on `aiohttp`, `pydantic-settings`, `rich`, `structlog`. Runs on Python 3.14+.

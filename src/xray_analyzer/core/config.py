@@ -44,11 +44,6 @@ class Settings(BaseSettings):
     log_level: str = "INFO"
     log_file: str = "xray-analyzer.log"
 
-    # Notifications
-    notify_telegram_enabled: bool = False
-    telegram_bot_token: str = ""
-    telegram_chat_id: str = ""
-
     # Scheduling
     check_interval_seconds: int = Field(default=300, ge=60)
 
