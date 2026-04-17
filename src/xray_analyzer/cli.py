@@ -1280,6 +1280,15 @@ def _print_proxy_progress_line(
             else:
                 extras.append("[dim]tcp✗[/dim]")
             break
+    for r in diag.results:
+        if r.check_name == "ICMP Ping":
+            if r.status == CheckStatus.PASS:
+                extras.append("[dim]icmp✓[/dim]")
+            elif r.status == CheckStatus.FAIL:
+                extras.append("[dim]icmp✗[/dim]")
+            elif r.status == CheckStatus.WARN:
+                extras.append("[yellow]icmp⚠[/yellow]")
+            break
     # DPI fat probe signal
     for r in diag.results:
         if r.check_name == "TCP 16-20 KB Fat Probe":
@@ -1419,8 +1428,12 @@ def _print_analysis_results(
     passing_and_warn = passing + warning
 
     # Sort: OK first, then WARN; within each group — by ping latency
+    # Prefer ICMP ping for sorting (always available), fall back to TCP ping
     def _ping_sort_key(diag: HostDiagnostic) -> tuple[int, float]:
         group = 0 if diag.overall_status == CheckStatus.PASS else 1
+        for r in diag.results:
+            if "ICMP Ping" in r.check_name and r.details.get("latency_avg_ms") is not None:
+                return (group, r.details["latency_avg_ms"])
         for r in diag.results:
             if "TCP Ping" in r.check_name and r.status == CheckStatus.PASS:
                 return (group, r.details.get("latency_avg_ms", 9999.0))
@@ -1478,8 +1491,12 @@ def _print_analysis_results(
         has_censor = any(r.check_name == "Censor Canary" for r in all_results)
         has_telegram = any(r.check_name == "Telegram Reachability" for r in all_results)
 
+        has_icmp = any(r.check_name == "ICMP Ping" for r in all_results)
+
         table = Table(show_header=True, box=None, padding=(0, 2))
         table.add_column("Host", style="cyan")
+        if has_icmp:
+            table.add_column("ICMP", justify="right")
         table.add_column("Ping", justify="right")
         table.add_column("DNS", justify="center")
         table.add_column("TCP", justify="center")
@@ -1497,7 +1514,7 @@ def _print_analysis_results(
             # Visual separator between OK and WARN groups
             if not warn_separator_added and diag.overall_status == CheckStatus.WARN:
                 warn_separator_added = True
-                num_cols = 5 + has_dpi + has_censor + has_telegram + 1  # +1 for Exit IP
+                num_cols = 5 + has_icmp + has_dpi + has_censor + has_telegram + 1  # +1 for Exit IP
                 table.add_row(*[""] * num_cols)
                 table.add_row(*["[dim]⚠ with minor issues[/dim]"] + [""] * (num_cols - 1))
 
@@ -1505,8 +1522,9 @@ def _print_analysis_results(
             tcp = _check_status_icon(diag, "TCP Connection")
             proxy = _check_status_icon(diag, "Xray Connectivity") or _check_status_icon(diag, "Tunnel")
 
-            # Ping: always show latency when available, colored by status
-            ping_text = _format_ping(diag)
+            # Ping columns
+            ping_text = _format_ping(diag, "TCP Ping")
+            icmp_text = _format_ping(diag, "ICMP Ping") if has_icmp else None
 
             # Exit IP
             exit_ip = ""
@@ -1515,7 +1533,10 @@ def _print_analysis_results(
                     exit_ip = r.details.get("exit_ip", "")
                     break
 
-            row = [diag.host, ping_text, dns, tcp]
+            row = [diag.host]
+            if has_icmp:
+                row.append(icmp_text)
+            row.extend([ping_text, dns, tcp])
             if has_dpi:
                 row.append(_check_status_icon(diag, "Fat Probe"))
             row.append(proxy)
@@ -1531,10 +1552,10 @@ def _print_analysis_results(
         console.print()
 
 
-def _format_ping(diag: HostDiagnostic) -> str:
+def _format_ping(diag: HostDiagnostic, check_name: str = "TCP Ping") -> str:
     """Format ping column: show latency with color based on status."""
     for r in diag.results:
-        if "TCP Ping" not in r.check_name:
+        if check_name not in r.check_name:
             continue
         avg_ms = r.details.get("latency_avg_ms")
         if avg_ms is not None:
@@ -1548,8 +1569,8 @@ def _format_ping(diag: HostDiagnostic) -> str:
                 else:
                     return f"[red]{ms}ms[/red]"
             elif r.status == CheckStatus.WARN:
-                loss = r.details.get("loss_percent")
-                loss_hint = f" {loss}%loss" if loss else ""
+                loss = r.details.get("packet_loss_pct")
+                loss_hint = f" {loss:.0f}%loss" if loss else ""
                 return f"[yellow]{ms}ms{loss_hint}[/yellow]"
             else:
                 return f"[red]{ms}ms[/red]"
@@ -1558,7 +1579,7 @@ def _format_ping(diag: HostDiagnostic) -> str:
             return "[red]✗[/red]"
         if r.status == CheckStatus.TIMEOUT:
             return "[yellow]⏱[/yellow]"
-        return _check_status_icon(diag, "TCP Ping")
+        return _check_status_icon(diag, check_name)
     return "[dim]–[/dim]"
 
 
@@ -1596,6 +1617,7 @@ _CHECK_ORDER: list[tuple[str, int]] = [
     ("DNS Resolution", 10),
     ("DNS Integrity", 12),
     ("TCP Connection", 20),
+    ("ICMP Ping", 25),
     ("TCP Ping", 30),
     ("TCP 16-20 KB Fat Probe", 35),
     ("TLS 1.2", 36),

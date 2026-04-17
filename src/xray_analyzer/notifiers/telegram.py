@@ -103,7 +103,7 @@ def _format_check_result(check) -> str | list[str]:
             dns_lines = _format_dns_check(check.details)
             lines.extend(dns_lines)
             return lines
-        elif "tcp ping" in check.check_name.lower():
+        elif "ping" in check.check_name.lower():
             ping_status = _format_tcp_ping(check.details)
             return f"• {check_name}: {ping_status}"
         elif "tcp connection" in check.check_name.lower():

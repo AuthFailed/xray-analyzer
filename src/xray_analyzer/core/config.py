@@ -17,6 +17,8 @@ class Settings(BaseSettings):
     # Diagnostics
     dns_timeout: int = Field(default=5, ge=1, le=30)
     tcp_timeout: int = Field(default=5, ge=1, le=30)
+    icmp_ping_enabled: bool = True
+    icmp_ping_timeout: int = Field(default=5, ge=1, le=30)
     tunnel_test_url: str = "https://httpbin.org/ip"
     tunnel_test_enabled: bool = True
 

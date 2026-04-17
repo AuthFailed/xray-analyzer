@@ -22,6 +22,7 @@ from xray_analyzer.diagnostics.dns_checker import check_dns_with_checkhost, clos
 from xray_analyzer.diagnostics.dns_dpi_prober import DnsIntegrityReport, close_doh_session, probe_dns_integrity
 from xray_analyzer.diagnostics.fat_probe_checker import check_fat_probe
 from xray_analyzer.diagnostics.http_injection_probe import probe_http_injection
+from xray_analyzer.diagnostics.icmp_ping_checker import check_icmp_ping
 from xray_analyzer.diagnostics.proxy_cross_checker import check_xray_cross_connectivity
 from xray_analyzer.diagnostics.proxy_ip_checker import check_proxy_exit_ip
 from xray_analyzer.diagnostics.proxy_sni_checker import check_proxy_sni_connection
@@ -104,6 +105,7 @@ class _DirectProbeCache:
         self._dns: dict[str, asyncio.Task[DiagnosticResult]] = {}
         self._tcp: dict[tuple[str, int], asyncio.Task[DiagnosticResult]] = {}
         self._ping: dict[tuple[str, int], asyncio.Task[DiagnosticResult]] = {}
+        self._icmp_ping: dict[str, asyncio.Task[DiagnosticResult]] = {}
         self._fat_probe: dict[tuple[str, int], asyncio.Task[DiagnosticResult]] = {}
         self._dns_integrity: dict[str, asyncio.Task[DnsIntegrityReport]] = {}
         self._tls_probe: dict[tuple[str, int], asyncio.Task[list[DiagnosticResult]]] = {}
@@ -130,6 +132,13 @@ class _DirectProbeCache:
         if task is None:
             task = asyncio.create_task(check_tcp_ping(host, port), name=f"cached-ping:{host}:{port}")
             self._ping[key] = task
+        return task
+
+    def icmp_ping(self, host: str) -> asyncio.Task[DiagnosticResult]:
+        task = self._icmp_ping.get(host)
+        if task is None:
+            task = asyncio.create_task(check_icmp_ping(host), name=f"cached-icmp-ping:{host}")
+            self._icmp_ping[host] = task
         return task
 
     def dns_integrity(self, host: str) -> asyncio.Task[DnsIntegrityReport]:
@@ -325,6 +334,11 @@ async def analyze_single_proxy(
     # 1. DNS Resolution (shared across proxies with the same host)
     dns_result = await cache.dns(host)
     diagnostic.add_result(dns_result)
+
+    # 1.5 ICMP Ping — host-level reachability, independent of TCP
+    if settings.icmp_ping_enabled:
+        icmp_result = await cache.icmp_ping(host)
+        diagnostic.add_result(icmp_result)
 
     # 2. TCP Connection (shared across proxies with the same host:port)
     tcp_result = await cache.tcp(host, port)
