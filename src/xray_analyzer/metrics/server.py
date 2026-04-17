@@ -753,6 +753,77 @@ class ProxyAnalysisMetricsState:
                         lines.append(f"xray_proxy_ping_avg_ms{{{lbl}}} {avg_ms:.1f}")
                     break
 
+        lines += [
+            "",
+            "# HELP xray_proxy_ping_min_ms TCP ping minimum latency in milliseconds",
+            "# TYPE xray_proxy_ping_min_ms gauge",
+        ]
+        for label, diag in self._diagnostics.items():
+            lbl = self._proxy_labels(label)
+            for r in diag.results:
+                if "TCP Ping" in r.check_name and r.status == CheckStatus.PASS:
+                    min_ms = r.details.get("latency_min_ms")
+                    if min_ms is not None:
+                        lines.append(f"xray_proxy_ping_min_ms{{{lbl}}} {min_ms:.1f}")
+                    break
+
+        lines += [
+            "",
+            "# HELP xray_proxy_ping_max_ms TCP ping maximum latency in milliseconds",
+            "# TYPE xray_proxy_ping_max_ms gauge",
+        ]
+        for label, diag in self._diagnostics.items():
+            lbl = self._proxy_labels(label)
+            for r in diag.results:
+                if "TCP Ping" in r.check_name and r.status == CheckStatus.PASS:
+                    max_ms = r.details.get("latency_max_ms")
+                    if max_ms is not None:
+                        lines.append(f"xray_proxy_ping_max_ms{{{lbl}}} {max_ms:.1f}")
+                    break
+
+        lines += [
+            "",
+            "# HELP xray_proxy_ping_loss_pct TCP ping packet loss percentage",
+            "# TYPE xray_proxy_ping_loss_pct gauge",
+        ]
+        for label, diag in self._diagnostics.items():
+            lbl = self._proxy_labels(label)
+            for r in diag.results:
+                if "TCP Ping" in r.check_name and r.status in (CheckStatus.PASS, CheckStatus.WARN):
+                    loss = r.details.get("packet_loss_pct")
+                    if loss is not None:
+                        lines.append(f"xray_proxy_ping_loss_pct{{{lbl}}} {loss:.1f}")
+                    break
+
+        # ---- per-proxy ICMP ping -------------------------------------
+        lines += [
+            "",
+            "# HELP xray_proxy_icmp_rtt_ms ICMP ping round-trip time in milliseconds",
+            "# TYPE xray_proxy_icmp_rtt_ms gauge",
+        ]
+        for label, diag in self._diagnostics.items():
+            lbl = self._proxy_labels(label)
+            for r in diag.results:
+                if "ICMP" in r.check_name and r.status in (CheckStatus.PASS, CheckStatus.WARN):
+                    rtt = r.details.get("rtt_ms")
+                    if rtt is not None:
+                        lines.append(f"xray_proxy_icmp_rtt_ms{{{lbl}}} {rtt:.1f}")
+                    break
+
+        lines += [
+            "",
+            "# HELP xray_proxy_icmp_loss_pct ICMP ping packet loss percentage",
+            "# TYPE xray_proxy_icmp_loss_pct gauge",
+        ]
+        for label, diag in self._diagnostics.items():
+            lbl = self._proxy_labels(label)
+            for r in diag.results:
+                if "ICMP" in r.check_name and r.status in (CheckStatus.PASS, CheckStatus.WARN):
+                    loss = r.details.get("packet_loss_pct")
+                    if loss is not None:
+                        lines.append(f"xray_proxy_icmp_loss_pct{{{lbl}}} {loss:.1f}")
+                    break
+
         # ---- per-proxy exit IP info ----------------------------------
         lines += [
             "",
@@ -778,6 +849,133 @@ class ProxyAnalysisMetricsState:
             lbl = self._proxy_labels(label)
             value = 1 if self._is_dpi_detected(diag) else 0
             lines.append(f"xray_proxy_dpi_detected{{{lbl}}} {value}")
+
+        # ---- per-proxy censorship canary -----------------------------
+        lines += [
+            "",
+            "# HELP xray_proxy_canary_total Total canary domains checked through proxy",
+            "# TYPE xray_proxy_canary_total gauge",
+        ]
+        for label, diag in self._diagnostics.items():
+            lbl = self._proxy_labels(label)
+            for r in diag.results:
+                if r.check_name == "Censor Canary":
+                    lines.append(f"xray_proxy_canary_total{{{lbl}}} {r.details.get('domains_checked', 0)}")
+                    break
+
+        lines += [
+            "",
+            "# HELP xray_proxy_canary_ok Canary domains reachable through proxy",
+            "# TYPE xray_proxy_canary_ok gauge",
+        ]
+        for label, diag in self._diagnostics.items():
+            lbl = self._proxy_labels(label)
+            for r in diag.results:
+                if r.check_name == "Censor Canary":
+                    lines.append(f"xray_proxy_canary_ok{{{lbl}}} {r.details.get('ok', 0)}")
+                    break
+
+        lines += [
+            "",
+            "# HELP xray_proxy_canary_blocked Canary domains blocked through proxy",
+            "# TYPE xray_proxy_canary_blocked gauge",
+        ]
+        for label, diag in self._diagnostics.items():
+            lbl = self._proxy_labels(label)
+            for r in diag.results:
+                if r.check_name == "Censor Canary":
+                    lines.append(f"xray_proxy_canary_blocked{{{lbl}}} {r.details.get('blocked', 0)}")
+                    break
+
+        # ---- per-proxy Telegram reachability -------------------------
+        _tg_verdicts = ("ok", "slow", "partial", "blocked", "error")
+        lines += [
+            "",
+            "# HELP xray_proxy_telegram_verdict Telegram verdict through proxy (1=current, 0=others)",
+            "# TYPE xray_proxy_telegram_verdict gauge",
+        ]
+        for label, diag in self._diagnostics.items():
+            lbl = self._proxy_labels(label)
+            for r in diag.results:
+                if r.check_name == "Telegram Reachability":
+                    current = r.details.get("verdict", "")
+                    for v in _tg_verdicts:
+                        val = 1 if v == current else 0
+                        lines.append(f'xray_proxy_telegram_verdict{{{lbl},verdict="{v}"}} {val}')
+                    break
+
+        lines += [
+            "",
+            "# HELP xray_proxy_telegram_download_bytes Telegram download bytes through proxy",
+            "# TYPE xray_proxy_telegram_download_bytes gauge",
+        ]
+        for label, diag in self._diagnostics.items():
+            lbl = self._proxy_labels(label)
+            for r in diag.results:
+                if r.check_name == "Telegram Reachability":
+                    dl_info = r.details.get("download", {})
+                    dl = dl_info.get("bytes_total") if isinstance(dl_info, dict) else None
+                    if dl is not None:
+                        lines.append(f"xray_proxy_telegram_download_bytes{{{lbl}}} {dl}")
+                    break
+
+        lines += [
+            "",
+            "# HELP xray_proxy_telegram_upload_bytes Telegram upload bytes through proxy",
+            "# TYPE xray_proxy_telegram_upload_bytes gauge",
+        ]
+        for label, diag in self._diagnostics.items():
+            lbl = self._proxy_labels(label)
+            for r in diag.results:
+                if r.check_name == "Telegram Reachability":
+                    ul_info = r.details.get("upload", {})
+                    ul = ul_info.get("bytes_total") if isinstance(ul_info, dict) else None
+                    if ul is not None:
+                        lines.append(f"xray_proxy_telegram_upload_bytes{{{lbl}}} {ul}")
+                    break
+
+        lines += [
+            "",
+            "# HELP xray_proxy_telegram_dc_reachable Telegram DCs reachable through proxy",
+            "# TYPE xray_proxy_telegram_dc_reachable gauge",
+        ]
+        for label, diag in self._diagnostics.items():
+            lbl = self._proxy_labels(label)
+            for r in diag.results:
+                if r.check_name == "Telegram Reachability":
+                    dc_info = r.details.get("dc", {})
+                    dc = dc_info.get("reachable") if isinstance(dc_info, dict) else None
+                    if dc is not None:
+                        lines.append(f"xray_proxy_telegram_dc_reachable{{{lbl}}} {dc}")
+                    break
+
+        # ---- per-proxy SNI brute force result ------------------------
+        lines += [
+            "",
+            "# HELP xray_proxy_sni_brute_found SNI brute-force found working SNI: 1=yes, 0=no",
+            "# TYPE xray_proxy_sni_brute_found gauge",
+        ]
+        for label, diag in self._diagnostics.items():
+            lbl = self._proxy_labels(label)
+            for r in diag.results:
+                if r.check_name == "SNI Brute Force":
+                    val = 1 if r.status == CheckStatus.PASS else 0
+                    lines.append(f"xray_proxy_sni_brute_found{{{lbl}}} {val}")
+                    break
+
+        lines += [
+            "",
+            "# HELP xray_proxy_sni_brute_working_sni Working SNI found by brute-force (info metric, always 1)",
+            "# TYPE xray_proxy_sni_brute_working_sni gauge",
+        ]
+        for label, diag in self._diagnostics.items():
+            lbl = self._proxy_labels(label)
+            for r in diag.results:
+                if r.check_name == "SNI Brute Force" and r.status == CheckStatus.PASS:
+                    sni = _esc(r.details.get("first_working", ""))
+                    if sni:
+                        lines.append(f'xray_proxy_sni_brute_working_sni{{{lbl},sni="{sni}"}} 1')
+                    break
 
         # ---- summary counters ----------------------------------------
         total = len(self._diagnostics)

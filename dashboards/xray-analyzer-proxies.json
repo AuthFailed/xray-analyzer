@@ -1997,6 +1997,677 @@
           "version": "13.0.0"
         }
       }
+    },
+    "panel-40": {
+      "kind": "Panel",
+      "spec": {
+        "data": {
+          "kind": "QueryGroup",
+          "spec": {
+            "queries": [
+              {
+                "kind": "PanelQuery",
+                "spec": {
+                  "hidden": false,
+                  "query": {
+                    "datasource": { "name": "${datasource}" },
+                    "group": "prometheus",
+                    "kind": "DataQuery",
+                    "spec": {
+                      "editorMode": "code",
+                      "expr": "xray_proxy_canary_blocked{job=\"$job\", instance=~\"$node\", proxy=~\"$proxy\"}",
+                      "instant": true,
+                      "legendFormat": "{{proxy}}"
+                    },
+                    "version": "v0"
+                  },
+                  "refId": "A"
+                }
+              }
+            ],
+            "queryOptions": {},
+            "transformations": []
+          }
+        },
+        "description": "Number of canary domains blocked through each proxy. 0 is ideal — proxy unblocks all tested sites.",
+        "id": 40,
+        "links": [],
+        "title": "Canary Domains Blocked",
+        "vizConfig": {
+          "group": "bargauge",
+          "kind": "VizConfig",
+          "spec": {
+            "fieldConfig": {
+              "defaults": {
+                "color": { "mode": "thresholds" },
+                "min": 0,
+                "thresholds": {
+                  "mode": "absolute",
+                  "steps": [
+                    { "color": "green", "value": 0 },
+                    { "color": "yellow", "value": 1 },
+                    { "color": "orange", "value": 2 },
+                    { "color": "red", "value": 3 }
+                  ]
+                },
+                "unit": "short"
+              },
+              "overrides": []
+            },
+            "options": {
+              "displayMode": "gradient",
+              "legend": { "displayMode": "list", "placement": "bottom" },
+              "maxVizHeight": 50,
+              "minVizHeight": 16,
+              "minVizWidth": 8,
+              "namePlacement": "auto",
+              "orientation": "horizontal",
+              "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+              "showUnfilled": true,
+              "sizing": "auto",
+              "valueMode": "color"
+            }
+          },
+          "version": "13.0.0"
+        }
+      }
+    },
+    "panel-41": {
+      "kind": "Panel",
+      "spec": {
+        "data": {
+          "kind": "QueryGroup",
+          "spec": {
+            "queries": [
+              {
+                "kind": "PanelQuery",
+                "spec": {
+                  "hidden": false,
+                  "query": {
+                    "datasource": { "name": "${datasource}" },
+                    "group": "prometheus",
+                    "kind": "DataQuery",
+                    "spec": {
+                      "editorMode": "code",
+                      "expr": "xray_proxy_telegram_verdict{job=\"$job\", instance=~\"$node\", proxy=~\"$proxy\"} == 1",
+                      "instant": true,
+                      "legendFormat": ""
+                    },
+                    "version": "v0"
+                  },
+                  "refId": "A"
+                }
+              }
+            ],
+            "queryOptions": {},
+            "transformations": [
+              { "group": "labelsToFields", "kind": "Transformation", "spec": { "options": {} } },
+              { "group": "merge", "kind": "Transformation", "spec": { "options": {} } },
+              {
+                "group": "organize",
+                "kind": "Transformation",
+                "spec": {
+                  "options": {
+                    "excludeByName": {
+                      "Time": true, "__name__": true, "instance": true,
+                      "job": true, "port": true, "server": true, "Value": true
+                    },
+                    "indexByName": { "proxy": 0, "protocol": 1, "verdict": 2 },
+                    "renameByName": { "verdict": "Telegram Verdict" }
+                  }
+                }
+              }
+            ]
+          }
+        },
+        "description": "Telegram reachability verdict per proxy: ok, slow, partial, blocked, error.",
+        "id": 41,
+        "links": [],
+        "title": "Telegram via Proxy",
+        "vizConfig": {
+          "group": "table",
+          "kind": "VizConfig",
+          "spec": {
+            "fieldConfig": {
+              "defaults": {
+                "custom": { "align": "auto", "cellOptions": { "type": "auto" }, "filterable": true, "inspect": false }
+              },
+              "overrides": [
+                {
+                  "matcher": { "id": "byName", "options": "Telegram Verdict" },
+                  "properties": [
+                    {
+                      "id": "custom.cellOptions",
+                      "value": { "mode": "basic", "type": "color-background" }
+                    },
+                    {
+                      "id": "mappings",
+                      "value": [
+                        {
+                          "options": {
+                            "ok": { "text": "OK", "color": "green", "index": 0 },
+                            "slow": { "text": "SLOW", "color": "yellow", "index": 1 },
+                            "partial": { "text": "PARTIAL", "color": "orange", "index": 2 },
+                            "blocked": { "text": "BLOCKED", "color": "red", "index": 3 },
+                            "error": { "text": "ERROR", "color": "dark-red", "index": 4 }
+                          },
+                          "type": "value"
+                        }
+                      ]
+                    },
+                    { "id": "custom.width", "value": 140 }
+                  ]
+                },
+                {
+                  "matcher": { "id": "byName", "options": "proxy" },
+                  "properties": [{ "id": "custom.width", "value": 250 }]
+                }
+              ]
+            },
+            "options": {
+              "cellHeight": "sm",
+              "footer": { "countRows": false, "enablePagination": false, "fields": "", "reducer": ["sum"], "show": false },
+              "showHeader": true,
+              "sortBy": [{ "desc": false, "displayName": "proxy" }]
+            }
+          },
+          "version": "13.0.0"
+        }
+      }
+    },
+    "panel-42": {
+      "kind": "Panel",
+      "spec": {
+        "data": {
+          "kind": "QueryGroup",
+          "spec": {
+            "queries": [
+              {
+                "kind": "PanelQuery",
+                "spec": {
+                  "hidden": false,
+                  "query": {
+                    "datasource": { "name": "${datasource}" },
+                    "group": "prometheus",
+                    "kind": "DataQuery",
+                    "spec": {
+                      "editorMode": "code",
+                      "expr": "sort_desc(xray_proxy_icmp_rtt_ms{job=\"$job\", instance=~\"$node\", proxy=~\"$proxy\"})",
+                      "instant": true,
+                      "legendFormat": "{{proxy}}"
+                    },
+                    "version": "v0"
+                  },
+                  "refId": "A"
+                }
+              }
+            ],
+            "queryOptions": {},
+            "transformations": []
+          }
+        },
+        "description": "ICMP ping round-trip time per proxy server. Missing bars mean ICMP ping is disabled or host unreachable.",
+        "id": 42,
+        "links": [],
+        "title": "ICMP Ping RTT (ms)",
+        "vizConfig": {
+          "group": "bargauge",
+          "kind": "VizConfig",
+          "spec": {
+            "fieldConfig": {
+              "defaults": {
+                "color": { "mode": "thresholds" },
+                "min": 0,
+                "thresholds": {
+                  "mode": "absolute",
+                  "steps": [
+                    { "color": "green", "value": 0 },
+                    { "color": "yellow", "value": 50 },
+                    { "color": "orange", "value": 150 },
+                    { "color": "red", "value": 300 }
+                  ]
+                },
+                "unit": "ms"
+              },
+              "overrides": []
+            },
+            "options": {
+              "displayMode": "gradient",
+              "legend": { "displayMode": "list", "placement": "bottom" },
+              "maxVizHeight": 50,
+              "minVizHeight": 16,
+              "minVizWidth": 8,
+              "namePlacement": "auto",
+              "orientation": "horizontal",
+              "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+              "showUnfilled": true,
+              "sizing": "auto",
+              "valueMode": "color"
+            }
+          },
+          "version": "13.0.0"
+        }
+      }
+    },
+    "panel-43": {
+      "kind": "Panel",
+      "spec": {
+        "data": {
+          "kind": "QueryGroup",
+          "spec": {
+            "queries": [
+              {
+                "kind": "PanelQuery",
+                "spec": {
+                  "hidden": false,
+                  "query": {
+                    "datasource": { "name": "${datasource}" },
+                    "group": "prometheus",
+                    "kind": "DataQuery",
+                    "spec": {
+                      "editorMode": "code",
+                      "expr": "xray_proxy_ping_loss_pct{job=\"$job\", instance=~\"$node\", proxy=~\"$proxy\"}",
+                      "instant": true,
+                      "legendFormat": "{{proxy}}"
+                    },
+                    "version": "v0"
+                  },
+                  "refId": "A"
+                }
+              }
+            ],
+            "queryOptions": {},
+            "transformations": []
+          }
+        },
+        "description": "TCP ping packet loss per proxy. >0% may indicate network instability or rate-limiting.",
+        "id": 43,
+        "links": [],
+        "title": "Packet Loss (%)",
+        "vizConfig": {
+          "group": "bargauge",
+          "kind": "VizConfig",
+          "spec": {
+            "fieldConfig": {
+              "defaults": {
+                "color": { "mode": "thresholds" },
+                "min": 0,
+                "max": 100,
+                "thresholds": {
+                  "mode": "absolute",
+                  "steps": [
+                    { "color": "green", "value": 0 },
+                    { "color": "yellow", "value": 5 },
+                    { "color": "orange", "value": 20 },
+                    { "color": "red", "value": 50 }
+                  ]
+                },
+                "unit": "percent"
+              },
+              "overrides": []
+            },
+            "options": {
+              "displayMode": "gradient",
+              "legend": { "displayMode": "list", "placement": "bottom" },
+              "maxVizHeight": 50,
+              "minVizHeight": 16,
+              "minVizWidth": 8,
+              "namePlacement": "auto",
+              "orientation": "horizontal",
+              "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+              "showUnfilled": true,
+              "sizing": "auto",
+              "valueMode": "color"
+            }
+          },
+          "version": "13.0.0"
+        }
+      }
+    },
+    "panel-44": {
+      "kind": "Panel",
+      "spec": {
+        "data": {
+          "kind": "QueryGroup",
+          "spec": {
+            "queries": [
+              {
+                "kind": "PanelQuery",
+                "spec": {
+                  "hidden": false,
+                  "query": {
+                    "datasource": { "name": "${datasource}" },
+                    "group": "prometheus",
+                    "kind": "DataQuery",
+                    "spec": {
+                      "editorMode": "code",
+                      "expr": "xray_proxy_canary_blocked{job=\"$job\", instance=~\"$node\", proxy=~\"$proxy\"}",
+                      "legendFormat": "{{proxy}}"
+                    },
+                    "version": "v0"
+                  },
+                  "refId": "A"
+                }
+              }
+            ],
+            "queryOptions": {},
+            "transformations": []
+          }
+        },
+        "description": "Canary domains blocked through each proxy over time. Spikes indicate proxy exit node becoming censored.",
+        "id": 44,
+        "links": [],
+        "title": "Canary Blocked Over Time",
+        "vizConfig": {
+          "group": "timeseries",
+          "kind": "VizConfig",
+          "spec": {
+            "fieldConfig": {
+              "defaults": {
+                "color": { "mode": "palette-classic" },
+                "custom": {
+                  "axisBorderShow": false,
+                  "axisCenteredZero": false,
+                  "axisColorMode": "text",
+                  "axisLabel": "Blocked domains",
+                  "axisPlacement": "auto",
+                  "barAlignment": 0,
+                  "barWidthFactor": 0.6,
+                  "drawStyle": "line",
+                  "fillOpacity": 10,
+                  "gradientMode": "opacity",
+                  "hideFrom": { "legend": false, "tooltip": false, "viz": false },
+                  "insertNulls": false,
+                  "lineInterpolation": "stepAfter",
+                  "lineWidth": 2,
+                  "pointSize": 4,
+                  "scaleDistribution": { "type": "linear" },
+                  "showPoints": "auto",
+                  "spanNulls": false,
+                  "stacking": { "group": "A", "mode": "none" },
+                  "thresholdsStyle": { "mode": "off" }
+                },
+                "min": 0,
+                "thresholds": {
+                  "mode": "absolute",
+                  "steps": [
+                    { "color": "green", "value": 0 },
+                    { "color": "red", "value": 1 }
+                  ]
+                },
+                "unit": "short"
+              },
+              "overrides": []
+            },
+            "options": {
+              "annotations": { "clustering": { "enabled": true }, "multiLane": false },
+              "legend": { "calcs": ["last"], "displayMode": "table", "placement": "right" },
+              "tooltip": { "hideZeros": true, "mode": "multi", "sort": "desc" }
+            }
+          },
+          "version": "13.0.0"
+        }
+      }
+    },
+    "panel-45": {
+      "kind": "Panel",
+      "spec": {
+        "data": {
+          "kind": "QueryGroup",
+          "spec": {
+            "queries": [
+              {
+                "kind": "PanelQuery",
+                "spec": {
+                  "hidden": false,
+                  "query": {
+                    "datasource": { "name": "${datasource}" },
+                    "group": "prometheus",
+                    "kind": "DataQuery",
+                    "spec": {
+                      "editorMode": "code",
+                      "expr": "xray_proxy_telegram_dc_reachable{job=\"$job\", instance=~\"$node\", proxy=~\"$proxy\"}",
+                      "legendFormat": "{{proxy}}"
+                    },
+                    "version": "v0"
+                  },
+                  "refId": "A"
+                }
+              }
+            ],
+            "queryOptions": {},
+            "transformations": []
+          }
+        },
+        "description": "Telegram DCs reachable through each proxy over time. Drop below 5 indicates partial Telegram blocking.",
+        "id": 45,
+        "links": [],
+        "title": "Telegram DCs Reachable Over Time",
+        "vizConfig": {
+          "group": "timeseries",
+          "kind": "VizConfig",
+          "spec": {
+            "fieldConfig": {
+              "defaults": {
+                "color": { "mode": "palette-classic" },
+                "custom": {
+                  "axisBorderShow": false,
+                  "axisCenteredZero": false,
+                  "axisColorMode": "text",
+                  "axisLabel": "DCs reachable",
+                  "axisPlacement": "auto",
+                  "barAlignment": 0,
+                  "barWidthFactor": 0.6,
+                  "drawStyle": "line",
+                  "fillOpacity": 6,
+                  "gradientMode": "opacity",
+                  "hideFrom": { "legend": false, "tooltip": false, "viz": false },
+                  "insertNulls": false,
+                  "lineInterpolation": "smooth",
+                  "lineWidth": 1,
+                  "pointSize": 4,
+                  "scaleDistribution": { "type": "linear" },
+                  "showPoints": "auto",
+                  "spanNulls": false,
+                  "stacking": { "group": "A", "mode": "none" },
+                  "thresholdsStyle": { "mode": "off" }
+                },
+                "min": 0,
+                "max": 5,
+                "thresholds": {
+                  "mode": "absolute",
+                  "steps": [
+                    { "color": "red", "value": 0 },
+                    { "color": "yellow", "value": 3 },
+                    { "color": "green", "value": 5 }
+                  ]
+                },
+                "unit": "short"
+              },
+              "overrides": []
+            },
+            "options": {
+              "annotations": { "clustering": { "enabled": true }, "multiLane": false },
+              "legend": { "calcs": ["last", "min"], "displayMode": "table", "placement": "right" },
+              "tooltip": { "hideZeros": true, "mode": "multi", "sort": "desc" }
+            }
+          },
+          "version": "13.0.0"
+        }
+      }
+    },
+    "panel-46": {
+      "kind": "Panel",
+      "spec": {
+        "data": {
+          "kind": "QueryGroup",
+          "spec": {
+            "queries": [
+              {
+                "kind": "PanelQuery",
+                "spec": {
+                  "hidden": false,
+                  "query": {
+                    "datasource": { "name": "${datasource}" },
+                    "group": "prometheus",
+                    "kind": "DataQuery",
+                    "spec": {
+                      "editorMode": "code",
+                      "expr": "xray_proxy_sni_brute_working_sni{job=\"$job\", instance=~\"$node\", proxy=~\"$proxy\"}",
+                      "instant": true,
+                      "legendFormat": ""
+                    },
+                    "version": "v0"
+                  },
+                  "refId": "A"
+                }
+              }
+            ],
+            "queryOptions": {},
+            "transformations": [
+              { "group": "labelsToFields", "kind": "Transformation", "spec": { "options": {} } },
+              { "group": "merge", "kind": "Transformation", "spec": { "options": {} } },
+              {
+                "group": "organize",
+                "kind": "Transformation",
+                "spec": {
+                  "options": {
+                    "excludeByName": {
+                      "Time": true, "__name__": true, "instance": true,
+                      "job": true, "port": true, "server": true, "Value": true
+                    },
+                    "indexByName": { "proxy": 0, "protocol": 1, "sni": 2 },
+                    "renameByName": { "sni": "Working SNI" }
+                  }
+                }
+              }
+            ]
+          }
+        },
+        "description": "Working SNI values found by brute-force for DPI-throttled proxies. Use these as REALITY serverName.",
+        "id": 46,
+        "links": [],
+        "title": "SNI Brute Force Results",
+        "vizConfig": {
+          "group": "table",
+          "kind": "VizConfig",
+          "spec": {
+            "fieldConfig": {
+              "defaults": {
+                "custom": { "align": "auto", "cellOptions": { "type": "auto" }, "filterable": true, "inspect": false }
+              },
+              "overrides": [
+                {
+                  "matcher": { "id": "byName", "options": "proxy" },
+                  "properties": [{ "id": "custom.width", "value": 250 }]
+                },
+                {
+                  "matcher": { "id": "byName", "options": "Working SNI" },
+                  "properties": [
+                    { "id": "custom.cellOptions", "value": { "mode": "basic", "type": "color-background" } },
+                    { "id": "thresholds", "value": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] } },
+                    { "id": "custom.width", "value": 250 }
+                  ]
+                }
+              ]
+            },
+            "options": {
+              "cellHeight": "sm",
+              "footer": { "countRows": false, "enablePagination": false, "fields": "", "reducer": ["sum"], "show": false },
+              "showHeader": true,
+              "sortBy": [{ "desc": false, "displayName": "proxy" }]
+            }
+          },
+          "version": "13.0.0"
+        }
+      }
+    },
+    "panel-47": {
+      "kind": "Panel",
+      "spec": {
+        "data": {
+          "kind": "QueryGroup",
+          "spec": {
+            "queries": [
+              {
+                "kind": "PanelQuery",
+                "spec": {
+                  "hidden": false,
+                  "query": {
+                    "datasource": { "name": "${datasource}" },
+                    "group": "prometheus",
+                    "kind": "DataQuery",
+                    "spec": {
+                      "editorMode": "code",
+                      "expr": "xray_proxy_ping_loss_pct{job=\"$job\", instance=~\"$node\", proxy=~\"$proxy\"}",
+                      "legendFormat": "{{proxy}}"
+                    },
+                    "version": "v0"
+                  },
+                  "refId": "A"
+                }
+              }
+            ],
+            "queryOptions": {},
+            "transformations": []
+          }
+        },
+        "description": "TCP ping packet loss per proxy over time. Non-zero values indicate unstable connections.",
+        "id": 47,
+        "links": [],
+        "title": "Packet Loss Over Time",
+        "vizConfig": {
+          "group": "timeseries",
+          "kind": "VizConfig",
+          "spec": {
+            "fieldConfig": {
+              "defaults": {
+                "color": { "mode": "palette-classic" },
+                "custom": {
+                  "axisBorderShow": false,
+                  "axisCenteredZero": false,
+                  "axisColorMode": "text",
+                  "axisLabel": "Loss %",
+                  "axisPlacement": "auto",
+                  "barAlignment": 0,
+                  "barWidthFactor": 0.6,
+                  "drawStyle": "line",
+                  "fillOpacity": 10,
+                  "gradientMode": "opacity",
+                  "hideFrom": { "legend": false, "tooltip": false, "viz": false },
+                  "insertNulls": false,
+                  "lineInterpolation": "smooth",
+                  "lineWidth": 1,
+                  "pointSize": 4,
+                  "scaleDistribution": { "type": "linear" },
+                  "showPoints": "auto",
+                  "spanNulls": false,
+                  "stacking": { "group": "A", "mode": "none" },
+                  "thresholdsStyle": { "mode": "off" }
+                },
+                "min": 0,
+                "max": 100,
+                "thresholds": {
+                  "mode": "absolute",
+                  "steps": [
+                    { "color": "green", "value": 0 },
+                    { "color": "yellow", "value": 5 },
+                    { "color": "red", "value": 20 }
+                  ]
+                },
+                "unit": "percent"
+              },
+              "overrides": []
+            },
+            "options": {
+              "annotations": { "clustering": { "enabled": true }, "multiLane": false },
+              "legend": { "calcs": ["last", "mean", "max"], "displayMode": "table", "placement": "right" },
+              "tooltip": { "hideZeros": true, "mode": "multi", "sort": "desc" }
+            }
+          },
+          "version": "13.0.0"
+        }
+      }
     }
   },
   "layout": {
@@ -2146,6 +2817,74 @@
                   {
                     "kind": "GridLayoutItem",
                     "spec": {
+                      "element": { "kind": "ElementReference", "name": "panel-40" },
+                      "height": 10,
+                      "width": 12,
+                      "x": 0,
+                      "y": 0
+                    }
+                  },
+                  {
+                    "kind": "GridLayoutItem",
+                    "spec": {
+                      "element": { "kind": "ElementReference", "name": "panel-41" },
+                      "height": 10,
+                      "width": 12,
+                      "x": 12,
+                      "y": 0
+                    }
+                  }
+                ]
+              }
+            },
+            "title": "Censorship Canary & Telegram"
+          }
+        },
+        {
+          "kind": "RowsLayoutRow",
+          "spec": {
+            "collapse": false,
+            "layout": {
+              "kind": "GridLayout",
+              "spec": {
+                "items": [
+                  {
+                    "kind": "GridLayoutItem",
+                    "spec": {
+                      "element": { "kind": "ElementReference", "name": "panel-42" },
+                      "height": 10,
+                      "width": 12,
+                      "x": 0,
+                      "y": 0
+                    }
+                  },
+                  {
+                    "kind": "GridLayoutItem",
+                    "spec": {
+                      "element": { "kind": "ElementReference", "name": "panel-43" },
+                      "height": 10,
+                      "width": 12,
+                      "x": 12,
+                      "y": 0
+                    }
+                  }
+                ]
+              }
+            },
+            "title": "ICMP Ping & Packet Loss"
+          }
+        },
+        {
+          "kind": "RowsLayoutRow",
+          "spec": {
+            "collapse": false,
+            "layout": {
+              "kind": "GridLayout",
+              "spec": {
+                "items": [
+                  {
+                    "kind": "GridLayoutItem",
+                    "spec": {
                       "element": {
                         "kind": "ElementReference",
                         "name": "panel-15"
@@ -2254,6 +2993,88 @@
               }
             },
             "title": "Ping Latency Trends"
+          }
+        },
+        {
+          "kind": "RowsLayoutRow",
+          "spec": {
+            "collapse": false,
+            "layout": {
+              "kind": "GridLayout",
+              "spec": {
+                "items": [
+                  {
+                    "kind": "GridLayoutItem",
+                    "spec": {
+                      "element": { "kind": "ElementReference", "name": "panel-47" },
+                      "height": 10,
+                      "width": 24,
+                      "x": 0,
+                      "y": 0
+                    }
+                  }
+                ]
+              }
+            },
+            "title": "Packet Loss Trends"
+          }
+        },
+        {
+          "kind": "RowsLayoutRow",
+          "spec": {
+            "collapse": false,
+            "layout": {
+              "kind": "GridLayout",
+              "spec": {
+                "items": [
+                  {
+                    "kind": "GridLayoutItem",
+                    "spec": {
+                      "element": { "kind": "ElementReference", "name": "panel-44" },
+                      "height": 10,
+                      "width": 12,
+                      "x": 0,
+                      "y": 0
+                    }
+                  },
+                  {
+                    "kind": "GridLayoutItem",
+                    "spec": {
+                      "element": { "kind": "ElementReference", "name": "panel-45" },
+                      "height": 10,
+                      "width": 12,
+                      "x": 12,
+                      "y": 0
+                    }
+                  }
+                ]
+              }
+            },
+            "title": "Censorship & Telegram Trends"
+          }
+        },
+        {
+          "kind": "RowsLayoutRow",
+          "spec": {
+            "collapse": true,
+            "layout": {
+              "kind": "GridLayout",
+              "spec": {
+                "items": [
+                  {
+                    "kind": "GridLayoutItem",
+                    "spec": {
+                      "element": { "kind": "ElementReference", "name": "panel-46" },
+                      "height": 8,
+                      "width": 24,
+                      "x": 0,
+                      "y": 0
+                    }
+                  }
+                ]
+              }
+            },
+            "title": "SNI Brute Force"
           }
         },
         {
