@@ -1441,46 +1441,6 @@ def _print_analysis_results(
 
     passing_and_warn.sort(key=_ping_sort_key)
 
-    # === PROBLEM HOSTS (grouped by shared fingerprint) ===
-    if failing:
-        console.print("[bold red]⚠ HOSTS WITH PROBLEMS[/bold red]\n")
-
-        # Group hosts whose check fingerprint is identical AND whose
-        # host-normalized recommendations are identical. Iteration preserves
-        # the original "failing" order so output stays stable across runs.
-        groups: list[tuple[tuple, tuple, list[HostDiagnostic]]] = []
-        index: dict[tuple, int] = {}
-        for diag in failing:
-            check_fp = _problem_fingerprint(diag)
-            rec_fp = tuple(_normalize_recommendation(r, diag.host) for r in diag.recommendations)
-            key = (check_fp, rec_fp)
-            if key in index:
-                groups[index[key]][2].append(diag)
-            else:
-                index[key] = len(groups)
-                groups.append((check_fp, rec_fp, [diag]))
-
-        for _check_fp, _rec_fp, members in groups:
-            head = members[0]
-            if len(members) == 1:
-                console.print(f"  [bold cyan]→ {head.host}[/bold cyan]")
-            else:
-                console.print(f"  [bold cyan]→ {len(members)} hosts with the same symptom:[/bold cyan]")
-                for m in members:
-                    console.print(f"     [cyan]• {m.host}[/cyan]")
-            console.print(f"  [dim]{'─' * 60}[/dim]")
-            console.print(Padding(_build_host_table(head), (0, 0, 0, 4)))
-
-            if head.recommendations:
-                console.print("    [bold yellow]What to do:[/bold yellow]")
-                for rec in _compact_recommendations(head.recommendations):
-                    # Replace this group-leader's host token with <host> when
-                    # the group has multiple members, otherwise show as-is.
-                    rendered = _normalize_recommendation(rec, head.host) if len(members) > 1 else rec
-                    console.print(f"      → {rendered}")
-
-            console.print()
-
     # === PASSING + WARN HOSTS (compact) ===
     if passing_and_warn:
         console.print("[bold green]✓ WORKING HOSTS[/bold green]\n")
@@ -1550,6 +1510,103 @@ def _print_analysis_results(
 
         console.print(table)
         console.print()
+
+    # === PROBLEM HOSTS (compact table + detailed recommendations) ===
+    if failing:
+        console.print("[bold red]✗ HOSTS WITH PROBLEMS[/bold red]\n")
+
+        # Compact table — same format as working hosts
+        fail_results = [r for d in failing for r in d.results]
+        f_has_dpi = any(r.check_name == "TCP 16-20 KB Fat Probe" for r in fail_results)
+        f_has_censor = any(r.check_name == "Censor Canary" for r in fail_results)
+        f_has_telegram = any(r.check_name == "Telegram Reachability" for r in fail_results)
+        f_has_icmp = any(r.check_name == "ICMP Ping" for r in fail_results)
+
+        fail_table = Table(show_header=True, box=None, padding=(0, 2))
+        fail_table.add_column("Host", style="cyan")
+        if f_has_icmp:
+            fail_table.add_column("ICMP", justify="right")
+        fail_table.add_column("Ping", justify="right")
+        fail_table.add_column("DNS", justify="center")
+        fail_table.add_column("TCP", justify="center")
+        if f_has_dpi:
+            fail_table.add_column("DPI", justify="center")
+        fail_table.add_column("Proxy", justify="center")
+        if f_has_censor:
+            fail_table.add_column("Censor", justify="center")
+        if f_has_telegram:
+            fail_table.add_column("TG", justify="center")
+        fail_table.add_column("Exit IP", justify="left", style="dim")
+
+        for diag in failing:
+            dns = _check_status_icon(diag, "DNS Resolution")
+            tcp = _check_status_icon(diag, "TCP Connection")
+            proxy = _check_status_icon(diag, "Xray Connectivity") or _check_status_icon(diag, "Tunnel")
+            ping_text = _format_ping(diag, "TCP Ping")
+            icmp_text = _format_ping(diag, "ICMP Ping") if f_has_icmp else None
+
+            exit_ip = ""
+            for r in diag.results:
+                if "Exit IP" in r.check_name and r.status == CheckStatus.PASS:
+                    exit_ip = r.details.get("exit_ip", "")
+                    break
+
+            row = [diag.host]
+            if f_has_icmp:
+                row.append(icmp_text)
+            row.extend([ping_text, dns, tcp])
+            if f_has_dpi:
+                row.append(_check_status_icon(diag, "Fat Probe"))
+            row.append(proxy)
+            if f_has_censor:
+                row.append(_check_status_icon(diag, "Censor Canary"))
+            if f_has_telegram:
+                row.append(_check_status_icon(diag, "Telegram Reachability"))
+            row.append(exit_ip)
+
+            fail_table.add_row(*row)
+
+        console.print(fail_table)
+        console.print()
+
+        # Detailed recommendations
+        console.print("[bold yellow]⚠ RECOMMENDATIONS[/bold yellow]\n")
+
+        # Group hosts whose check fingerprint is identical AND whose
+        # host-normalized recommendations are identical. Iteration preserves
+        # the original "failing" order so output stays stable across runs.
+        groups: list[tuple[tuple, tuple, list[HostDiagnostic]]] = []
+        index: dict[tuple, int] = {}
+        for diag in failing:
+            check_fp = _problem_fingerprint(diag)
+            rec_fp = tuple(_normalize_recommendation(r, diag.host) for r in diag.recommendations)
+            key = (check_fp, rec_fp)
+            if key in index:
+                groups[index[key]][2].append(diag)
+            else:
+                index[key] = len(groups)
+                groups.append((check_fp, rec_fp, [diag]))
+
+        for _check_fp, _rec_fp, members in groups:
+            head = members[0]
+            if len(members) == 1:
+                console.print(f"  [bold cyan]→ {head.host}[/bold cyan]")
+            else:
+                console.print(f"  [bold cyan]→ {len(members)} hosts with the same symptom:[/bold cyan]")
+                for m in members:
+                    console.print(f"     [cyan]• {m.host}[/cyan]")
+            console.print(f"  [dim]{'─' * 60}[/dim]")
+            console.print(Padding(_build_host_table(head), (0, 0, 0, 4)))
+
+            if head.recommendations:
+                console.print("    [bold yellow]What to do:[/bold yellow]")
+                for rec in _compact_recommendations(head.recommendations):
+                    # Replace this group-leader's host token with <host> when
+                    # the group has multiple members, otherwise show as-is.
+                    rendered = _normalize_recommendation(rec, head.host) if len(members) > 1 else rec
+                    console.print(f"      → {rendered}")
+
+            console.print()
 
 
 def _format_ping(diag: HostDiagnostic, check_name: str = "TCP Ping") -> str:
