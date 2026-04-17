@@ -412,8 +412,18 @@ async def analyze_single_proxy(
                 )
             )
 
-    # 4. Protocol-specific tests
-    if share.protocol.lower() in XRAY_PROTOCOLS:
+    # 4. Protocol-specific tests — skip if TCP is unreachable (would just timeout)
+    if tcp_result.status not in (CheckStatus.PASS, CheckStatus.WARN):
+        diagnostic.add_result(
+            DiagnosticResult(
+                check_name="Proxy Connectivity",
+                status=CheckStatus.SKIP,
+                severity=CheckSeverity.INFO,
+                message="Skipped — server TCP unreachable",
+                details={"reason": "tcp_failed"},
+            )
+        )
+    elif share.protocol.lower() in XRAY_PROTOCOLS:
         # VLESS/Trojan/SS — test via Xray with lifecycle managed here
         if not settings.xray_test_enabled:
             diagnostic.add_result(
@@ -870,7 +880,15 @@ def _add_standalone_recommendations(diagnostic: HostDiagnostic, share: ProxyShar
     ]
     for r in dns_integrity_issues:
         verdict = r.details.get("verdict", "")
-        if verdict in ("spoof", "intercept", "fake_nxdomain", "fake_empty"):
+        if verdict == "intercept":
+            diagnostic.add_recommendation(
+                f"ISP blocks external DNS (UDP/53) for {server_domain} — domain resolves via DoH but not via direct UDP"
+            )
+            diagnostic.add_recommendation(
+                "This doesn't affect proxy operation if your system resolver works; use DoH/DoT for extra reliability"
+            )
+            break
+        if verdict in ("spoof", "fake_nxdomain", "fake_empty"):
             diagnostic.add_recommendation(
                 f"DNS tampering ({verdict}) detected for {server_domain} — ISP manipulates DNS responses"
             )

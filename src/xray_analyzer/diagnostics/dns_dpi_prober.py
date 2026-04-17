@@ -399,7 +399,7 @@ def _short_message(verdict: DnsVerdict, udp_ans: Any, doh_ans: Any) -> str:
 _VERDICT_STATUS: dict[str, tuple[CheckStatus, CheckSeverity]] = {
     VERDICT_OK: (CheckStatus.PASS, CheckSeverity.INFO),
     VERDICT_SPOOF: (CheckStatus.FAIL, CheckSeverity.CRITICAL),
-    VERDICT_INTERCEPT: (CheckStatus.FAIL, CheckSeverity.CRITICAL),
+    VERDICT_INTERCEPT: (CheckStatus.WARN, CheckSeverity.WARNING),
     VERDICT_FAKE_NXDOMAIN: (CheckStatus.FAIL, CheckSeverity.CRITICAL),
     VERDICT_FAKE_EMPTY: (CheckStatus.FAIL, CheckSeverity.CRITICAL),
     VERDICT_DOH_BLOCKED: (CheckStatus.FAIL, CheckSeverity.ERROR),

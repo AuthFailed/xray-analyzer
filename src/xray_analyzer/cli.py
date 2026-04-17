@@ -1255,73 +1255,62 @@ def _print_proxy_progress_line(
     Mirrors the cmd_scan callback style: icon + colored status label + dim extras.
     """
     if diag.overall_status == CheckStatus.PASS:
-        icon, label = "[green]✓[/green]", "[green]OK[/green]     "
+        label = "[green]OK[/green]     "
     elif diag.overall_status == CheckStatus.WARN:
-        icon, label = "[yellow]⚠[/yellow]", "[yellow]WARN[/yellow]   "
+        label = "[yellow]WARN[/yellow]   "
     else:
-        icon, label = "[red]✗[/red]", "[red]PROBLEM[/red]"
+        label = "[red]PROBLEM[/red]"
 
     extras: list[str] = []
-    # Surface the most actionable signal per proxy.
+
+    def _find(check_name: str) -> DiagnosticResult | None:
+        for r in diag.results:
+            if r.check_name == check_name:
+                return r
+        return None
+
+    def _color(label: str, status: CheckStatus | None, *, extra: str = "") -> str:
+        """Return a Rich-markup tag: green/yellow/red/dim based on status."""
+        text = f"{label}{extra}" if extra else label
+        if status is None or status == CheckStatus.SKIP:
+            return f"[dim]{text}[/dim]"
+        if status == CheckStatus.PASS:
+            return f"[green]{text}[/green]"
+        if status in (CheckStatus.WARN, CheckStatus.TIMEOUT):
+            return f"[yellow]{text}[/yellow]"
+        return f"[red]{text}[/red]"
+
+    # Order matches the check pipeline: TCP → ICMP → DPI → Xray
+
+    # TCP
+    tcp_r = _find("TCP Connection")
+    extras.append(_color("tcp", tcp_r.status if tcp_r else None))
+
+    # ICMP
+    icmp_r = _find("ICMP Ping")
+    extras.append(_color("icmp", icmp_r.status if icmp_r else None))
+
+    # DPI fat probe
+    dpi_r = _find("TCP 16-20 KB Fat Probe")
+    if dpi_r and dpi_r.details.get("label") == "tcp_16_20":
+        extras.append("[red]dpi:throttle[/red]")
+    else:
+        extras.append(_color("dpi", dpi_r.status if dpi_r else None))
+
+    # Xray / proxy connectivity — pick the first matching result
+    xray_r = None
     for r in sorted(diag.results, key=_check_sort_key):
-        name = r.check_name.lower()
-        if "xray connectivity" in name and r.status == CheckStatus.PASS:
-            extras.append("[dim]xray✓[/dim]")
+        if "xray connectivity" in r.check_name.lower():
+            xray_r = r
             break
-        if "xray connectivity" in name and r.status in (CheckStatus.FAIL, CheckStatus.TIMEOUT):
-            extras.append("[dim]xray✗[/dim]")
-            break
-    for r in diag.results:
-        if r.check_name == "TCP Connection":
-            if r.status == CheckStatus.PASS:
-                extras.append("[dim]tcp✓[/dim]")
-            elif r.status == CheckStatus.TIMEOUT:
-                extras.append("[dim]tcp⏱[/dim]")
-            else:
-                extras.append("[dim]tcp✗[/dim]")
-            break
-    for r in diag.results:
-        if r.check_name == "ICMP Ping":
-            if r.status == CheckStatus.PASS:
-                extras.append("[dim]icmp✓[/dim]")
-            elif r.status == CheckStatus.FAIL:
-                extras.append("[dim]icmp✗[/dim]")
-            elif r.status == CheckStatus.WARN:
-                extras.append("[yellow]icmp⚠[/yellow]")
-            break
-    # DPI fat probe signal
-    for r in diag.results:
-        if r.check_name == "TCP 16-20 KB Fat Probe":
-            if r.details.get("label") == "tcp_16_20":
-                extras.append("[red]dpi:throttle[/red]")
-            elif r.status == CheckStatus.PASS:
-                extras.append("[dim]dpi✓[/dim]")
-            break
-    # Censor canary signal
-    for r in diag.results:
-        if r.check_name == "Censor Canary":
-            blocked_n = r.details.get("blocked_count", 0)
-            if blocked_n:
-                extras.append(f"[red]censor:{blocked_n}✗[/red]")
-            elif r.status == CheckStatus.PASS:
-                extras.append("[dim]censor✓[/dim]")
-            break
-    # Telegram signal
-    for r in diag.results:
-        if r.check_name == "Telegram Reachability":
-            verdict = r.details.get("verdict", "")
-            if verdict == "ok":
-                extras.append("[dim]tg✓[/dim]")
-            elif verdict in ("blocked", "slow", "stalled"):
-                extras.append(f"[yellow]tg:{verdict}[/yellow]")
-            break
+    extras.append(_color("xray", xray_r.status if xray_r else None))
 
     extras_str = "  " + "  ".join(extras) if extras else ""
     proto_tag = f"[dim]({protocol})[/dim]" if protocol else ""
     host_part = f"[bold]{diag.host}[/bold] {proto_tag}"
     host_cell_len = Text.from_markup(host_part).cell_len
     pad = " " * max(0, max_host_width - host_cell_len)
-    progress.console.print(f"  {icon} {host_part}{pad}  {label}{extras_str}")
+    progress.console.print(f"  {host_part}{pad}  {label}{extras_str}")
 
 
 def _diagnostics_to_json(diagnostics: list[HostDiagnostic]) -> str:
