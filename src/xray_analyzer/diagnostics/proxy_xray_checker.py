@@ -34,6 +34,13 @@ async def check_proxy_via_xray(
     an additional test is performed using the IP instead of the domain name.
 
     The Xray subprocess is started and stopped for each test.
+
+    .. deprecated::
+        Prefer managing the Xray lifecycle externally (via ``launched_xray``)
+        and calling :func:`check_proxy_connectivity`,
+        :func:`check_proxy_exit_ip_xray`, :func:`check_proxy_sni_xray`
+        directly for more control (e.g. running censorship canary checks
+        through the same tunnel).
     """
     results: list[DiagnosticResult] = []
 
@@ -93,69 +100,115 @@ async def check_proxy_via_xray(
     return results
 
 
-async def _run_xray_tests(
+async def run_xray_checks(
     share: ProxyShareURL,
+    socks_url: str,
+    session: aiohttp.ClientSession,
     label_suffix: str = "",
 ) -> list[DiagnosticResult]:
-    """Run the full suite of Xray tests (connectivity, exit IP, SNI)."""
+    """Run connectivity, exit IP, and SNI checks through an already-running Xray tunnel.
+
+    Unlike :func:`check_proxy_via_xray`, this function does NOT start or stop
+    Xray — the caller owns the lifecycle. This allows the caller to run
+    additional checks (censorship canary, Telegram, etc.) through the same
+    tunnel before shutting it down.
+
+    Returns a list of DiagnosticResults (connectivity is always first).
+    """
     results: list[DiagnosticResult] = []
-    xray = XrayInstance(share)
-    socks_port = 0
-    xray_started = False
 
-    try:
-        socks_port = await xray.start()
-        xray_started = True
-    except RuntimeError as e:
-        log.error(f"Failed to start Xray for {share.name}: {e}")
-        results.append(
-            DiagnosticResult(
-                check_name=f"Proxy Xray Connectivity{label_suffix}",
-                status=CheckStatus.FAIL,
-                severity=CheckSeverity.CRITICAL,
-                message=f"Failed to start Xray: {e}",
-                details={
-                    "protocol": share.protocol,
-                    "server": share.server,
-                    "port": share.port,
-                    "error": str(e),
-                },
-                recommendations=[
-                    "Install Xray core: https://github.com/XTLS/Xray-core",
-                    "Set XRAY_BINARY_PATH to the binary location",
-                    "Verify the binary is on PATH: which xray",
-                ],
-            )
+    # 1. Status check (gates the rest)
+    status_result = await check_proxy_connectivity(session, socks_url, share, label_suffix=label_suffix)
+    results.append(status_result)
+
+    # 2+3. Exit IP + SNI in parallel (independent, both go through same tunnel).
+    if status_result.status == CheckStatus.PASS:
+        ip_result, sni_result = await asyncio.gather(
+            check_proxy_exit_ip_xray(session, socks_url, share, label_suffix=label_suffix),
+            check_proxy_sni_xray(session, socks_url, share, label_suffix=label_suffix),
         )
-        return results
+        results.append(ip_result)
+        results.append(sni_result)
 
-    socks_url = f"socks5://{xray.socks_user}:{xray.socks_password}@127.0.0.1:{socks_port}"
+    return results
 
-    try:
-        async with aiohttp.ClientSession() as session:
-            # 1. Status check (gates the rest)
-            status_result = await _check_proxy_status(session, socks_url, share, label_suffix=label_suffix)
-            results.append(status_result)
 
-            # 2+3. Exit IP + SNI in parallel (independent, both go through same tunnel).
-            # When connectivity itself failed, skip silently — dependent SKIP results
-            # only clutter the output (the connectivity failure already explains why).
-            if status_result.status == CheckStatus.PASS:
-                ip_result, sni_result = await asyncio.gather(
-                    _check_proxy_exit_ip(session, socks_url, share, label_suffix=label_suffix),
-                    _check_proxy_sni(session, socks_url, share, label_suffix=label_suffix),
+async def run_xray_checks_with_fallback(
+    share: ProxyShareURL,
+    socks_url: str,
+    session: aiohttp.ClientSession,
+    fallback_server_ip: str | None = None,
+) -> list[DiagnosticResult]:
+    """Run Xray checks with IP fallback logic through an already-running tunnel.
+
+    This replicates the domain→IP fallback strategy from
+    :func:`check_proxy_via_xray` but without managing the Xray lifecycle.
+
+    When connectivity via domain fails and ``fallback_server_ip`` is provided,
+    the function restarts Xray with the IP-based share and retests. Note that
+    the IP fallback requires starting a *new* Xray instance (different config).
+    """
+    results: list[DiagnosticResult] = []
+
+    # Run main test with domain
+    main_results = await run_xray_checks(share, socks_url, session, label_suffix=f" (домен: {share.server})")
+    results.extend(main_results)
+
+    # If main test failed and we have a fallback IP, test with IP
+    connectivity_result = next((r for r in results if r.check_name.startswith("Proxy Xray Connectivity")), None)
+
+    if (
+        fallback_server_ip
+        and connectivity_result
+        and connectivity_result.status in (CheckStatus.FAIL, CheckStatus.TIMEOUT)
+    ):
+        log.info(f"Main test failed for {share.server}, trying fallback with IP: {fallback_server_ip}")
+        ip_share = replace(share, server=fallback_server_ip)
+
+        # IP fallback needs a separate Xray instance (different server in config)
+        xray = XrayInstance(ip_share)
+        try:
+            socks_port = await xray.start()
+            ip_socks_url = f"socks5://{xray.socks_user}:{xray.socks_password}@127.0.0.1:{socks_port}"
+            ip_results = await run_xray_checks(
+                ip_share, ip_socks_url, session, label_suffix=f" (IP: {fallback_server_ip})"
+            )
+            results.extend(ip_results)
+
+            ip_connectivity = next((r for r in ip_results if r.check_name.startswith("Proxy Xray Connectivity")), None)
+            if ip_connectivity and ip_connectivity.status == CheckStatus.PASS:
+                results = [r for r in results if r.status not in {CheckStatus.FAIL, CheckStatus.TIMEOUT}]
+                results.insert(
+                    0,
+                    DiagnosticResult(
+                        check_name="Proxy Xray Connectivity",
+                        status=CheckStatus.PASS,
+                        severity=CheckSeverity.WARNING,
+                        message=(
+                            f"Domain {share.server} did not respond, but IP {fallback_server_ip} works "
+                            f"(likely DNS / geo-blocking). Proxy is usable via IP."
+                        ),
+                        details={
+                            "domain": share.server,
+                            "fallback_ip": fallback_server_ip,
+                            "http_status": ip_connectivity.details.get("http_status"),
+                        },
+                    ),
                 )
-                results.append(ip_result)
-                results.append(sni_result)
-
-    finally:
-        if xray_started:
+        except RuntimeError as e:
+            log.error(f"Failed to start Xray for IP fallback {fallback_server_ip}: {e}")
+        finally:
             await xray.stop()
 
     return results
 
 
-async def _check_proxy_status(
+# ---------------------------------------------------------------------------
+# Public check functions — accept an external session + socks_url
+# ---------------------------------------------------------------------------
+
+
+async def check_proxy_connectivity(
     session: aiohttp.ClientSession,
     socks_url: str,
     share: ProxyShareURL,
@@ -245,7 +298,7 @@ async def _check_proxy_status(
         )
 
 
-async def _check_proxy_exit_ip(
+async def check_proxy_exit_ip_xray(
     session: aiohttp.ClientSession,
     socks_url: str,
     share: ProxyShareURL,
@@ -309,7 +362,7 @@ async def _check_proxy_exit_ip(
         )
 
 
-async def _check_proxy_sni(
+async def check_proxy_sni_xray(
     session: aiohttp.ClientSession,
     socks_url: str,
     share: ProxyShareURL,
@@ -376,3 +429,59 @@ async def _check_proxy_sni(
             message=f"error connecting to {sni_domain} — {e}",
             details={"protocol": share.protocol, "error": str(e), "duration_ms": round(duration_ms, 2)},
         )
+
+
+# ---------------------------------------------------------------------------
+# Private helpers (compat for check_proxy_via_xray)
+# ---------------------------------------------------------------------------
+
+
+async def _run_xray_tests(
+    share: ProxyShareURL,
+    label_suffix: str = "",
+) -> list[DiagnosticResult]:
+    """Run the full suite of Xray tests (connectivity, exit IP, SNI).
+
+    .. deprecated::
+        Used only by :func:`check_proxy_via_xray`. New code should use
+        :func:`run_xray_checks` with an externally-managed Xray instance.
+    """
+    results: list[DiagnosticResult] = []
+    xray = XrayInstance(share)
+    socks_port = 0
+    xray_started = False
+
+    try:
+        socks_port = await xray.start()
+        xray_started = True
+    except RuntimeError as e:
+        log.error(f"Failed to start Xray for {share.name}: {e}")
+        results.append(
+            DiagnosticResult(
+                check_name=f"Proxy Xray Connectivity{label_suffix}",
+                status=CheckStatus.FAIL,
+                severity=CheckSeverity.CRITICAL,
+                message=f"Failed to start Xray: {e}",
+                details={
+                    "protocol": share.protocol,
+                    "server": share.server,
+                    "port": share.port,
+                    "error": str(e),
+                },
+                recommendations=[
+                    "Install Xray core: https://github.com/XTLS/Xray-core",
+                    "Set XRAY_BINARY_PATH to the binary location",
+                    "Verify the binary is on PATH: which xray",
+                ],
+            )
+        )
+        return results
+
+    socks_url = f"socks5://{xray.socks_user}:{xray.socks_password}@127.0.0.1:{socks_port}"
+
+    try:
+        async with aiohttp.ClientSession() as session:
+            return await run_xray_checks(share, socks_url, session, label_suffix=label_suffix)
+    finally:
+        if xray_started:
+            await xray.stop()

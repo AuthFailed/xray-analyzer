@@ -74,8 +74,7 @@ async def check_via_proxy(
             status=CheckStatus.PASS,
             severity=CheckSeverity.INFO,
             message=(
-                f"Reachable via {proxy_name}: {target_host}:{target_port} — TCP established, "
-                f"{round(duration_ms)}ms"
+                f"Reachable via {proxy_name}: {target_host}:{target_port} — TCP established, {round(duration_ms)}ms"
             ),
             details={
                 "target_host": target_host,

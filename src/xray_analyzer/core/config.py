@@ -89,6 +89,14 @@ class Settings(BaseSettings):
     telegram_stall_timeout: float = Field(default=10.0, ge=1.0, le=60.0)
     telegram_total_timeout: float = Field(default=60.0, ge=10.0, le=300.0)
 
+    # Analyze pipeline: optional DPI probes on proxy server
+    analyze_tls_probe_enabled: bool = False  # TLS 1.2/1.3 version split
+    analyze_http_injection_enabled: bool = False  # HTTP port 80 injection probe
+    analyze_censor_canary_enabled: bool = False  # censorship canary through proxy
+    analyze_canary_domains: str = ""  # comma-sep; empty → small built-in list
+    analyze_telegram_enabled: bool = False  # Telegram check through proxy
+    analyze_sni_brute_enabled: bool = False  # SNI brute-force when DPI throttle found
+
     # DPI probes inside `serve` (periodic, alongside the domain scan)
     # Master toggle gates the second background loop entirely.
     serve_dpi_enabled: bool = False
@@ -99,5 +107,6 @@ class Settings(BaseSettings):
     serve_dpi_cdn_max_parallel: int = Field(default=10, ge=1, le=50)
     serve_dpi_cdn_limit: int = Field(default=0, ge=0)  # 0 = all targets from tcp16_targets.json
     serve_dpi_telegram_enabled: bool = False
+
 
 settings = Settings()

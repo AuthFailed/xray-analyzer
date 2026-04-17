@@ -204,6 +204,31 @@ def create_parser() -> argparse.ArgumentParser:
         type=int,
         help="Check interval in seconds for --watch mode (overrides CHECK_INTERVAL_SECONDS)",
     )
+    analyze_parser.add_argument(
+        "--no-dpi",
+        action="store_true",
+        help="Disable all direct DPI probes (fat-probe, TLS split, HTTP injection)",
+    )
+    analyze_parser.add_argument(
+        "--censor-canary",
+        action="store_true",
+        help="Enable censorship canary check through each proxy",
+    )
+    analyze_parser.add_argument(
+        "--telegram",
+        action="store_true",
+        help="Enable Telegram reachability check through each proxy",
+    )
+    analyze_parser.add_argument(
+        "--sni-brute",
+        action="store_true",
+        help="Enable SNI brute-force when DPI throttle is detected",
+    )
+    analyze_parser.add_argument(
+        "--full",
+        action="store_true",
+        help="Enable all optional checks (DPI probes, censor canary, Telegram, SNI brute)",
+    )
 
     # check command — single domain step-by-step diagnosis
     check_parser = subparsers.add_parser(
@@ -355,6 +380,23 @@ async def cmd_analyze(args: argparse.Namespace) -> int:
         settings.subscription_url = args.subscription_url
     if getattr(args, "subscription_hwid", None):
         settings.subscription_hwid = args.subscription_hwid
+    if getattr(args, "no_dpi", False):
+        settings.rkn_throttle_check_enabled = False
+        settings.analyze_tls_probe_enabled = False
+        settings.analyze_http_injection_enabled = False
+    if getattr(args, "full", False):
+        settings.analyze_tls_probe_enabled = True
+        settings.analyze_http_injection_enabled = True
+        settings.analyze_censor_canary_enabled = True
+        settings.analyze_telegram_enabled = True
+        settings.analyze_sni_brute_enabled = True
+    # Explicit flags override --full / --no-dpi
+    if getattr(args, "censor_canary", False):
+        settings.analyze_censor_canary_enabled = True
+    if getattr(args, "telegram", False):
+        settings.analyze_telegram_enabled = True
+    if getattr(args, "sni_brute", False):
+        settings.analyze_sni_brute_enabled = True
 
     # Collect proxy shares from all sources
     proxy_links: list[str] = getattr(args, "proxies", None) or []
@@ -1110,6 +1152,32 @@ def _print_proxy_progress_line(progress: Progress, diag: HostDiagnostic, protoco
         if r.check_name == "TCP Connection":
             extras.append("[dim]tcp✓[/dim]" if r.status == CheckStatus.PASS else "[dim]tcp✗[/dim]")
             break
+    # DPI fat probe signal
+    for r in diag.results:
+        if r.check_name == "TCP 16-20 KB Fat Probe":
+            if r.details.get("label") == "tcp_16_20":
+                extras.append("[red]dpi:throttle[/red]")
+            elif r.status == CheckStatus.PASS:
+                extras.append("[dim]dpi✓[/dim]")
+            break
+    # Censor canary signal
+    for r in diag.results:
+        if r.check_name == "Censor Canary":
+            blocked_n = r.details.get("blocked_count", 0)
+            if blocked_n:
+                extras.append(f"[red]censor:{blocked_n}✗[/red]")
+            elif r.status == CheckStatus.PASS:
+                extras.append("[dim]censor✓[/dim]")
+            break
+    # Telegram signal
+    for r in diag.results:
+        if r.check_name == "Telegram Reachability":
+            verdict = r.details.get("verdict", "")
+            if verdict == "ok":
+                extras.append("[dim]tg✓[/dim]")
+            elif verdict in ("blocked", "slow", "stalled"):
+                extras.append(f"[yellow]tg:{verdict}[/yellow]")
+            break
 
     extras_str = "  " + "  ".join(extras) if extras else ""
     proto_tag = f"[dim]({protocol})[/dim]" if protocol else ""
@@ -1201,29 +1269,41 @@ def _print_analysis_results(diagnostics: list[HostDiagnostic]) -> None:
     if passing_and_warn:
         console.print("[bold green]✓ HOSTS WITHOUT ISSUES[/bold green]\n")
 
+        # Detect which optional columns have data in any diagnostic
+        all_results = [r for d in passing_and_warn for r in d.results]
+        has_dpi = any(r.check_name == "TCP 16-20 KB Fat Probe" for r in all_results)
+        has_censor = any(r.check_name == "Censor Canary" for r in all_results)
+        has_telegram = any(r.check_name == "Telegram Reachability" for r in all_results)
+
         table = Table(show_header=True, box=None, padding=(0, 2))
         table.add_column("Host", style="cyan")
         table.add_column("DNS", justify="center")
         table.add_column("TCP", justify="center")
         table.add_column("Ping", justify="center")
-        table.add_column("RKN Thr", justify="center")
+        if has_dpi:
+            table.add_column("DPI", justify="center")
         table.add_column("Proxy", justify="center")
+        if has_censor:
+            table.add_column("Censor", justify="center")
+        if has_telegram:
+            table.add_column("TG", justify="center")
 
         for diag in passing_and_warn:
             dns = _check_status_icon(diag, "DNS")
             tcp = _check_status_icon(diag, "TCP Connection")
             ping = _check_status_icon(diag, "TCP Ping")
-            rkn_thr = _check_status_icon(diag, "RKN Throttle")
             proxy = _check_status_icon(diag, "Xray Connectivity") or _check_status_icon(diag, "Tunnel")
 
-            table.add_row(
-                diag.host,
-                dns,
-                tcp,
-                ping,
-                rkn_thr,
-                proxy,
-            )
+            row = [diag.host, dns, tcp, ping]
+            if has_dpi:
+                row.append(_check_status_icon(diag, "Fat Probe"))
+            row.append(proxy)
+            if has_censor:
+                row.append(_check_status_icon(diag, "Censor Canary"))
+            if has_telegram:
+                row.append(_check_status_icon(diag, "Telegram Reachability"))
+
+            table.add_row(*row)
 
         console.print(table)
         console.print()
@@ -1261,8 +1341,13 @@ def _status_icon_and_color(status: CheckStatus) -> tuple[str, str]:
 # of which async task completed first. Lower number = printed earlier.
 _CHECK_ORDER: list[tuple[str, int]] = [
     ("DNS Resolution", 10),
+    ("DNS Integrity", 12),
     ("TCP Connection", 20),
     ("TCP Ping", 30),
+    ("TCP 16-20 KB Fat Probe", 35),
+    ("TLS 1.2", 36),
+    ("TLS 1.3", 37),
+    ("HTTP Injection", 38),
     ("Proxy Xray Connectivity (домен", 40),
     ("Proxy Xray Connectivity (domain", 40),
     ("Proxy Xray Connectivity (IP", 41),
@@ -1273,7 +1358,10 @@ _CHECK_ORDER: list[tuple[str, int]] = [
     ("Proxy TCP Tunnel", 70),
     ("Proxy Tunnel", 71),
     ("Target via Proxy", 80),
+    ("Censor Canary", 85),
+    ("Telegram Reachability", 86),
     ("RKN", 90),
+    ("SNI Brute Force", 95),
 ]
 
 
@@ -1299,6 +1387,10 @@ def _short_check_name(name: str) -> str:
     name = name.replace("Proxy SNI Connection (Xray)", "SNI Reachability")
     name = name.replace("DNS Resolution (Check-Host)", "DNS")
     name = name.replace("TCP Connection", "TCP Connect")
+    name = name.replace("TCP 16-20 KB Fat Probe", "DPI Fat Probe")
+    name = name.replace("Telegram Reachability", "Telegram")
+    name = name.replace("Censor Canary", "Censor Check")
+    name = name.replace("SNI Brute Force", "SNI Brute")
     return name
 
 
