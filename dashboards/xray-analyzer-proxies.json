@@ -839,9 +839,8 @@
                     "spec": {
                       "editorMode": "code",
                       "expr": "xray_proxy_check_status{job=\"$job\", instance=~\"$node\", proxy=~\"$proxy\"}",
-                      "format": "table",
                       "instant": true,
-                      "legendFormat": "__auto"
+                      "legendFormat": ""
                     },
                     "version": "v0"
                   },
@@ -851,6 +850,20 @@
             ],
             "queryOptions": {},
             "transformations": [
+              {
+                "group": "labelsToFields",
+                "kind": "Transformation",
+                "spec": {
+                  "options": {}
+                }
+              },
+              {
+                "group": "merge",
+                "kind": "Transformation",
+                "spec": {
+                  "options": {}
+                }
+              },
               {
                 "group": "organize",
                 "kind": "Transformation",
@@ -1016,9 +1029,8 @@
                     "spec": {
                       "editorMode": "code",
                       "expr": "xray_proxy_exit_ip_info{job=\"$job\", instance=~\"$node\", proxy=~\"$proxy\"}",
-                      "format": "table",
                       "instant": true,
-                      "legendFormat": "__auto"
+                      "legendFormat": ""
                     },
                     "version": "v0"
                   },
@@ -1028,6 +1040,20 @@
             ],
             "queryOptions": {},
             "transformations": [
+              {
+                "group": "labelsToFields",
+                "kind": "Transformation",
+                "spec": {
+                  "options": {}
+                }
+              },
+              {
+                "group": "merge",
+                "kind": "Transformation",
+                "spec": {
+                  "options": {}
+                }
+              },
               {
                 "group": "organize",
                 "kind": "Transformation",
@@ -1580,9 +1606,8 @@
                     "spec": {
                       "editorMode": "code",
                       "expr": "xray_proxy_check_duration_ms{job=\"$job\", instance=~\"$node\", proxy=~\"$proxy\"}",
-                      "format": "table",
                       "instant": true,
-                      "legendFormat": "__auto"
+                      "legendFormat": ""
                     },
                     "version": "v0"
                   },
@@ -1592,6 +1617,20 @@
             ],
             "queryOptions": {},
             "transformations": [
+              {
+                "group": "labelsToFields",
+                "kind": "Transformation",
+                "spec": {
+                  "options": {}
+                }
+              },
+              {
+                "group": "merge",
+                "kind": "Transformation",
+                "spec": {
+                  "options": {}
+                }
+              },
               {
                 "group": "organize",
                 "kind": "Transformation",
@@ -2376,8 +2415,8 @@
       "spec": {
         "allowCustomValue": true,
         "current": {
-          "text": "xray-analyzer-proxies",
-          "value": "xray-analyzer-proxies"
+          "text": "xray-analyzer-availability",
+          "value": "xray-analyzer-availability"
         },
         "hide": "dontHide",
         "includeAll": false,
@@ -2387,11 +2426,11 @@
         "options": [
           {
             "selected": true,
-            "text": "xray-analyzer-proxies",
-            "value": "xray-analyzer-proxies"
+            "text": "xray-analyzer-availability",
+            "value": "xray-analyzer-availability"
           }
         ],
-        "query": "xray-analyzer-proxies",
+        "query": "xray-analyzer-availability",
         "skipUrlSync": false
       }
     },

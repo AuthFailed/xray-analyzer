@@ -662,14 +662,21 @@ class ProxyAnalysisMetricsState:
 
     @staticmethod
     def _is_dpi_detected(diag: HostDiagnostic) -> bool:
+        # Explicit dpi_detected flag from a check is always trusted.
+        for r in diag.results:
+            if r.details.get("dpi_detected"):
+                return True
+        # Probe failures only count as DPI when the proxy is at least
+        # partially working (PASS/WARN).  If overall status is FAIL the
+        # server is simply unreachable and probe errors are not DPI.
+        if diag.overall_status not in (CheckStatus.PASS, CheckStatus.WARN):
+            return False
         for r in diag.results:
             if (
                 any(kw in r.check_name for kw in _DPI_CHECK_KEYWORDS)
                 and r.status == CheckStatus.FAIL
                 and r.severity in (CheckSeverity.CRITICAL, CheckSeverity.ERROR)
             ):
-                return True
-            if r.details.get("dpi_detected"):
                 return True
         return False
 
@@ -724,9 +731,12 @@ class ProxyAnalysisMetricsState:
         for label, diag in self._diagnostics.items():
             lbl = self._proxy_labels(label)
             for r in diag.results:
-                if r.duration_ms > 0:
+                # Some checkers set DiagnosticResult.duration_ms, others
+                # only put it into details["duration_ms"] — check both.
+                dur = r.duration_ms or r.details.get("duration_ms", 0)
+                if dur > 0:
                     check = _esc(r.check_name)
-                    lines.append(f'xray_proxy_check_duration_ms{{{lbl},check="{check}"}} {r.duration_ms:.1f}')
+                    lines.append(f'xray_proxy_check_duration_ms{{{lbl},check="{check}"}} {dur:.1f}')
 
         # ---- per-proxy TCP ping latency ------------------------------
         lines += [
