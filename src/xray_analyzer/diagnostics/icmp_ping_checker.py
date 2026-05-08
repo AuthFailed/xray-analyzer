@@ -34,7 +34,7 @@ async def check_icmp_ping(host: str, count: int = 3) -> DiagnosticResult:
     log.debug("Checking ICMP ping", host=host, count=count, timeout=timeout)
 
     try:
-        proc = await asyncio.wait_for(
+        stdout, _stderr = await asyncio.wait_for(
             _run_ping(host, count, timeout),
             timeout=count * timeout + 3,
         )
@@ -57,7 +57,6 @@ async def check_icmp_ping(host: str, count: int = 3) -> DiagnosticResult:
         )
 
     duration_ms = (asyncio.get_running_loop().time() - start_time) * 1000
-    stdout = proc.stdout or ""
 
     # Parse results
     tx, rx, loss_pct = _parse_loss(stdout)
@@ -121,18 +120,23 @@ async def check_icmp_ping(host: str, count: int = 3) -> DiagnosticResult:
     )
 
 
-async def _run_ping(host: str, count: int, timeout: int) -> asyncio.subprocess.Process:
-    """Run the system ping command and return the completed process."""
+async def _run_ping(host: str, count: int, timeout: int) -> tuple[str, str]:
+    """Run the system ping command and return decoded (stdout, stderr)."""
     proc = await asyncio.create_subprocess_exec(
-        "ping", "-c", str(count), "-W", str(timeout), host,
+        "ping",
+        "-c",
+        str(count),
+        "-W",
+        str(timeout),
+        host,
         stdout=asyncio.subprocess.PIPE,
         stderr=asyncio.subprocess.PIPE,
     )
     stdout_bytes, stderr_bytes = await proc.communicate()
-    # Attach decoded output to the process object for convenience
-    proc.stdout = stdout_bytes.decode(errors="replace")  # type: ignore[assignment]
-    proc.stderr = stderr_bytes.decode(errors="replace")  # type: ignore[assignment]
-    return proc
+    return (
+        stdout_bytes.decode(errors="replace"),
+        stderr_bytes.decode(errors="replace"),
+    )
 
 
 def _parse_rtt(output: str) -> tuple[float | None, float | None, float | None]:

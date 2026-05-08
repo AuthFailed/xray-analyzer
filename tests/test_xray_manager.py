@@ -1,5 +1,6 @@
 """Tests for Xray config generation."""
 
+from typing import Any
 from unittest.mock import patch
 
 import pytest
@@ -8,9 +9,9 @@ from xray_analyzer.diagnostics.subscription_parser import ProxyShareURL
 from xray_analyzer.diagnostics.xray_manager import _generate_xray_config
 
 
-def _make_share(**kwargs) -> ProxyShareURL:
+def _make_share(**kwargs: Any) -> ProxyShareURL:
     """Helper to build a ProxyShareURL with defaults."""
-    defaults = {
+    defaults: dict[str, Any] = {
         "protocol": "vless",
         "name": "test",
         "server": "example.com",
